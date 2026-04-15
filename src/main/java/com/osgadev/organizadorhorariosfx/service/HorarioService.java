@@ -103,7 +103,7 @@ public class HorarioService {
     }
 
     private List<List<SesionAsignada>> resolverCapaConChocoMult(List<Group> gruposCapa) {
-        Model model = new Model("Motor CSP - Anclaje Inteligente");
+        Model model = new Model("Motor CSP - Anclaje Inteligente y Humano");
         Map<Group, IntVar[]> mapaVariables = new HashMap<>();
         Map<IntVar, Integer> mapaDuracionesVariable = new HashMap<>();
 
@@ -114,99 +114,65 @@ public class HorarioService {
             List<Availability> bloquesGenericos = new ArrayList<>();
 
             for (Availability a : dispProfesor) {
-                if (a.getCursoSugerido() != null) {
-                    if (a.getCursoSugerido().getId() == grupo.getCurso().getId()) {
-                        bloquesFijos.add(a); // Es un Bloque Azul asignado a este curso
-                    }
-                } else {
+                if (a.getCursoSugerido() != null && a.getCursoSugerido().getId() == grupo.getCurso().getId()) {
+                    bloquesFijos.add(a); // Es un Bloque Azul asignado a este curso
+                } else if (a.getCursoSugerido() == null) {
                     bloquesGenericos.add(a); // Es un Bloque Verde genérico
                 }
             }
 
+            // UNIFICAMOS LA DISPONIBILIDAD (Dando prioridad a los bloques Azules poniéndolos primero)
+            List<Availability> disponibilidadTotal = new ArrayList<>();
+            disponibilidadTotal.addAll(bloquesFijos);
+            disponibilidadTotal.addAll(bloquesGenericos);
+
             int horasSemanales = Math.max(1, grupo.getCurso().getMinHorasSemanales());
-            int totalBloquesRestantes = horasSemanales * 2;
+            int totalBloques = horasSemanales * 2;
             List<IntVar> sesionesDelGrupo = new ArrayList<>();
-            List<IntVar> sesionesDinamicas = new ArrayList<>();
 
-            // 2. PROCESAMOS LOS BLOQUES AZULES (ANCLAJE RÍGIDO O VENTANA EXCLUSIVA)
-            int countFijos = 0;
-            for (Availability fijo : bloquesFijos) {
-                if (totalBloquesRestantes <= 0) break; // Ya cubrimos las horas del curso
+            // 2. EL MOTOR DE PLANTILLAS GOBIERNA TODO EL TIEMPO
+            int[] particionElegida = null;
+            List<int[]> dominiosElegidos = new ArrayList<>();
+            List<int[]> plantillas = obtenerPlantillasHumanas(totalBloques);
 
-                int tamañoBloqueAzul = fijo.getEndSlot() - fijo.getStartSlot();
-                int duracionAsignada = Math.min(tamañoBloqueAzul, totalBloquesRestantes);
+            for (int[] particionPrueba : plantillas) {
+                boolean particionValida = true;
+                List<int[]> doms = new ArrayList<>();
+                Set<Integer> diasUnicosGlobales = new HashSet<>();
 
-                // Calculamos la ventana de deslizamiento permitida
-                int maxInicio = fijo.getEndSlot() - duracionAsignada;
-                List<Integer> iniciosValidos = new ArrayList<>();
+                for (int duracionPedazo : particionPrueba) {
+                    // Choco buscará primero en los bloques azules, y luego en los verdes
+                    int[] dom = obtenerDominioFiltrado(grupo, duracionPedazo, disponibilidadTotal);
 
-                for (int i = fijo.getStartSlot(); i <= maxInicio; i++) {
-                    boolean huecoLimpio = true;
-                    for (int j = i; j < i + duracionAsignada; j++) {
-                        if (mapa.rangoOcupadoEnSlot(grupo.getRangoInicial(), grupo.getRangoFinal(), j) ||
-                                mapa.profesorOcupadoEnSlot(grupo.getProfesor().getId(), j)) {
-                            huecoLimpio = false; break;
-                        }
+                    if (dom.length == 0) {
+                        particionValida = false;
+                        break;
                     }
-                    if (huecoLimpio) iniciosValidos.add(i);
+                    doms.add(dom);
+                    for(int slot : dom) diasUnicosGlobales.add(slot / BLOQUES_POR_DIA);
                 }
 
-                if (!iniciosValidos.isEmpty()) {
-                    int[] dominio = iniciosValidos.stream().mapToInt(i -> i).toArray();
-                    IntVar varAzul = model.intVar(grupo.getIdGrupo() + "_AZUL_" + countFijos, dominio);
-                    sesionesDelGrupo.add(varAzul);
-                    mapaDuracionesVariable.put(varAzul, duracionAsignada);
-
-                    totalBloquesRestantes -= duracionAsignada;
-                    countFijos++;
+                // Validamos que todas las piezas de la plantilla caigan en días distintos
+                if (particionValida && diasUnicosGlobales.size() >= particionPrueba.length) {
+                    particionElegida = particionPrueba;
+                    dominiosElegidos = doms;
+                    break;
                 }
             }
 
-            // 3. SI AÚN FALTAN HORAS, PARTICIONAMOS SOBRE LOS BLOQUES VERDES
-            if (totalBloquesRestantes > 0) {
-                int[] particionElegida = null;
-                List<int[]> dominiosElegidos = new ArrayList<>();
+            if (particionElegida == null) return null; // Falló el acomodo de todas las plantillas
 
-                for (int s = Math.min(5, totalBloquesRestantes); s >= 1; s--) {
-                    int base = totalBloquesRestantes / s;
-                    if (base < 2 && s > 1) continue; // Mínimo 1 hora por sesión
-
-                    int residuo = totalBloquesRestantes % s;
-                    int[] particionPrueba = new int[s];
-                    for (int i = 0; i < s; i++) particionPrueba[i] = base + (i < residuo ? 1 : 0);
-
-                    boolean particionValida = true;
-                    List<int[]> doms = new ArrayList<>();
-                    Set<Integer> diasUnicosGlobales = new HashSet<>();
-
-                    for (int duracionPedazo : particionPrueba) {
-                        int[] dom = obtenerDominioFiltrado(grupo, duracionPedazo, bloquesGenericos);
-                        if (dom.length == 0) { particionValida = false; break; }
-                        doms.add(dom);
-                        for(int slot : dom) diasUnicosGlobales.add(slot / BLOQUES_POR_DIA);
-                    }
-
-                    if (particionValida && diasUnicosGlobales.size() >= s) {
-                        particionElegida = particionPrueba;
-                        dominiosElegidos = doms;
-                        break;
-                    }
-                }
-
-                if (particionElegida == null) return null; // Falló el acomodo
-
-                for (int i = 0; i < particionElegida.length; i++) {
-                    IntVar varDinamica = model.intVar(grupo.getIdGrupo() + "_S" + (i + 1), dominiosElegidos.get(i));
-                    sesionesDelGrupo.add(varDinamica);
-                    sesionesDinamicas.add(varDinamica);
-                    mapaDuracionesVariable.put(varDinamica, particionElegida[i]);
-                }
+            // 3. CREAMOS LAS VARIABLES PARA CHOCO SOLVER
+            for (int i = 0; i < particionElegida.length; i++) {
+                IntVar varDinamica = model.intVar(grupo.getIdGrupo() + "_S" + (i + 1), dominiosElegidos.get(i));
+                sesionesDelGrupo.add(varDinamica);
+                mapaDuracionesVariable.put(varDinamica, particionElegida[i]);
             }
 
             IntVar[] arregloSesiones = sesionesDelGrupo.toArray(new IntVar[0]);
             mapaVariables.put(grupo, arregloSesiones);
 
-            // Aseguramos que ninguna de las sesiones caiga en el mismo día
+            // 4. RESTRICCIONES DE SIMETRÍA Y DÍAS DISTINTOS
             if (arregloSesiones.length > 1) {
                 IntVar[] diasDeSesion = new IntVar[arregloSesiones.length];
                 for (int i = 0; i < arregloSesiones.length; i++) {
@@ -214,18 +180,18 @@ public class HorarioService {
                 }
                 model.allDifferent(diasDeSesion).post();
 
-                // Romper simetría solo en las dinámicas
-                for (int i = 0; i < sesionesDinamicas.size() - 1; i++) {
-                    int dur1 = mapaDuracionesVariable.get(sesionesDinamicas.get(i));
-                    int dur2 = mapaDuracionesVariable.get(sesionesDinamicas.get(i+1));
+                // Romper simetría
+                for (int i = 0; i < sesionesDelGrupo.size() - 1; i++) {
+                    int dur1 = mapaDuracionesVariable.get(sesionesDelGrupo.get(i));
+                    int dur2 = mapaDuracionesVariable.get(sesionesDelGrupo.get(i+1));
                     if (dur1 == dur2) {
-                        model.arithm(sesionesDinamicas.get(i), "<", sesionesDinamicas.get(i + 1)).post();
+                        model.arithm(sesionesDelGrupo.get(i), "<", sesionesDelGrupo.get(i + 1)).post();
                     }
                 }
             }
         }
 
-        // Restricciones de Traslape Global
+        // 5. RESTRICCIONES DE TRASLAPE GLOBAL
         for (int i = 0; i < gruposCapa.size(); i++) {
             for (int j = i + 1; j < gruposCapa.size(); j++) {
                 Group g1 = gruposCapa.get(i);
@@ -275,9 +241,9 @@ public class HorarioService {
         return todasLasSoluciones;
     }
 
-    private int[] obtenerDominioFiltrado(Group grupo, int duracionClase, List<Availability> disponibilidadesVerdes) {
+    private int[] obtenerDominioFiltrado(Group grupo, int duracionClase, List<Availability> disponibilidades) {
         List<Integer> validos = new ArrayList<>();
-        for (Availability a : disponibilidadesVerdes) {
+        for (Availability a : disponibilidades) {
             int maxInicioPosible = a.getEndSlot() - duracionClase;
             for (int i = a.getStartSlot(); i <= maxInicioPosible; i++) {
                 boolean huecoLimpio = true;
@@ -295,5 +261,60 @@ public class HorarioService {
 
     private boolean hayInterseccion(Group g1, Group g2) {
         return Math.max(g1.getRangoInicial(), g2.getRangoInicial()) <= Math.min(g1.getRangoFinal(), g2.getRangoFinal());
+    }
+
+    private List<int[]> obtenerPlantillasHumanas(int totalBloquesRestantes) {
+        List<int[]> plantillas = new ArrayList<>();
+
+        // Catálogo de plantillas priorizadas: Preferencia por sesiones cortas en MÁS días.
+        switch (totalBloquesRestantes) {
+            case 2: // 1 hora
+                plantillas.add(new int[]{2});
+                break;
+            case 3: // 1.5 horas
+                plantillas.add(new int[]{3});
+                break;
+            case 4: // 2 horas
+                plantillas.add(new int[]{2, 2});       // Ideal: 2 días de 1h
+                plantillas.add(new int[]{4});          // Respaldo: 1 día de 2h
+                break;
+            case 5: // 2.5 horas
+                plantillas.add(new int[]{3, 2});       // 1 día de 1.5h y 1 día de 1h
+                break;
+            case 6: // 3 horas
+                plantillas.add(new int[]{2, 2, 2});    // Ideal: 3 días de 1h
+                plantillas.add(new int[]{3, 3});       // Respaldo 1: 2 días de 1.5h
+                plantillas.add(new int[]{4, 2});       // Respaldo 2: 1 día de 2h y 1 día de 1h
+                break;
+            case 8: // 4 horas
+                plantillas.add(new int[]{2, 2, 2, 2}); // Ideal: 4 días de 1h
+                plantillas.add(new int[]{3, 3, 2});    // Respaldo 1: 2 días de 1.5h, 1 día de 1h
+                plantillas.add(new int[]{4, 2, 2});    // Respaldo 2: 1 día de 2h, 2 días de 1h
+                plantillas.add(new int[]{4, 4});       // Respaldo 3: 2 días de 2h
+                break;
+            case 10: // 5 horas
+                plantillas.add(new int[]{2, 2, 2, 2, 2});
+                plantillas.add(new int[]{3, 3, 2, 2});
+                plantillas.add(new int[]{4, 3, 3});
+                plantillas.add(new int[]{4, 4, 2});
+                break;
+            case 12: // 6 horas
+                plantillas.add(new int[]{2, 2, 2, 2, 2, 2});
+                plantillas.add(new int[]{3, 3, 2, 2, 2});
+                plantillas.add(new int[]{3, 3, 3, 3});
+                plantillas.add(new int[]{4, 4, 2, 2});
+                plantillas.add(new int[]{4, 4, 4});
+                break;
+            default:
+                // Generador fallback invertido (prefiere bloques de 2 slots)
+                int restantes = totalBloquesRestantes;
+                List<Integer> generico = new ArrayList<>();
+                while (restantes > 0) {
+                    if (restantes >= 2) { generico.add(2); restantes -= 2; }
+                    else { generico.add(1); restantes -= 1; }
+                }
+                plantillas.add(generico.stream().mapToInt(i -> i).toArray());
+        }
+        return plantillas;
     }
 }

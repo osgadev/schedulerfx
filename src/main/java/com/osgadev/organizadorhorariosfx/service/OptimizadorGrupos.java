@@ -66,18 +66,16 @@ public class OptimizadorGrupos {
     /**
      * Valida al profesor usando el mismo algoritmo de Particionamiento Asimétrico.
      */
+    /**
+     * Valida al profesor usando Plantillas Humanas.
+     */
     private boolean profesorEsValido(Group g) {
         int horasSemanales = Math.max(1, g.getCurso().getMinHorasSemanales());
         int totalBloques = horasSemanales * 2;
 
-        for (int s = 5; s >= 1; s--) {
-            int base = totalBloques / s;
-            if (base < 2) continue;
+        List<int[]> plantillas = obtenerPlantillasHumanas(totalBloques);
 
-            int residuo = totalBloques % s;
-            int[] particionPrueba = new int[s];
-            for (int i = 0; i < s; i++) particionPrueba[i] = base + (i < residuo ? 1 : 0);
-
+        for (int[] particionPrueba : plantillas) {
             boolean particionValida = true;
             Set<Integer> diasUnicosGlobales = new HashSet<>();
 
@@ -105,7 +103,8 @@ public class OptimizadorGrupos {
                 }
             }
 
-            if (particionValida && diasUnicosGlobales.size() >= s) {
+            // Exigimos que todas las particiones caigan en días distintos
+            if (particionValida && diasUnicosGlobales.size() >= particionPrueba.length) {
                 return true;
             }
         }
@@ -120,5 +119,61 @@ public class OptimizadorGrupos {
             for (int i = a.getStartSlot(); i <= maxInicioPosible; i++) validos.add(i);
         }
         return validos.stream().mapToInt(i -> i).toArray();
+    }
+
+
+    private List<int[]> obtenerPlantillasHumanas(int totalBloquesRestantes) {
+        List<int[]> plantillas = new ArrayList<>();
+
+        // Catálogo de plantillas priorizadas: Preferencia por sesiones cortas en MÁS días.
+        switch (totalBloquesRestantes) {
+            case 2: // 1 hora
+                plantillas.add(new int[]{2});
+                break;
+            case 3: // 1.5 horas
+                plantillas.add(new int[]{3});
+                break;
+            case 4: // 2 horas
+                plantillas.add(new int[]{2, 2});       // Ideal: 2 días de 1h
+                plantillas.add(new int[]{4});          // Respaldo: 1 día de 2h
+                break;
+            case 5: // 2.5 horas
+                plantillas.add(new int[]{3, 2});       // 1 día de 1.5h y 1 día de 1h
+                break;
+            case 6: // 3 horas
+                plantillas.add(new int[]{2, 2, 2});    // Ideal: 3 días de 1h
+                plantillas.add(new int[]{3, 3});       // Respaldo 1: 2 días de 1.5h
+                plantillas.add(new int[]{4, 2});       // Respaldo 2: 1 día de 2h y 1 día de 1h
+                break;
+            case 8: // 4 horas
+                plantillas.add(new int[]{2, 2, 2, 2}); // Ideal: 4 días de 1h
+                plantillas.add(new int[]{3, 3, 2});    // Respaldo 1: 2 días de 1.5h, 1 día de 1h
+                plantillas.add(new int[]{4, 2, 2});    // Respaldo 2: 1 día de 2h, 2 días de 1h
+                plantillas.add(new int[]{4, 4});       // Respaldo 3: 2 días de 2h
+                break;
+            case 10: // 5 horas
+                plantillas.add(new int[]{2, 2, 2, 2, 2});
+                plantillas.add(new int[]{3, 3, 2, 2});
+                plantillas.add(new int[]{4, 3, 3});
+                plantillas.add(new int[]{4, 4, 2});
+                break;
+            case 12: // 6 horas
+                plantillas.add(new int[]{2, 2, 2, 2, 2, 2});
+                plantillas.add(new int[]{3, 3, 2, 2, 2});
+                plantillas.add(new int[]{3, 3, 3, 3});
+                plantillas.add(new int[]{4, 4, 2, 2});
+                plantillas.add(new int[]{4, 4, 4});
+                break;
+            default:
+                // Generador fallback invertido (prefiere bloques de 2 slots)
+                int restantes = totalBloquesRestantes;
+                List<Integer> generico = new ArrayList<>();
+                while (restantes > 0) {
+                    if (restantes >= 2) { generico.add(2); restantes -= 2; }
+                    else { generico.add(1); restantes -= 1; }
+                }
+                plantillas.add(generico.stream().mapToInt(i -> i).toArray());
+        }
+        return plantillas;
     }
 }
