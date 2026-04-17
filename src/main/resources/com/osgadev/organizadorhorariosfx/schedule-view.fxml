@@ -9,17 +9,37 @@
 <?import javafx.scene.control.Separator?>
 <?import javafx.scene.layout.BorderPane?>
 <?import javafx.scene.layout.GridPane?>
+<?import javafx.scene.layout.HBox?>
 <?import javafx.scene.layout.StackPane?>
 <?import javafx.scene.layout.VBox?>
 <?import javafx.scene.text.Font?>
 
-<BorderPane prefHeight="600.0" prefWidth="1000.0" xmlns="http://javafx.com/javafx/25" xmlns:fx="http://javafx.com/fxml/1" fx:controller="com.osgadev.organizadorhorariosfx.controller.ScheduleController">
+<BorderPane prefHeight="650.0" prefWidth="1100.0" xmlns="http://javafx.com/javafx/21" xmlns:fx="http://javafx.com/fxml/1" fx:controller="com.osgadev.organizadorhorariosfx.controller.ScheduleController">
+
+    <!-- ZONA SUPERIOR: CONTEXTO (AÑO Y ETAPA) -->
+    <top>
+        <HBox alignment="CENTER_LEFT" prefHeight="60.0" spacing="15.0" style="-fx-border-color: lightgray; -fx-border-width: 0 0 1 0; -fx-background-color: #f8f9fa;" BorderPane.alignment="CENTER">
+            <padding>
+                <Insets bottom="10.0" left="20.0" right="20.0" top="10.0" />
+            </padding>
+            <children>
+                <Label style="-fx-font-weight: bold; -fx-font-size: 16px;" text="Gestión de Horarios" />
+                <Separator orientation="VERTICAL" />
+                <Label text="Año:" />
+                <ComboBox fx:id="cmbAnio" prefWidth="100.0" />
+                <Label text="Etapa:" />
+                <ComboBox fx:id="cmbEtapa" prefWidth="100.0" />
+                <Button fx:id="btnCargar" mnemonicParsing="false" onAction="#cargarHorario" style="-fx-base: #2196F3; -fx-text-fill: white; -fx-font-weight: bold;" text="Buscar / Cargar" />
+            </children>
+        </HBox>
+    </top>
+
     <center>
         <StackPane prefHeight="150.0" prefWidth="200.0" BorderPane.alignment="CENTER">
             <children>
                 <VBox fx:id="fase1Vacia" alignment="CENTER" prefHeight="200.0" prefWidth="100.0" spacing="10.0">
                     <children>
-                        <Label style="-fx-text-fill: gray;" text="Aún no se ha generado ningún horario.&#10;Presione 'Generar Horarios' para comenzar." textAlignment="CENTER">
+                        <Label style="-fx-text-fill: gray;" text="Aún no se ha generado ningún horario para este ciclo.&#10;Presione 'Generar Horarios' para comenzar con la IA." textAlignment="CENTER">
                             <font>
                                 <Font size="14.0" />
                             </font>
@@ -28,42 +48,52 @@
                 </VBox>
                 <!-- Scroll y Cuadrícula del Calendario -->
                 <ScrollPane fx:id="scrollCalendario" fitToWidth="true" style="-fx-background-color: transparent;" VBox.vgrow="ALWAYS">
-                    <!-- QUITAMOS LOS COLUMN CONSTRAINTS DE AQUÍ, JAVA SE ENCARGARÁ -->
                     <GridPane fx:id="gridCalendario" style="-fx-background-color: white;">
                         <padding>
                             <Insets bottom="5.0" left="5.0" right="5.0" top="5.0" />
                         </padding>
                     </GridPane>
                 </ScrollPane>
-
             </children>
         </StackPane>
     </center>
-   <right>
-        <VBox prefHeight="600.0" prefWidth="173.0" spacing="15.0" style="-fx-border-color: lightgray; -fx-border-width: 0 1 0 0;" BorderPane.alignment="CENTER">
+
+    <right>
+        <VBox prefHeight="600.0" prefWidth="220.0" spacing="15.0" style="-fx-border-color: lightgray; -fx-border-width: 0 1 0 0;" BorderPane.alignment="CENTER">
             <padding>
                 <Insets bottom="15.0" left="15.0" right="15.0" top="15.0" />
             </padding>
             <children>
-                <Label style="-fx-font-weight: bold;" text="Controles de Horario">
-                    <font>
-                        <Font size="14.0" />
-                    </font>
+                <!-- ZONA DE ACCIONES DE BASE DE DATOS -->
+                <Label style="-fx-font-weight: bold;" text="Motor IA y BD">
+                    <font><Font size="14.0" /></font>
+                </Label>
+                <Button fx:id="btnGenerar" disable="true" mnemonicParsing="false" onAction="#generarHorario" prefWidth="200.0" style="-fx-base: #4CAF50; -fx-text-fill: white; -fx-font-weight: bold;" text="Generar Horarios (IA)" />
+                <Button fx:id="btnGuardarBD" disable="true" mnemonicParsing="false" onAction="#guardarEnBD" prefWidth="200.0" text="💾 Guardar en BD" />
+                <Button fx:id="btnBorrarBD" disable="true" mnemonicParsing="false" onAction="#borrarDeBD" prefWidth="200.0" style="-fx-base: #f44336; -fx-text-fill: white;" text="🗑 Borrar Horario" />
+
+                <Separator prefWidth="200.0" />
+
+                <!-- ZONA DE FILTROS VISUALES -->
+                <Label style="-fx-font-weight: bold;" text="Filtros Visuales">
+                    <font><Font size="14.0" /></font>
                 </Label>
                 <Label text="Filtrar por Curso:" />
                 <ComboBox fx:id="cmbFiltroCurso" prefWidth="200.0" />
                 <Label text="Filtrar por Profesor:" />
                 <ComboBox fx:id="cmbFiltroProfesor" prefWidth="200.0" />
-            <Button fx:id="btnLimpiarFiltros" contentDisplay="CENTER" mnemonicParsing="false" prefHeight="25.0" prefWidth="145.0" text="Limpiar" />
+                <Button fx:id="btnLimpiarFiltros" contentDisplay="CENTER" mnemonicParsing="false" prefHeight="25.0" prefWidth="200.0" text="Limpiar Filtros" />
+
                 <Separator prefWidth="200.0" />
+
+                <!-- ZONA DE PERSONALIZACIÓN DE TARJETAS -->
                 <Label text="Mostrar en bloques:" />
                 <CheckBox fx:id="chkRangoAlumnos" selected="true" style="-fx-font-weight: bold;" text="Rango de alumnos" />
-                <CheckBox fx:id="chkProfesor" text="Profesor" />
+                <CheckBox fx:id="chkProfesor" selected="true" text="Profesor" />
                 <CheckBox fx:id="chkIdGrupo" text="ID de Grupo" />
-                <Separator prefWidth="200.0" />
-                <Button fx:id="btnGenerar" mnemonicParsing="false" onAction="#generarHorario" prefWidth="200.0" style="-fx-base: #4CAF50; -fx-text-fill: white; -fx-font-weight: bold;" text="Generar Horarios" />
-                <Label fx:id="lblCargando" text="⏳ Calculando cruces..." textFill="BLUE" visible="false" />
+                <CheckBox fx:id="chkNombreCurso" selected="true" text="Nombre del Curso" />
+
             </children>
         </VBox>
-   </right>
+    </right>
 </BorderPane>
