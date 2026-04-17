@@ -2,6 +2,7 @@ package com.osgadev.organizadorhorariosfx.controller;
 
 import com.osgadev.organizadorhorariosfx.DAO.AvailabilityDAO;
 import com.osgadev.organizadorhorariosfx.DAO.GroupDAO;
+import com.osgadev.organizadorhorariosfx.DAO.ScheduleDAO;
 import com.osgadev.organizadorhorariosfx.model.Group;
 import com.osgadev.organizadorhorariosfx.service.HorarioService;
 import com.osgadev.organizadorhorariosfx.DTO.SesionAsignada;
@@ -53,7 +54,7 @@ public class ScheduleController {
     private GroupDAO groupDAO;
     private AvailabilityDAO availabilityDAO;
     private HorarioService horarioService;
-    // private ScheduleDAO scheduleDAO; // <- Lo descomentaremos cuando se cree
+    private ScheduleDAO scheduleDAO;
 
     // Configuración visual
     private final int HORA_INICIO = 7;
@@ -71,6 +72,7 @@ public class ScheduleController {
         groupDAO = new GroupDAO();
         availabilityDAO = new AvailabilityDAO();
         horarioService = new HorarioService(availabilityDAO);
+        scheduleDAO = new ScheduleDAO();
 
         fase1Vacia.setVisible(true);
         scrollCalendario.setVisible(false);
@@ -163,10 +165,13 @@ public class ScheduleController {
             return;
         }
 
-        // Simulación: No existe en BD aún
-        boolean existeEnBD = false;
+        // Consultamos a la base de datos si existe un horario
+        boolean existeEnBD = scheduleDAO.existsSchedule(anio, etapa);
 
         if (existeEnBD) {
+            // Descargamos las cartas de la base de datos
+            this.horarioGenerado = scheduleDAO.loadSchedule(anio, etapa);
+
             btnGenerar.setDisable(true);
             btnGuardarBD.setDisable(true);
             btnBorrarBD.setDisable(false);
@@ -177,6 +182,7 @@ public class ScheduleController {
             aplicarFiltros();
             actualizarMensajeIA("Horario cargado desde la Base de Datos.");
         } else {
+            // El tablero está en blanco
             this.horarioGenerado.clear();
             gridCalendario.getChildren().clear();
             fase1Vacia.setVisible(true);
@@ -257,16 +263,34 @@ public class ScheduleController {
 
     @FXML
     public void guardarEnBD() {
-        mostrarAlerta("Guardado", "El horario se ha guardado exitosamente en la base de datos.");
-        btnGuardarBD.setDisable(true);
-        btnBorrarBD.setDisable(false);
+        String anio = cmbAnio.getValue();
+        String etapa = cmbEtapa.getValue();
+
+        boolean exito = scheduleDAO.saveSchedule(this.horarioGenerado, anio, etapa);
+
+        if (exito) {
+            mostrarAlerta("Guardado", "El horario se ha guardado exitosamente en la base de datos.");
+            btnGuardarBD.setDisable(true);
+            btnBorrarBD.setDisable(false);
+        } else {
+            mostrarAlerta("Error", "No se pudo guardar el horario en la base de datos.");
+        }
     }
 
     @FXML
     public void borrarDeBD() {
-        mostrarAlerta("Borrado", "El horario fue eliminado. Puede volver a generarlo.");
-        this.horarioGenerado.clear();
-        cargarHorario();
+        String anio = cmbAnio.getValue();
+        String etapa = cmbEtapa.getValue();
+
+        boolean exito = scheduleDAO.deleteSchedule(anio, etapa);
+
+        if (exito) {
+            mostrarAlerta("Borrado", "El horario fue eliminado de la base de datos. Puede volver a generarlo.");
+            this.horarioGenerado.clear();
+            cargarHorario(); // Reinicia la vista y los botones automáticamente
+        } else {
+            mostrarAlerta("Error", "Hubo un problema al intentar borrar el horario.");
+        }
     }
 
     private void restaurarBotonesIA() {

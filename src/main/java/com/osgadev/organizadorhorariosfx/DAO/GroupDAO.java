@@ -142,4 +142,67 @@ public class GroupDAO {
             return false; // Por seguridad, en caso de error de BD asumimos que no hay
         }
     }
+
+    /**
+     * Obtiene un grupo específico por su ID, incluyendo todos los datos de su Curso y Profesor asociados.
+     * Utilizado principalmente por ScheduleDAO para reconstruir el horario visual.
+     *
+     * @param idGrupo El ID del grupo (ej. "G-001").
+     * @return El objeto Group completamente instanciado, o null si no se encuentra.
+     */
+    public Group obtenerPorId(String idGrupo) {
+        Group grupo = null;
+
+        // Consulta con INNER JOIN para traer los datos del grupo, del curso y del profesor
+        String sql = "SELECT g.grupo_id, g.tamanio_grupo, g.rango_inicial, g.rango_final, " +
+                "c.curso_id, c.nombre AS nombre_curso, c.min_horas_semanales, " +
+                "p.profesor_id, p.nombre AS nombre_profesor, p.apellido_paterno, p.apellido_materno, p.correo_electronico, p.telefono " +
+                "FROM grupo g " +
+                "INNER JOIN curso c ON g.curso_id = c.curso_id " +
+                "INNER JOIN profesor p ON g.profesor_id = p.profesor_id " +
+                "WHERE g.grupo_id = ?";
+
+        // TODO: Asegúrate de usar tu propia clase de conexión (ej. DatabaseConnection.getConnection())
+        try (java.sql.Connection conn = DatabaseConnection.getInstance().getConnection();
+             java.sql.PreparedStatement pstmt = conn.prepareStatement(sql)) {
+
+            pstmt.setString(1, idGrupo);
+
+            try (java.sql.ResultSet rs = pstmt.executeQuery()) {
+                if (rs.next()) {
+                    // 1. Reconstruir el objeto Course (Usamos setters para evitar errores de constructor)
+                    Course curso = new Course();
+                    curso.setId(rs.getInt("curso_id"));
+                    curso.setNombre(rs.getString("nombre_curso"));
+                    curso.setMinHorasSemanales(rs.getInt("min_horas_semanales"));
+
+                    // 2. Reconstruir el objeto Teacher (Pasamos un ArrayList vacío para sus cursos)
+                    Teacher profesor = new Teacher(
+                            rs.getInt("profesor_id"),
+                            rs.getString("nombre_profesor"),
+                            rs.getString("apellido_paterno"),
+                            rs.getString("apellido_materno"),
+                            rs.getString("correo_electronico"),
+                            rs.getString("telefono"),
+                            new java.util.ArrayList<>() // Lista vacía
+                    );
+
+                    // 3. Reconstruir el objeto Group usando tu constructor exacto
+                    grupo = new Group(
+                            rs.getString("grupo_id"),
+                            curso,
+                            profesor,
+                            rs.getInt("tamanio_grupo"),
+                            rs.getInt("rango_inicial"),
+                            rs.getInt("rango_final")
+                    );
+                }
+            }
+        } catch (java.sql.SQLException e) {
+            System.err.println("Error al obtener el grupo con ID: " + idGrupo);
+            e.printStackTrace();
+        }
+
+        return grupo;
+    }
 }
