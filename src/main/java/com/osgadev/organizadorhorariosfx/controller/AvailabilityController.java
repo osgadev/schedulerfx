@@ -11,6 +11,7 @@ import javafx.fxml.FXML;
 import javafx.fxml.Initializable;
 import javafx.geometry.Insets;
 import javafx.scene.control.*;
+import javafx.scene.input.MouseEvent;
 import javafx.scene.layout.GridPane;
 import javafx.scene.layout.Pane;
 import javafx.scene.layout.RowConstraints;
@@ -27,19 +28,31 @@ public class AvailabilityController implements Initializable {
     @FXML private ComboBox<Teacher> cmbProfesor;
     @FXML private ComboBox<Course> cmbCursoSugerido;
     @FXML private Label lblEstadoBD;
-    @FXML private ComboBox<String> cmbDia;
+
+    // CheckBoxes de los días enlazados desde el FXML
+    @FXML private CheckBox chkLunes;
+    @FXML private CheckBox chkMartes;
+    @FXML private CheckBox chkMiercoles;
+    @FXML private CheckBox chkJueves;
+    @FXML private CheckBox chkViernes;
+    @FXML private CheckBox chkSabado;
+    @FXML private CheckBox chkDomingo;
+
     @FXML private ComboBox<String> cmbHoraInicio;
     @FXML private ComboBox<String> cmbMinutoInicio;
     @FXML private ComboBox<String> cmbHoraFin;
     @FXML private ComboBox<String> cmbMinutoFin;
+
     @FXML private Button btnAgregar;
+    @FXML private Button btnCambiarCurso;
     @FXML private Button btnBorrar;
     @FXML private Button btnGuardar;
     @FXML private Button btnEliminarTodo;
     @FXML private GridPane gridCalendario;
 
+    private CheckBox[] checkDias; // Arreglo para iterar fácilmente los días
     private List<BloqueTiempo> listaBloques = new ArrayList<>();
-    private BloqueTiempo bloqueSeleccionado = null;
+    private List<BloqueTiempo> bloquesSeleccionados = new ArrayList<>();
 
     private TeacherDAO teacherDAO = new TeacherDAO();
     private AvailabilityDAO availabilityDAO = new AvailabilityDAO();
@@ -47,16 +60,16 @@ public class AvailabilityController implements Initializable {
 
     private final int HORA_INICIO_VISUAL = 7;
     private final int HORA_FIN_VISUAL = 22;
-    // Mantenemos 4 filas por hora para la vista, para ser consistentes con el calendario de horarios
     private final int FILAS_VISUALES = (HORA_FIN_VISUAL - HORA_INICIO_VISUAL) * 4;
 
+    // Clase interna para manejar la lógica de cada bloque de tiempo
     private class BloqueTiempo {
         int colDia, slotInicioSemanal, slotFinSemanal;
         Course cursoSugerido;
         Pane uiNode;
         boolean superpuesto = false;
 
-        public BloqueTiempo(int colDia, int slotInicioSemanal, int slotFinSemanal,Course cursoSugerido, Pane uiNode) {
+        public BloqueTiempo(int colDia, int slotInicioSemanal, int slotFinSemanal, Course cursoSugerido, Pane uiNode) {
             this.colDia = colDia;
             this.slotInicioSemanal = slotInicioSemanal;
             this.slotFinSemanal = slotFinSemanal;
@@ -71,27 +84,31 @@ public class AvailabilityController implements Initializable {
 
     @Override
     public void initialize(URL url, ResourceBundle rb) {
+        // Agrupar los CheckBoxes para facilitar la lectura
+        checkDias = new CheckBox[]{chkLunes, chkMartes, chkMiercoles, chkJueves, chkViernes, chkSabado, chkDomingo};
+
         configurarComboBoxes();
         configurarCuadricula();
         cargarProfesores();
         cargarCursos();
 
+        // Asignación de acciones a los botones
         btnAgregar.setOnAction(e -> agregarBloqueDesdeUI());
-        btnBorrar.setOnAction(e -> borrarBloqueSeleccionado());
+        btnBorrar.setOnAction(e -> borrarBloquesSeleccionados());
         btnGuardar.setOnAction(e -> guardarEnBD());
         btnEliminarTodo.setOnAction(e -> eliminarTodaDisponibilidad());
+        btnCambiarCurso.setOnAction(e -> cambiarCursoDeSeleccionados());
 
         deshabilitarControles(true);
     }
 
     private void cargarCursos() {
-        // Agregamos un curso "Comodín" ficticio para que el profe pueda no elegir nada
         Course comodin = new Course();
         comodin.setId(-1);
         comodin.setNombre("-- Comodín (Cualquier curso) --");
 
         cmbCursoSugerido.getItems().add(comodin);
-        cmbCursoSugerido.getItems().addAll(courseDAO.obtenerCursos()); // Asegúrate de tener este método en tu DAO
+        cmbCursoSugerido.getItems().addAll(courseDAO.obtenerCursos());
 
         cmbCursoSugerido.setConverter(new StringConverter<Course>() {
             @Override
@@ -108,6 +125,7 @@ public class AvailabilityController implements Initializable {
         btnGuardar.setDisable(deshabilitar);
         btnEliminarTodo.setDisable(deshabilitar);
         btnBorrar.setDisable(true);
+        btnCambiarCurso.setDisable(true);
     }
 
     private void cargarProfesores() {
@@ -161,7 +179,7 @@ public class AvailabilityController implements Initializable {
 
         List<Availability> nuevosBloques = new ArrayList<>();
         for (BloqueTiempo b : listaBloques) {
-            nuevosBloques.add(new Availability(profe,b.cursoSugerido, b.slotInicioSemanal, b.slotFinSemanal));
+            nuevosBloques.add(new Availability(profe, b.cursoSugerido, b.slotInicioSemanal, b.slotFinSemanal));
         }
 
         availabilityDAO.saveAll(profe, nuevosBloques);
@@ -184,19 +202,17 @@ public class AvailabilityController implements Initializable {
             gridCalendario.getChildren().remove(b.uiNode);
         }
         listaBloques.clear();
-        bloqueSeleccionado = null;
+        bloquesSeleccionados.clear();
         btnBorrar.setDisable(true);
+        btnCambiarCurso.setDisable(true);
     }
 
     private void configurarComboBoxes() {
-        cmbDia.getItems().addAll("Lunes", "Martes", "Miércoles", "Jueves", "Viernes", "Sábado", "Domingo");
-        cmbDia.getSelectionModel().selectFirst();
         for (int i = HORA_INICIO_VISUAL; i <= HORA_FIN_VISUAL; i++) {
             String hora = String.format("%02d", i);
             cmbHoraInicio.getItems().add(hora);
             cmbHoraFin.getItems().add(hora);
         }
-        // --- CAMBIO: Solo permitimos 00 y 30 para coincidir con el motor de Choco ---
         String[] minutos = {"00", "30"};
         cmbMinutoInicio.getItems().addAll(minutos);
         cmbMinutoFin.getItems().addAll(minutos);
@@ -221,14 +237,16 @@ public class AvailabilityController implements Initializable {
             Label lbl = new Label(String.format("%02d:00", i));
             lbl.setStyle("-fx-font-size: 11px; -fx-text-fill: gray; -fx-padding: 2;");
             gridCalendario.add(lbl, 0, indexFila);
-            indexFila += 4;
+            indexFila += 4; // 4 slots de 15 mins por hora
         }
     }
 
+    // =====================================================================
+    // CREACIÓN MASIVA Y ACTUALIZACIÓN VISUAL
+    // =====================================================================
     private void agregarBloqueDesdeUI() {
         if (cmbHoraInicio.getValue() == null || cmbHoraFin.getValue() == null) return;
 
-        int indexDia = cmbDia.getSelectionModel().getSelectedIndex();
         int hInicio = Integer.parseInt(cmbHoraInicio.getValue());
         int mInicio = Integer.parseInt(cmbMinutoInicio.getValue());
         int hFin = Integer.parseInt(cmbHoraFin.getValue());
@@ -239,68 +257,103 @@ public class AvailabilityController implements Initializable {
 
         if (hInicio < HORA_INICIO_VISUAL || hFin > HORA_FIN_VISUAL) return;
 
-        // --- CAMBIO: Nueva matemática de resolución (48 bloques de 30 mins) ---
-        // (indexDia * 48) + (hInicio * 2) + (mInicio / 30)
-        int slotInicio = (indexDia * 48) + (hInicio * 2) + (mInicio / 30);
-        int slotFin = (indexDia * 48) + (hFin * 2) + (mFin / 30);
+        boolean agregoAlMenosUno = false;
 
-        if (slotFin <= slotInicio) return;
+        // Iterar sobre los CheckBoxes para crear un bloque en cada día seleccionado
+        for (int i = 0; i < checkDias.length; i++) {
+            if (checkDias[i].isSelected()) {
+                int slotInicio = (i * 48) + (hInicio * 2) + (mInicio / 30);
+                int slotFin = (i * 48) + (hFin * 2) + (mFin / 30);
 
-        crearYPosicionarNodo(indexDia + 1, slotInicio, slotFin, cursoElegido, hInicio, mInicio, hFin, mFin);
-        actualizarEstadoSuperposiciones();
+                if (slotFin > slotInicio) {
+                    crearYPosicionarNodo(i + 1, slotInicio, slotFin, cursoElegido, hInicio, mInicio, hFin, mFin);
+                    agregoAlMenosUno = true;
+                }
+            }
+        }
+
+        if (agregoAlMenosUno) {
+            actualizarEstadoSuperposiciones();
+        }
     }
 
-    private void crearYPosicionarNodo(int colDia, int slotInicio, int slotFin,Course curso, int h1, int m1, int h2, int m2) {
-        // --- CAMBIO: La vista sigue usando la lógica de "4 filas por hora" para dibujar correctamente ---
-        // Se divide entre 15 para saber cuántas filas visuales debe bajar, aunque el fondo sea de 30 mins
+    private void crearYPosicionarNodo(int colDia, int slotInicio, int slotFin, Course curso, int h1, int m1, int h2, int m2) {
         int filaInicio = ((h1 - HORA_INICIO_VISUAL) * 4) + (m1 / 15);
         int filaFin = ((h2 - HORA_INICIO_VISUAL) * 4) + (m2 / 15);
 
         VBox nodo = new VBox();
         nodo.setPadding(new Insets(2));
 
-        String bgColor = curso == null ? "#99ff99" : "#add8e6";
-        String borderColor = curso == null ? "green" : "blue";
-        nodo.setStyle("-fx-background-color: " + bgColor + "; -fx-border-color: " + borderColor + "; -fx-border-radius: 3;");
-
-        Label textoHora = new Label(String.format("%02d:%02d - %02d:%02d", h1, m1, h2, m2));
-        textoHora.setStyle("-fx-font-size: 10px; -fx-font-weight: bold;");
-        nodo.getChildren().add(textoHora);
-
-        if (curso != null) {
-            Label textoCurso = new Label(curso.getNombre());
-            textoCurso.setStyle("-fx-font-size: 9px; -fx-text-fill: #333333;");
-            textoCurso.setWrapText(true);
-            nodo.getChildren().add(textoCurso);
-        }
-
         BloqueTiempo bloque = new BloqueTiempo(colDia, slotInicio, slotFin, curso, nodo);
-        nodo.setOnMouseClicked(e -> seleccionarBloque(bloque));
+
+        actualizarContenidoVisualBloque(bloque);
+
+        // SOPORTE PARA MULTI-SELECCIÓN CON CTRL O SHIFT
+        nodo.setOnMouseClicked((MouseEvent e) -> seleccionarBloque(bloque, e));
 
         listaBloques.add(bloque);
         gridCalendario.add(nodo, colDia, filaInicio);
         GridPane.setRowSpan(nodo, filaFin - filaInicio);
     }
 
-    private void seleccionarBloque(BloqueTiempo bloque) {
-        if (bloqueSeleccionado != null) actualizarColorBloque(bloqueSeleccionado);
-        bloqueSeleccionado = bloque;
-        btnBorrar.setDisable(false);
+    private void actualizarContenidoVisualBloque(BloqueTiempo b) {
+        b.uiNode.getChildren().clear();
 
-        // Respetamos el color original azul si tiene curso, verde si es comodín, rojo si choca
-        String bgColor = (bloque.cursoSugerido == null) ? "#99ff99" : "#add8e6";
-        if (bloque.superpuesto) bgColor = "#ff9999";
+        int h1 = (b.slotInicioSemanal % 48) / 2;
+        int m1 = ((b.slotInicioSemanal % 48) % 2) * 30;
+        int h2 = (b.slotFinSemanal % 48) / 2;
+        int m2 = ((b.slotFinSemanal % 48) % 2) * 30;
 
-        // Al seleccionar, el borde siempre se pone azul rey grueso
-        bloque.uiNode.setStyle("-fx-background-color: " + bgColor + "; -fx-border-color: blue; -fx-border-width: 2px; -fx-border-radius: 3;");
+        Label textoHora = new Label(String.format("%02d:%02d - %02d:%02d", h1, m1, h2, m2));
+        textoHora.setStyle("-fx-font-size: 10px; -fx-font-weight: bold;");
+        b.uiNode.getChildren().add(textoHora);
+
+        if (b.cursoSugerido != null) {
+            Label textoCurso = new Label(b.cursoSugerido.getNombre());
+            textoCurso.setStyle("-fx-font-size: 9px; -fx-text-fill: #333333;");
+            textoCurso.setWrapText(true);
+            b.uiNode.getChildren().add(textoCurso);
+        }
     }
 
-    private void borrarBloqueSeleccionado() {
-        if (bloqueSeleccionado != null) {
-            gridCalendario.getChildren().remove(bloqueSeleccionado.uiNode);
-            listaBloques.remove(bloqueSeleccionado);
-            bloqueSeleccionado = null;
+    private void cambiarCursoDeSeleccionados() {
+        Course cursoElegido = cmbCursoSugerido.getValue();
+        if (cursoElegido != null && cursoElegido.getId() == -1) cursoElegido = null;
+
+        for (BloqueTiempo b : bloquesSeleccionados) {
+            b.cursoSugerido = cursoElegido;
+            actualizarContenidoVisualBloque(b);
+        }
+        for (BloqueTiempo b : listaBloques) actualizarColorBloque(b);
+    }
+
+    private void seleccionarBloque(BloqueTiempo bloque, MouseEvent e) {
+        if (e.isControlDown() || e.isShiftDown()) {
+            if (bloquesSeleccionados.contains(bloque)) {
+                bloquesSeleccionados.remove(bloque); // Deseleccionar si ya estaba seleccionado
+            } else {
+                bloquesSeleccionados.add(bloque);
+            }
+        } else {
+            bloquesSeleccionados.clear();
+            bloquesSeleccionados.add(bloque);
+        }
+
+        btnBorrar.setDisable(bloquesSeleccionados.isEmpty());
+        btnCambiarCurso.setDisable(bloquesSeleccionados.isEmpty());
+
+        for (BloqueTiempo b : listaBloques) actualizarColorBloque(b);
+    }
+
+    private void borrarBloquesSeleccionados() {
+        if (!bloquesSeleccionados.isEmpty()) {
+            for (BloqueTiempo b : bloquesSeleccionados) {
+                gridCalendario.getChildren().remove(b.uiNode);
+                listaBloques.remove(b);
+            }
+            bloquesSeleccionados.clear();
             btnBorrar.setDisable(true);
+            btnCambiarCurso.setDisable(true);
             actualizarEstadoSuperposiciones();
         }
     }
@@ -318,18 +371,29 @@ public class AvailabilityController implements Initializable {
                 }
             }
         }
-        for (BloqueTiempo b : listaBloques) if (b != bloqueSeleccionado) actualizarColorBloque(b);
+        for (BloqueTiempo b : listaBloques) actualizarColorBloque(b);
         btnGuardar.setDisable(hayError || cmbProfesor.getValue() == null);
     }
 
     private void actualizarColorBloque(BloqueTiempo b) {
+        boolean seleccionado = bloquesSeleccionados.contains(b);
+        String bgColor = (b.cursoSugerido == null) ? "#99ff99" : "#add8e6"; // Verde (comodín) o Azul (curso específico)
+        String borderColor = (b.cursoSugerido == null) ? "green" : "blue";
+        int borderWidth = 1;
+
         if (b.superpuesto) {
-            b.uiNode.setStyle("-fx-background-color: #ff9999; -fx-border-color: red; -fx-border-radius: 3;");
-        } else {
-            // Evaluamos nuevamente si tiene curso sugerido para devolverle su color original
-            String bgColor = (b.cursoSugerido == null) ? "#99ff99" : "#add8e6";
-            String borderColor = (b.cursoSugerido == null) ? "green" : "blue";
-            b.uiNode.setStyle("-fx-background-color: " + bgColor + "; -fx-border-color: " + borderColor + "; -fx-border-radius: 3;");
+            bgColor = "#ff9999"; // Rojo si chocan horarios
+            borderColor = "red";
         }
+
+        if (seleccionado) {
+            borderColor = "#9C27B0"; // Borde morado para marcar selección
+            borderWidth = 3;
+        }
+
+        b.uiNode.setStyle("-fx-background-color: " + bgColor +
+                "; -fx-border-color: " + borderColor +
+                "; -fx-border-width: " + borderWidth + "px;" +
+                " -fx-border-radius: 3; -fx-cursor: hand;");
     }
 }

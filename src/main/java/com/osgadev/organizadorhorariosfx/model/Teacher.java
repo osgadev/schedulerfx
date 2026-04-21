@@ -1,6 +1,7 @@
 package com.osgadev.organizadorhorariosfx.model;
 
 import java.util.List;
+import java.util.Objects;
 
 public class Teacher {
 
@@ -110,5 +111,17 @@ public class Teacher {
                 ", cursos=" + cursos +
                 ", disponibilidades=" + disponibilidades +
                 '}';
+    }
+
+    @Override
+    public boolean equals(Object o) {
+        if (o == null || getClass() != o.getClass()) return false;
+        Teacher teacher = (Teacher) o;
+        return id == teacher.id;
+    }
+
+    @Override
+    public int hashCode() {
+        return Objects.hashCode(id);
     }
 }

@@ -2,6 +2,7 @@
 
 <?import javafx.geometry.Insets?>
 <?import javafx.scene.control.Button?>
+<?import javafx.scene.control.CheckBox?>
 <?import javafx.scene.control.ComboBox?>
 <?import javafx.scene.control.Label?>
 <?import javafx.scene.control.ScrollPane?>
@@ -15,7 +16,7 @@
 <?import javafx.scene.layout.VBox?>
 <?import javafx.scene.text.Font?>
 
-<BorderPane prefHeight="500.0" prefWidth="700.0" xmlns="http://javafx.com/javafx/25" xmlns:fx="http://javafx.com/fxml/1" fx:controller="com.osgadev.organizadorhorariosfx.controller.AvailabilityController">
+<BorderPane prefHeight="500.0" prefWidth="750.0" xmlns="http://javafx.com/javafx/17" xmlns:fx="http://javafx.com/fxml/1" fx:controller="com.osgadev.organizadorhorariosfx.controller.AvailabilityController">
 
     <!-- Panel Central -->
     <center>
@@ -23,46 +24,53 @@
             <!-- Cabecera Estática (No se mueve con el scroll) -->
             <GridPane style="-fx-background-color: #f0f0f0; -fx-border-color: #cccccc; -fx-border-width: 0 0 1 0; -fx-padding: 5 5 5 5;">
                 <columnConstraints>
-                    <ColumnConstraints hgrow="ALWAYS" maxWidth="67.0" minWidth="33.0" prefWidth="55.0" />
-                    <ColumnConstraints hgrow="ALWAYS" maxWidth="120.0" minWidth="19.0" prefWidth="55.0" />
-                    <ColumnConstraints hgrow="ALWAYS" maxWidth="174.0" minWidth="27.0" prefWidth="55.0" />
-                    <ColumnConstraints hgrow="ALWAYS" maxWidth="223.0" minWidth="33.0" prefWidth="55.0" />
-                    <ColumnConstraints hgrow="ALWAYS" maxWidth="260.0" minWidth="27.0" prefWidth="55.0" />
-                    <ColumnConstraints hgrow="ALWAYS" maxWidth="312.0" minWidth="0.0" prefWidth="55.0" />
-                    <ColumnConstraints hgrow="ALWAYS" maxWidth="344.0" minWidth="35.0" prefWidth="55.0" />
-                    <ColumnConstraints hgrow="ALWAYS" maxWidth="399.0" minWidth="51.0" prefWidth="55.0" />
+                    <!-- Columna Hora -->
+                    <ColumnConstraints hgrow="NEVER" minWidth="45.0" prefWidth="50.0" />
+                    <!-- Columnas Días (Iguales y simétricas) -->
+                    <ColumnConstraints hgrow="ALWAYS" minWidth="75.0" prefWidth="100.0" />
+                    <ColumnConstraints hgrow="ALWAYS" minWidth="75.0" prefWidth="100.0" />
+                    <ColumnConstraints hgrow="ALWAYS" minWidth="75.0" prefWidth="100.0" />
+                    <ColumnConstraints hgrow="ALWAYS" minWidth="75.0" prefWidth="100.0" />
+                    <ColumnConstraints hgrow="ALWAYS" minWidth="75.0" prefWidth="100.0" />
+                    <ColumnConstraints hgrow="ALWAYS" minWidth="75.0" prefWidth="100.0" />
+                    <ColumnConstraints hgrow="ALWAYS" minWidth="75.0" prefWidth="100.0" />
                 </columnConstraints>
                 <rowConstraints>
                     <RowConstraints minHeight="25.0" prefHeight="25.0" />
                 </rowConstraints>
-
-                <Label style="-fx-font-weight: bold;" text="Hora" GridPane.columnIndex="0" GridPane.halignment="CENTER" />
-                <Label style="-fx-font-weight: bold;" text="Lunes" GridPane.columnIndex="1" GridPane.halignment="CENTER" />
-                <Label style="-fx-font-weight: bold;" text="Martes" GridPane.columnIndex="2" GridPane.halignment="CENTER" />
-                <Label style="-fx-font-weight: bold;" text="Miércoles" GridPane.columnIndex="3" GridPane.halignment="CENTER" />
-                <Label style="-fx-font-weight: bold;" text="Jueves" GridPane.columnIndex="4" GridPane.halignment="CENTER" />
-                <Label style="-fx-font-weight: bold;" text="Viernes" GridPane.columnIndex="5" GridPane.halignment="CENTER" />
-                <Label style="-fx-font-weight: bold;" text="Sábado" GridPane.columnIndex="6" GridPane.halignment="CENTER" />
-                <Label style="-fx-font-weight: bold;" text="Domingo" GridPane.columnIndex="7" GridPane.halignment="CENTER" />
+                <children>
+                    <Label style="-fx-font-weight: bold;" text="Hora" GridPane.columnIndex="0" GridPane.halignment="CENTER" />
+                    <Label style="-fx-font-weight: bold;" text="Lunes" GridPane.columnIndex="1" GridPane.halignment="CENTER" />
+                    <Label style="-fx-font-weight: bold;" text="Martes" GridPane.columnIndex="2" GridPane.halignment="CENTER" />
+                    <Label style="-fx-font-weight: bold;" text="Miércoles" GridPane.columnIndex="3" GridPane.halignment="CENTER" />
+                    <Label style="-fx-font-weight: bold;" text="Jueves" GridPane.columnIndex="4" GridPane.halignment="CENTER" />
+                    <Label style="-fx-font-weight: bold;" text="Viernes" GridPane.columnIndex="5" GridPane.halignment="CENTER" />
+                    <Label style="-fx-font-weight: bold;" text="Sábado" GridPane.columnIndex="6" GridPane.halignment="CENTER" />
+                    <Label style="-fx-font-weight: bold;" text="Domingo" GridPane.columnIndex="7" GridPane.halignment="CENTER" />
+                </children>
             </GridPane>
 
             <!-- Scroll y Cuadrícula del Calendario -->
             <ScrollPane fx:id="scrollCalendario" fitToWidth="true" style="-fx-background-color: transparent;" VBox.vgrow="ALWAYS">
-                <GridPane fx:id="gridCalendario" style="-fx-background-color: white;">
-                    <columnConstraints>
-                        <ColumnConstraints hgrow="ALWAYS" maxWidth="67.0" minWidth="33.0" prefWidth="55.0" />
-                        <ColumnConstraints hgrow="ALWAYS" maxWidth="120.0" minWidth="19.0" prefWidth="55.0" />
-                        <ColumnConstraints hgrow="ALWAYS" maxWidth="174.0" minWidth="27.0" prefWidth="55.0" />
-                        <ColumnConstraints hgrow="ALWAYS" maxWidth="223.0" minWidth="33.0" prefWidth="55.0" />
-                        <ColumnConstraints hgrow="ALWAYS" maxWidth="260.0" minWidth="27.0" prefWidth="55.0" />
-                        <ColumnConstraints hgrow="ALWAYS" maxWidth="312.0" minWidth="0.0" prefWidth="55.0" />
-                        <ColumnConstraints hgrow="ALWAYS" maxWidth="344.0" minWidth="35.0" prefWidth="55.0" />
-                        <ColumnConstraints hgrow="ALWAYS" maxWidth="399.0" minWidth="51.0" prefWidth="55.0" />
-                    </columnConstraints>
-                    <padding>
-                        <Insets bottom="5.0" left="5.0" right="5.0" top="5.0" />
-                    </padding>
-                </GridPane>
+                <content>
+                    <GridPane fx:id="gridCalendario" style="-fx-background-color: white;">
+                        <columnConstraints>
+                            <!-- Columna Hora -->
+                            <ColumnConstraints hgrow="NEVER" minWidth="45.0" prefWidth="50.0" />
+                            <!-- Columnas Días (Idénticas a las de la cabecera) -->
+                            <ColumnConstraints hgrow="ALWAYS" minWidth="75.0" prefWidth="100.0" />
+                            <ColumnConstraints hgrow="ALWAYS" minWidth="75.0" prefWidth="100.0" />
+                            <ColumnConstraints hgrow="ALWAYS" minWidth="75.0" prefWidth="100.0" />
+                            <ColumnConstraints hgrow="ALWAYS" minWidth="75.0" prefWidth="100.0" />
+                            <ColumnConstraints hgrow="ALWAYS" minWidth="75.0" prefWidth="100.0" />
+                            <ColumnConstraints hgrow="ALWAYS" minWidth="75.0" prefWidth="100.0" />
+                            <ColumnConstraints hgrow="ALWAYS" minWidth="75.0" prefWidth="100.0" />
+                        </columnConstraints>
+                        <padding>
+                            <Insets bottom="5.0" left="5.0" right="5.0" top="5.0" />
+                        </padding>
+                    </GridPane>
+                </content>
             </ScrollPane>
         </VBox>
     </center>
@@ -70,60 +78,97 @@
     <bottom>
         <AnchorPane prefHeight="29.0" prefWidth="700.0" BorderPane.alignment="CENTER" />
     </bottom>
+
     <right>
-        <VBox prefHeight="399.0" prefWidth="172.0" spacing="12.0" style="-fx-border-color: #d3d3d3; -fx-border-width: 0 1 0 0; -fx-background-color: #f9f9f9;" BorderPane.alignment="CENTER">
+        <VBox prefHeight="399.0" prefWidth="180.0" spacing="10.0" style="-fx-border-color: #d3d3d3; -fx-border-width: 0 1 0 0; -fx-background-color: #f9f9f9;" BorderPane.alignment="CENTER">
             <padding>
-                <Insets bottom="15.0" left="15.0" right="15.0" top="15.0" />
+                <Insets bottom="10.0" left="10.0" right="10.0" top="10.0" />
             </padding>
-            <Label style="-fx-font-weight: bold; -fx-font-size: 14px;" text="Agregar Bloque" />
-            <VBox prefHeight="34.0" prefWidth="166.0">
-                <children>
-                    <Label text="Profesor: " />
-                    <!-- Se añadió fx:id a este ComboBox -->
-                    <ComboBox fx:id="cmbProfesor" prefHeight="25.0" prefWidth="179.0" promptText="Seleccionar..." />
-                    <!-- Etiqueta de estado para los mensajes BD -->
-                    <Label fx:id="lblEstadoBD" text="Selecciona un profesor" textFill="gray">
-                        <font><Font size="10.0" /></font>
-                        <padding><Insets top="3.0" /></padding>
-                    </Label>
-                </children>
-            </VBox>
-         <VBox prefHeight="200.0" prefWidth="100.0">
             <children>
-               <Label text="Curso:" />
-               <ComboBox fx:id="cmbCursoSugerido" prefWidth="150.0" />
+                <Label style="-fx-font-weight: bold; -fx-font-size: 14px;" text="Agregar Bloque" />
+
+                <VBox spacing="2.0">
+                    <children>
+                        <Label text="Profesor: " />
+                        <ComboBox fx:id="cmbProfesor" prefWidth="160.0" promptText="Seleccionar..." />
+                        <Label fx:id="lblEstadoBD" text="Selecciona un profesor" textFill="gray">
+                            <font>
+                                <Font size="10.0" />
+                            </font>
+                        </Label>
+                    </children>
+                </VBox>
+
+                <VBox spacing="2.0">
+                    <children>
+                        <Label text="Curso:" />
+                        <ComboBox fx:id="cmbCursoSugerido" prefWidth="160.0" />
+                    </children>
+                </VBox>
+
+                <VBox spacing="5.0">
+                    <children>
+                        <Label text="Días de la semana:" />
+                        <HBox spacing="5.0">
+                            <children>
+                                <CheckBox fx:id="chkLunes" text="Lu" />
+                                <CheckBox fx:id="chkMartes" text="Ma" />
+                                <CheckBox fx:id="chkMiercoles" text="Mi" />
+                                <CheckBox fx:id="chkJueves" text="Ju" />
+                            </children>
+                        </HBox>
+                        <HBox spacing="5.0">
+                            <children>
+                                <CheckBox fx:id="chkViernes" text="Vi" />
+                                <CheckBox fx:id="chkSabado" text="Sa" />
+                                <CheckBox fx:id="chkDomingo" text="Do" />
+                            </children>
+                        </HBox>
+                    </children>
+                </VBox>
+
+                <VBox spacing="3.0">
+                    <children>
+                        <Label text="Hora de Inicio:" />
+                        <HBox alignment="CENTER_LEFT" spacing="5.0">
+                            <children>
+                                <ComboBox fx:id="cmbHoraInicio" editable="true" prefWidth="65.0" promptText="HH" visibleRowCount="5" />
+                                <Label style="-fx-font-weight: bold;" text=":" />
+                                <ComboBox fx:id="cmbMinutoInicio" editable="true" prefWidth="65.0" promptText="MM" visibleRowCount="5" />
+                            </children>
+                        </HBox>
+                    </children>
+                </VBox>
+
+                <VBox spacing="3.0">
+                    <children>
+                        <Label text="Hora de Fin:" />
+                        <HBox alignment="CENTER_LEFT" spacing="5.0">
+                            <children>
+                                <ComboBox fx:id="cmbHoraFin" editable="true" prefWidth="65.0" promptText="HH" visibleRowCount="5" />
+                                <Label style="-fx-font-weight: bold;" text=":" />
+                                <ComboBox fx:id="cmbMinutoFin" editable="true" prefWidth="65.0" promptText="MM" visibleRowCount="5" />
+                            </children>
+                        </HBox>
+                    </children>
+                </VBox>
+
+                <Button fx:id="btnAgregar" maxWidth="1.7976931348623157E308" prefHeight="25.0" style="-fx-base: #e0e0e0; -fx-font-weight: bold;" text="Agregar" />
+
+                <Separator />
+
+                <VBox alignment="BOTTOM_CENTER" spacing="10.0" VBox.vgrow="ALWAYS">
+                    <children>
+                        <Button fx:id="btnCambiarCurso" disable="true" maxWidth="1.7976931348623157E308" style="-fx-base: #9C27B0; -fx-text-fill: white; -fx-font-weight: bold;" text="🔄 Cambiar Curso" />
+                        <Button fx:id="btnBorrar" disable="true" maxWidth="1.7976931348623157E308" style="-fx-base: #ffb3b3;" text="Borrar Visual" />
+                        <Button fx:id="btnGuardar" maxWidth="1.7976931348623157E308" style="-fx-base: #b3ffb3; -fx-font-weight: bold;" text="Guardar en BD" />
+                        <Button fx:id="btnEliminarTodo" maxWidth="1.7976931348623157E308" style="-fx-background-color: transparent; -fx-border-color: red; -fx-text-fill: red; -fx-border-radius: 3;" text="Borrar Todo BD" />
+                    </children>
+                </VBox>
             </children>
-         </VBox>
-            <VBox prefHeight="34.0" prefWidth="166.0" spacing="3.0">
-                <Label text="Día de la semana:" />
-                <ComboBox fx:id="cmbDia" maxWidth="-Infinity" prefHeight="25.0" prefWidth="171.0" promptText="Seleccionar día..." visibleRowCount="5" />
-            </VBox>
-            <VBox spacing="3.0">
-                <Label text="Hora de Inicio:" />
-                <HBox alignment="CENTER_LEFT" spacing="5.0">
-                    <ComboBox fx:id="cmbHoraInicio" editable="true" prefWidth="75.0" promptText="HH" visibleRowCount="5" />
-                    <Label style="-fx-font-weight: bold;" text=":" />
-                    <ComboBox fx:id="cmbMinutoInicio" editable="true" prefWidth="75.0" promptText="MM" visibleRowCount="5" />
-                </HBox>
-            </VBox>
-            <VBox spacing="3.0">
-                <Label text="Hora de Fin:" />
-                <HBox alignment="CENTER_LEFT" spacing="5.0">
-                    <ComboBox fx:id="cmbHoraFin" editable="true" prefWidth="75.0" promptText="HH" visibleRowCount="5" />
-                    <Label style="-fx-font-weight: bold;" text=":" />
-                    <ComboBox fx:id="cmbMinutoFin" editable="true" prefWidth="75.0" promptText="MM" visibleRowCount="5" />
-                </HBox>
-            </VBox>
-            <Button fx:id="btnAgregar" maxWidth="-Infinity" prefHeight="25.0" prefWidth="178.0" style="-fx-base: #e0e0e0; -fx-font-weight: bold;" text="Agregar al Calendario" />
-            <Separator prefWidth="200.0" />
-            <VBox alignment="BOTTOM_CENTER" spacing="10.0" VBox.vgrow="ALWAYS">
-                <Button fx:id="btnBorrar" disable="true" maxWidth="-Infinity" style="-fx-base: #ffb3b3;" text="Borrar Cuadro Visual" />
-                <Button fx:id="btnGuardar" maxWidth="-Infinity" style="-fx-base: #b3ffb3; -fx-font-weight: bold;" text="Guardar Cambios BD" />
-                <!-- Botón de eliminación en BD -->
-                <Button fx:id="btnEliminarTodo" maxWidth="-Infinity" style="-fx-background-color: transparent; -fx-border-color: red; -fx-text-fill: red; -fx-border-radius: 3;" text="Borrar Todo del Profe" />
-            </VBox>
         </VBox>
     </right>
+
     <top>
         <VBox prefHeight="61.0" prefWidth="700.0" spacing="10.0" style="-fx-background-color: white;" BorderPane.alignment="CENTER">
             <children>

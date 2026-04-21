@@ -3,64 +3,94 @@ package com.osgadev.organizadorhorariosfx.controller;
 import com.osgadev.organizadorhorariosfx.DAO.AvailabilityDAO;
 import com.osgadev.organizadorhorariosfx.DAO.GroupDAO;
 import com.osgadev.organizadorhorariosfx.DAO.ScheduleDAO;
+import com.osgadev.organizadorhorariosfx.model.Availability;
 import com.osgadev.organizadorhorariosfx.model.Group;
+import com.osgadev.organizadorhorariosfx.model.Teacher;
 import com.osgadev.organizadorhorariosfx.service.HorarioService;
+import com.osgadev.organizadorhorariosfx.service.MapaOcupacion;
 import com.osgadev.organizadorhorariosfx.DTO.SesionAsignada;
+import com.osgadev.organizadorhorariosfx.DTO.EstadoGrupo;
 
 import javafx.application.Platform;
+import javafx.collections.FXCollections;
+import javafx.collections.ObservableList;
 import javafx.concurrent.Task;
 import javafx.fxml.FXML;
 import javafx.scene.control.*;
 import javafx.scene.layout.*;
 import javafx.scene.paint.Color;
-import javafx.scene.effect.DropShadow;
-import javafx.scene.input.MouseEvent;
-import javafx.beans.binding.NumberBinding;
-import javafx.geometry.HPos;
-import javafx.geometry.VPos;
+import javafx.scene.shape.Rectangle;
+import javafx.scene.text.Text;
+import javafx.scene.input.ClipboardContent;
+import javafx.scene.input.Dragboard;
+import javafx.scene.input.TransferMode;
 
 import java.util.*;
 
 public class ScheduleController {
 
-    // Contenedores Principales
+    // =====================================================================
+    // CONTROLES FXML
+    // =====================================================================
+
     @FXML private GridPane gridCalendario;
     @FXML private VBox fase1Vacia;
     @FXML private ScrollPane scrollCalendario;
 
-    // Zona Superior (Contexto)
     @FXML private ComboBox<String> cmbAnio;
     @FXML private ComboBox<String> cmbEtapa;
     @FXML private Button btnCargar;
 
-    // Zona de Acciones BD y Motor
     @FXML private Button btnGenerar;
     @FXML private Button btnGuardarBD;
     @FXML private Button btnBorrarBD;
 
-    // Zona Filtros Visuales
     @FXML private ComboBox<String> cmbFiltroCurso;
     @FXML private ComboBox<String> cmbFiltroProfesor;
     @FXML private Button btnLimpiarFiltros;
 
-    // Zona Personalización de Tarjetas
     @FXML private CheckBox chkRangoAlumnos;
     @FXML private CheckBox chkProfesor;
     @FXML private CheckBox chkIdGrupo;
     @FXML private CheckBox chkNombreCurso;
 
-    // Variables de Estado
+    // --- ALMACÉN MANUAL ---
+    @FXML private ComboBox<Teacher> cmbProfesorManual;
+    @FXML private ListView<EstadoGrupo> listGruposPendientes;
+    @FXML private Label lblMateriaSeleccionada;
+    @FXML private Label lblHorasRestantes;
+    @FXML private HBox cajaBloquesGeneradores;
+
+    // =====================================================================
+    // VARIABLES DE ESTADO
+    // =====================================================================
+
     private List<SesionAsignada> horarioGenerado = new ArrayList<>();
     private GroupDAO groupDAO;
     private AvailabilityDAO availabilityDAO;
     private HorarioService horarioService;
     private ScheduleDAO scheduleDAO;
 
-    // Configuración visual
+    // Estado Manual
+    private ObservableList<EstadoGrupo> listaEstados;
+    private List<EstadoGrupo> todosLosEstados = new ArrayList<>();
+    private EstadoGrupo grupoSeleccionado;
+    private MapaOcupacion mapaOcupacion;
+    private Pane[][] matrizCeldasReceptoras;
+    private final double[] TAMANOS_BLOQUES = {1.0, 1.5, 2.0, 2.5};
+
+    // --- FANTASMA PARA DRAG & DROP ---
+    private VBox fantasmaDrag;
+    private boolean esPosicionValida = false;
+
+    // --- SUGERENCIAS DEL PROFESOR ---
+    private boolean mostrarSugerencias = true;
+    private Button btnToggleSugerencias;
+
     private final int HORA_INICIO = 7;
     private final int HORA_FIN = 22;
 
-    // Controles de Debug
+    // Debug IA
     private final Object pauseLock = new Object();
     private volatile boolean isPaused = false;
     private Button btnPausar;
@@ -73,17 +103,27 @@ public class ScheduleController {
         availabilityDAO = new AvailabilityDAO();
         horarioService = new HorarioService(availabilityDAO);
         scheduleDAO = new ScheduleDAO();
+        mapaOcupacion = new MapaOcupacion();
 
         fase1Vacia.setVisible(true);
         scrollCalendario.setVisible(false);
 
-        // Llenar Combos de Contexto
-        cmbAnio.getItems().addAll("2025", "2026", "2027");
+        // --- NUEVO: CÁLCULO DINÁMICO DE AÑO Y CARGA AUTOMÁTICA ---
+        int currentYear = java.time.LocalDate.now().getYear();
+        cmbAnio.getItems().addAll(String.valueOf(currentYear - 1), String.valueOf(currentYear), String.valueOf(currentYear + 1));
         cmbEtapa.getItems().addAll("1", "2");
-        cmbAnio.getSelectionModel().select("2026");
+
+        cmbAnio.getSelectionModel().select(String.valueOf(currentYear));
         cmbEtapa.getSelectionModel().select("1");
 
-        // Inicialización de Filtros
+        // Eventos para auto-cargar si el usuario cambia el año o etapa
+        cmbAnio.getSelectionModel().selectedItemProperty().addListener((obs, oldVal, newVal) -> {
+            if (newVal != null && cmbEtapa.getValue() != null) cargarHorario();
+        });
+        cmbEtapa.getSelectionModel().selectedItemProperty().addListener((obs, oldVal, newVal) -> {
+            if (newVal != null && cmbAnio.getValue() != null) cargarHorario();
+        });
+
         cmbFiltroCurso.setDisable(true);
         cmbFiltroProfesor.setDisable(true);
         btnLimpiarFiltros.setDisable(true);
@@ -92,27 +132,52 @@ public class ScheduleController {
         cmbFiltroProfesor.setOnAction(e -> aplicarFiltros());
         btnLimpiarFiltros.setOnAction(e -> limpiarFiltros());
 
-        // Listeners para los CheckBox
         chkRangoAlumnos.setOnAction(e -> aplicarFiltros());
         chkProfesor.setOnAction(e -> aplicarFiltros());
         chkIdGrupo.setOnAction(e -> aplicarFiltros());
         chkNombreCurso.setOnAction(e -> aplicarFiltros());
 
-        // Preparar Label de IA para la barra lateral
+        listaEstados = FXCollections.observableArrayList();
+        if (listGruposPendientes != null) {
+            listGruposPendientes.setItems(listaEstados);
+
+            // PERSONALIZACIÓN VISUAL DE LA LISTA DE MATERIAS
+            listGruposPendientes.setCellFactory(lv -> new ListCell<EstadoGrupo>() {
+                @Override
+                protected void updateItem(EstadoGrupo eg, boolean empty) {
+                    super.updateItem(eg, empty);
+                    if (empty || eg == null) {
+                        setText(null);
+                        setStyle("");
+                    } else {
+                        double rest = eg.getHorasRestantes();
+                        setText(eg.getGrupo().getCurso().getNombre() + " (" + rest + "h rest)");
+                        if (rest <= 0) {
+                            setStyle("-fx-text-fill: green; -fx-font-weight: bold;"); // Ya terminó
+                        } else {
+                            setStyle("-fx-text-fill: black;"); // Aún le falta
+                        }
+                    }
+                }
+            });
+
+            listGruposPendientes.getSelectionModel().selectedItemProperty().addListener((obs, oldSel, newSel) -> {
+                if (newSel != null) seleccionarGrupoManual(newSel);
+            });
+        }
+
         lblEstadoIA = new Label("Estado de la IA:\nEsperando...");
         lblEstadoIA.setStyle("-fx-font-size: 13px; -fx-font-weight: bold; -fx-text-fill: #1565C0;");
-        lblEstadoIA.setWrapText(true); // Permite que el texto largo baje a la siguiente línea
+        lblEstadoIA.setWrapText(true);
 
         Platform.runLater(() -> {
-            // Lo inyectamos al final de la barra lateral derecha
-            VBox panelDerecho = (VBox) btnGenerar.getParent();
-            Separator separadorFinal = new Separator();
-
-            // Agregamos el separador y el label al fondo de los controles
-            panelDerecho.getChildren().addAll(separadorFinal, lblEstadoIA);
-
-            // Llamamos a los botones de debug
-            inyectarControlesDeDebug();
+            if (btnGenerar.getParent() instanceof VBox) {
+                VBox panelDerecho = (VBox) btnGenerar.getParent();
+                panelDerecho.getChildren().addAll(new Separator(), lblEstadoIA);
+                inyectarControlesDeDebug();
+            }
+            // Disparar la carga inicial automática
+            cargarHorario();
         });
     }
 
@@ -127,6 +192,21 @@ public class ScheduleController {
         btnSiguientePaso.setPrefWidth(200.0);
         btnSiguientePaso.setStyle("-fx-base: #2196F3; -fx-text-fill: white; -fx-font-weight: bold;");
         btnSiguientePaso.setDisable(true);
+
+        btnToggleSugerencias = new Button("💡 Ocultar Sugerencias");
+        btnToggleSugerencias.setPrefWidth(200.0);
+        btnToggleSugerencias.setStyle("-fx-base: #9C27B0; -fx-text-fill: white; -fx-font-weight: bold;");
+        btnToggleSugerencias.setOnAction(e -> {
+            mostrarSugerencias = !mostrarSugerencias;
+            if (mostrarSugerencias) {
+                btnToggleSugerencias.setText("💡 Ocultar Sugerencias");
+                btnToggleSugerencias.setStyle("-fx-base: #9C27B0; -fx-text-fill: white; -fx-font-weight: bold;");
+            } else {
+                btnToggleSugerencias.setText("💡 Mostrar Sugerencias");
+                btnToggleSugerencias.setStyle("-fx-base: #757575; -fx-text-fill: white; -fx-font-weight: bold;");
+            }
+            aplicarFiltros();
+        });
 
         btnPausar.setOnAction(e -> {
             isPaused = !isPaused;
@@ -149,10 +229,11 @@ public class ScheduleController {
         int index = panelDerecho.getChildren().indexOf(btnGenerar);
         panelDerecho.getChildren().add(index + 1, btnPausar);
         panelDerecho.getChildren().add(index + 2, btnSiguientePaso);
+        panelDerecho.getChildren().add(index + 3, btnToggleSugerencias);
     }
 
     // =====================================================================
-    // FLUJO DE BASE DE DATOS Y MOTOR
+    // FLUJO DE BASE DE DATOS Y MOTOR IA
     // =====================================================================
 
     @FXML
@@ -165,15 +246,26 @@ public class ScheduleController {
             return;
         }
 
-        // Consultamos a la base de datos si existe un horario
-        boolean existeEnBD = scheduleDAO.existsSchedule(anio, etapa);
+        List<Group> gruposDelSemestre = groupDAO.obtenerPorAnioYEtapa(anio, etapa);
+        cargarGruposEnAlmacen(gruposDelSemestre); // Reinicia estados a max horas
 
-        if (existeEnBD) {
-            // Descargamos las cartas de la base de datos
+        if (scheduleDAO.existsSchedule(anio, etapa)) {
             this.horarioGenerado = scheduleDAO.loadSchedule(anio, etapa);
+            mapaOcupacion.limpiar();
+
+            for (SesionAsignada s : horarioGenerado) {
+                mapaOcupacion.registrarClase(s.getSlotInicioSemanal(), s.getSpanFilas(), s.getGrupo());
+                // SINCRONIZAR HORAS CON EL ALMACÉN MANUAL
+                for (EstadoGrupo eg : todosLosEstados) {
+                    if (eg.getGrupo().getIdGrupo().equals(s.getGrupo().getIdGrupo())) {
+                        eg.agregarHoras(s.getSpanFilas() / 2.0); // Deduce horas
+                        break;
+                    }
+                }
+            }
 
             btnGenerar.setDisable(true);
-            btnGuardarBD.setDisable(true);
+            btnGuardarBD.setDisable(true); // Ya no se necesita porque hay autoguardado, pero lo mantenemos visual
             btnBorrarBD.setDisable(false);
 
             popularFiltros();
@@ -182,17 +274,19 @@ public class ScheduleController {
             aplicarFiltros();
             actualizarMensajeIA("Horario cargado desde la Base de Datos.");
         } else {
-            // El tablero está en blanco
             this.horarioGenerado.clear();
-            gridCalendario.getChildren().clear();
-            fase1Vacia.setVisible(true);
-            scrollCalendario.setVisible(false);
+            mapaOcupacion.limpiar();
+
+            fase1Vacia.setVisible(false);
+            scrollCalendario.setVisible(true);
+            aplicarFiltros();
 
             btnGenerar.setDisable(false);
             btnGuardarBD.setDisable(true);
             btnBorrarBD.setDisable(true);
-            actualizarMensajeIA("Listo para generar un nuevo horario.");
+            actualizarMensajeIA("Listo para armar manual o generar IA.");
         }
+        actualizarFabricaDeBloques(); // Fuerza refresco de combos
     }
 
     @FXML
@@ -200,19 +294,15 @@ public class ScheduleController {
         String anio = cmbAnio.getValue();
         String etapa = cmbEtapa.getValue();
 
-        btnGenerar.setText("Visualizando IA...");
+        btnGenerar.setText("Calculando IA...");
         btnGenerar.setDisable(true);
         btnBorrarBD.setDisable(true);
         if (btnPausar != null) btnPausar.setDisable(false);
 
-        cmbFiltroCurso.setDisable(true);
-        cmbFiltroProfesor.setDisable(true);
-        btnLimpiarFiltros.setDisable(true);
-
         fase1Vacia.setVisible(false);
         scrollCalendario.setVisible(true);
 
-        Task<List<SesionAsignada>> task = new Task<List<SesionAsignada>>() {
+        Task<List<SesionAsignada>> task = new Task<>() {
             @Override
             protected List<SesionAsignada> call() {
                 List<Group> grupos = groupDAO.obtenerPorAnioYEtapa(anio, etapa);
@@ -227,7 +317,7 @@ public class ScheduleController {
                         if (isPaused) {
                             try { pauseLock.wait(); } catch (InterruptedException e) {}
                         } else {
-                            try { Thread.sleep(400); } catch (InterruptedException e) {}
+                            try { Thread.sleep(300); } catch (InterruptedException e) {}
                         }
                     }
                 });
@@ -240,15 +330,33 @@ public class ScheduleController {
 
             if (resultado != null) {
                 this.horarioGenerado = resultado;
+                mapaOcupacion.limpiar();
+
+                // Refrescar almacén para sincronizar con la IA
+                List<Group> grupos = groupDAO.obtenerPorAnioYEtapa(anio, etapa);
+                cargarGruposEnAlmacen(grupos);
+
+                for (SesionAsignada s : resultado) {
+                    mapaOcupacion.registrarClase(s.getSlotInicioSemanal(), s.getSpanFilas(), s.getGrupo());
+                    for (EstadoGrupo eg : todosLosEstados) {
+                        if (eg.getGrupo().getIdGrupo().equals(s.getGrupo().getIdGrupo())) {
+                            eg.agregarHoras(s.getSpanFilas() / 2.0);
+                            break;
+                        }
+                    }
+                }
+
                 popularFiltros();
                 aplicarFiltros();
+                actualizarFabricaDeBloques();
+                autoGuardar(); // Auto-guardamos el resultado de la IA
 
                 btnGenerar.setDisable(true);
                 btnGuardarBD.setDisable(false);
-                mostrarAlerta("¡Éxito!", "La IA resolvió el horario.");
+                mostrarAlerta("¡Éxito!", "La IA completó el horario.");
             } else {
                 btnGenerar.setDisable(false);
-                mostrarAlerta("Error", "Tablero saturado.");
+                mostrarAlerta("Error", "Tablero saturado. Intenta colocar materias críticas a mano primero.");
             }
         });
 
@@ -263,38 +371,37 @@ public class ScheduleController {
 
     @FXML
     public void guardarEnBD() {
-        String anio = cmbAnio.getValue();
-        String etapa = cmbEtapa.getValue();
-
-        boolean exito = scheduleDAO.saveSchedule(this.horarioGenerado, anio, etapa);
-
+        boolean exito = scheduleDAO.saveSchedule(this.horarioGenerado, cmbAnio.getValue(), cmbEtapa.getValue());
         if (exito) {
-            mostrarAlerta("Guardado", "El horario se ha guardado exitosamente en la base de datos.");
+            mostrarAlerta("Guardado", "El horario se ha guardado exitosamente.");
             btnGuardarBD.setDisable(true);
             btnBorrarBD.setDisable(false);
-        } else {
-            mostrarAlerta("Error", "No se pudo guardar el horario en la base de datos.");
         }
     }
 
     @FXML
     public void borrarDeBD() {
+        if (scheduleDAO.deleteSchedule(cmbAnio.getValue(), cmbEtapa.getValue())) {
+            this.horarioGenerado.clear();
+            cargarHorario();
+        }
+    }
+
+    // --- NUEVO: AUTOGUARDADO SILENCIOSO ---
+    private void autoGuardar() {
         String anio = cmbAnio.getValue();
         String etapa = cmbEtapa.getValue();
-
-        boolean exito = scheduleDAO.deleteSchedule(anio, etapa);
-
-        if (exito) {
-            mostrarAlerta("Borrado", "El horario fue eliminado de la base de datos. Puede volver a generarlo.");
-            this.horarioGenerado.clear();
-            cargarHorario(); // Reinicia la vista y los botones automáticamente
-        } else {
-            mostrarAlerta("Error", "Hubo un problema al intentar borrar el horario.");
+        if (anio != null && etapa != null) {
+            if (!horarioGenerado.isEmpty()) {
+                scheduleDAO.saveSchedule(this.horarioGenerado, anio, etapa);
+            } else {
+                scheduleDAO.deleteSchedule(anio, etapa); // Si se eliminan todas las clases, borra el registro
+            }
         }
     }
 
     private void restaurarBotonesIA() {
-        btnGenerar.setText("Generar Horarios (IA)");
+        btnGenerar.setText("Autocompletar (IA)");
         btnPausar.setDisable(true);
         btnSiguientePaso.setDisable(true);
         isPaused = false;
@@ -303,8 +410,189 @@ public class ScheduleController {
     }
 
     // =====================================================================
-    // MÉTODOS VISUALES Y GRID
+    // LÓGICA MANUAL (ALMACÉN Y PROFESORES)
     // =====================================================================
+
+    // Calcula si un profesor ya no tiene horas por asignar en toda su carga
+    private double calcularHorasPendientes(Teacher t) {
+        double total = 0;
+        for (EstadoGrupo eg : todosLosEstados) {
+            if (eg.getGrupo().getProfesor().getId() == t.getId()) {
+                total += eg.getHorasRestantes();
+            }
+        }
+        return total;
+    }
+
+    private String formatearProfesor(Teacher t) {
+        if (t == null) return "";
+        double pendientes = calcularHorasPendientes(t);
+        String nombre = t.getNombre() + " " + t.getApellidoPaterno();
+        if (pendientes <= 0) return "✅ " + nombre + " (0.0h)";
+        return "⏳ " + nombre + " (" + pendientes + "h)";
+    }
+
+    private ListCell<Teacher> crearCeldaProfesor() {
+        return new ListCell<Teacher>() {
+            @Override
+            protected void updateItem(Teacher t, boolean empty) {
+                super.updateItem(t, empty);
+                if (empty || t == null) {
+                    setText(null);
+                    setStyle("");
+                } else {
+                    setText(formatearProfesor(t));
+                    if (calcularHorasPendientes(t) <= 0) {
+                        setStyle("-fx-text-fill: green; -fx-font-weight: bold;");
+                    } else {
+                        setStyle("-fx-text-fill: black;");
+                    }
+                }
+            }
+        };
+    }
+
+    private void cargarGruposEnAlmacen(List<Group> grupos) {
+        todosLosEstados.clear();
+        listaEstados.clear(); // NUEVO: Limpia el panel izquierdo de materias pendientes
+        grupoSeleccionado = null; // NUEVO: Limpia la materia seleccionada en memoria
+
+        Map<Integer, Teacher> mapaProfesoresUnicos = new HashMap<>();
+
+        for (Group g : grupos) {
+            todosLosEstados.add(new EstadoGrupo(g));
+            if (g.getProfesor() != null) {
+                mapaProfesoresUnicos.put(g.getProfesor().getId(), g.getProfesor());
+            }
+        }
+
+        List<Teacher> listaProfes = new ArrayList<>(mapaProfesoresUnicos.values());
+        listaProfes.sort(Comparator.comparing(Teacher::getNombre));
+
+        if (cmbProfesorManual != null) {
+            cmbProfesorManual.getItems().setAll(listaProfes);
+            cmbProfesorManual.setValue(null); // NUEVO: Deselecciona el profesor anterior
+
+            // Asignar el nuevo visualizador inteligente
+            cmbProfesorManual.setCellFactory(lv -> crearCeldaProfesor());
+            cmbProfesorManual.setButtonCell(crearCeldaProfesor());
+
+            cmbProfesorManual.setOnAction(e -> {
+                Teacher profeElegido = cmbProfesorManual.getValue();
+                if (profeElegido != null) {
+                    List<EstadoGrupo> filtrados = new ArrayList<>();
+                    for (EstadoGrupo eg : todosLosEstados) {
+                        if (eg.getGrupo().getProfesor().getId() == profeElegido.getId()) {
+                            filtrados.add(eg);
+                        }
+                    }
+                    listaEstados.setAll(filtrados);
+
+                    fase1Vacia.setVisible(false);
+                    scrollCalendario.setVisible(true);
+
+                    aplicarFiltros();
+                    grupoSeleccionado = null;
+                    actualizarFabricaDeBloques();
+                }
+            });
+        }
+        if (cajaBloquesGeneradores != null) cajaBloquesGeneradores.getChildren().clear();
+        if (lblMateriaSeleccionada != null) lblMateriaSeleccionada.setText("Selecciona una materia");
+        if (lblHorasRestantes != null) lblHorasRestantes.setText("---");
+    }
+
+    private void seleccionarGrupoManual(EstadoGrupo estado) {
+        this.grupoSeleccionado = estado;
+        if (lblMateriaSeleccionada != null) {
+            lblMateriaSeleccionada.setText(
+                    estado.getGrupo().getCurso().getNombre() + " | " +
+                            "Alumnos: " + estado.getGrupo().getRangoInicial() + "-" + estado.getGrupo().getRangoFinal() + "\n" +
+                            "Prof: " + estado.getGrupo().getProfesor().getNombre()
+            );
+        }
+        actualizarFabricaDeBloques();
+    }
+
+    private void actualizarFabricaDeBloques() {
+        // Forzar actualización visual del ComboBox y Lista al modificar bloques
+        if (cmbProfesorManual != null) cmbProfesorManual.setButtonCell(crearCeldaProfesor());
+        if (listGruposPendientes != null) listGruposPendientes.refresh();
+
+        if (cajaBloquesGeneradores == null) return;
+        cajaBloquesGeneradores.getChildren().clear();
+        if (grupoSeleccionado == null) return;
+
+        double restantes = grupoSeleccionado.getHorasRestantes();
+        if (lblHorasRestantes != null) lblHorasRestantes.setText(restantes + " hrs restantes");
+
+        for (double tamano : TAMANOS_BLOQUES) {
+            StackPane bloqueVisual = crearBloqueVisual(tamano);
+
+            if (tamano > restantes) {
+                bloqueVisual.setDisable(true);
+                bloqueVisual.setOpacity(0.4);
+            } else {
+                bloqueVisual.setOnDragDetected(event -> {
+                    Dragboard db = bloqueVisual.startDragAndDrop(TransferMode.MOVE);
+                    ClipboardContent content = new ClipboardContent();
+                    content.putString(String.valueOf(tamano));
+                    db.setContent(content);
+
+                    // ACTIVAR MODO FANTASMA
+                    aplicarModoFantasmaATarjetas(true);
+
+                    event.consume();
+                });
+
+                bloqueVisual.setOnDragDone(event -> {
+                    // DESACTIVAR MODO FANTASMA
+                    aplicarModoFantasmaATarjetas(false);
+                    event.consume();
+                });
+            }
+            cajaBloquesGeneradores.getChildren().add(bloqueVisual);
+        }
+    }
+
+    private StackPane crearBloqueVisual(double horas) {
+        StackPane panel = new StackPane();
+        Rectangle fondo = new Rectangle(45, 30);
+        fondo.setArcWidth(8); fondo.setArcHeight(8);
+        fondo.setFill(Color.web("#4A90E2"));
+        fondo.setStroke(Color.web("#003366"));
+
+        Text texto = new Text(horas + "h");
+        texto.setFill(Color.WHITE);
+        texto.setStyle("-fx-font-weight: bold; -fx-font-size: 11px;");
+
+        panel.getChildren().addAll(fondo, texto);
+        panel.setOnMouseEntered(e -> fondo.setFill(Color.web("#5DADE2")));
+        panel.setOnMouseExited(e -> fondo.setFill(Color.web("#4A90E2")));
+        panel.setStyle("-fx-cursor: hand;");
+
+        return panel;
+    }
+
+    // =====================================================================
+    // MÉTODOS VISUALES Y GRID (EFECTO CRISTAL Y FANTASMA DRAG&DROP)
+    // =====================================================================
+
+    // --- MÉTODO MODO FANTASMA ---
+    private void aplicarModoFantasmaATarjetas(boolean activar) {
+        gridCalendario.getChildren().forEach(nodo -> {
+            // Ignorar fantasmaDrag, contenedor vacío, y sugerencias generadas
+            if (nodo instanceof VBox && nodo != fantasmaDrag && nodo != fase1Vacia && !nodo.getProperties().containsKey("esSugerencia")) {
+                if (activar) {
+                    nodo.setMouseTransparent(true);
+                    nodo.setOpacity(0.15); // Transparencia alta para ver a través de las tarjetas
+                } else {
+                    nodo.setMouseTransparent(false);
+                    nodo.setOpacity(1.0);
+                }
+            }
+        });
+    }
 
     private void construirTablaBase() {
         gridCalendario.getChildren().clear();
@@ -318,45 +606,39 @@ public class ScheduleController {
         for (int i = 0; i < 7; i++) {
             ColumnConstraints colDia = new ColumnConstraints();
             colDia.setHgrow(Priority.ALWAYS);
-            colDia.setMinWidth(180); // Mínimo de 180px para forzar el scroll horizontal si se empalman
+            colDia.setMinWidth(180);
             colDia.setFillWidth(true);
             gridCalendario.getColumnConstraints().add(colDia);
         }
 
         RowConstraints rowCabecera = new RowConstraints();
-        rowCabecera.setMinHeight(30); rowCabecera.setPrefHeight(30); rowCabecera.setMaxHeight(30);
+        rowCabecera.setMinHeight(30); rowCabecera.setPrefHeight(30);
         gridCalendario.getRowConstraints().add(rowCabecera);
 
         Label lblTituloHora = new Label("Hora");
         lblTituloHora.setStyle("-fx-font-weight: bold; -fx-padding: 5;");
-        lblTituloHora.setMaxWidth(Double.MAX_VALUE);
-        lblTituloHora.setAlignment(javafx.geometry.Pos.CENTER);
         gridCalendario.add(lblTituloHora, 0, 0);
 
         String[] nombresDias = {"Lunes", "Martes", "Miércoles", "Jueves", "Viernes", "Sábado", "Domingo"};
-
         for (int i = 0; i < nombresDias.length; i++) {
             HBox headerBox = new HBox(5);
             headerBox.setAlignment(javafx.geometry.Pos.CENTER);
-            headerBox.setMaxWidth(Double.MAX_VALUE);
-
             Label lblDia = new Label(nombresDias[i]);
             lblDia.setStyle("-fx-font-weight: bold;");
 
-            // Botón de expansión (La lógica se inyecta en actualizarBotonesDeExpansion)
             Button btnExpandir = new Button("⛶");
             btnExpandir.setStyle("-fx-background-color: transparent; -fx-cursor: hand; -fx-font-size: 10px; -fx-padding: 2;");
-            btnExpandir.setDisable(true); // Inicia deshabilitado hasta calcular empalmes
-            Tooltip.install(btnExpandir, new Tooltip("Expandir/Contraer Columna"));
-
+            btnExpandir.setDisable(true);
             headerBox.getChildren().addAll(lblDia, btnExpandir);
             gridCalendario.add(headerBox, i + 1, 0);
         }
 
-        int numFilasTiempo = (HORA_FIN - HORA_INICIO) * 4;
+        int numFilasTiempo = (HORA_FIN - HORA_INICIO) * 2;
+        matrizCeldasReceptoras = new Pane[8][numFilasTiempo + 1];
+
         for (int i = 0; i < numFilasTiempo; i++) {
             RowConstraints rc = new RowConstraints();
-            rc.setMinHeight(20); rc.setPrefHeight(20); rc.setMaxHeight(20);
+            rc.setMinHeight(40); rc.setPrefHeight(40);
             gridCalendario.getRowConstraints().add(rc);
         }
 
@@ -377,8 +659,320 @@ public class ScheduleController {
             Label lblHora = new Label(hora + ":00");
             lblHora.setStyle("-fx-font-size: 11px; -fx-padding: 2;");
             gridCalendario.add(lblHora, 0, filaActual);
+            filaActual += 2;
+        }
 
-            filaActual += 4;
+        // ====================================================================
+        // ZONAS DE ATERRIZAJE (DRAG & DROP Y FANTASMA CON TEXTO)
+        // ====================================================================
+        for (int col = 1; col <= 7; col++) {
+            for (int fila = 1; fila <= numFilasTiempo; fila++) {
+                Pane celda = new Pane();
+                celda.setStyle("-fx-background-color: transparent;");
+
+                final int colActual = col;
+                final int filaActualDrop = fila;
+
+                celda.setOnDragOver(event -> {
+                    if (event.getDragboard().hasString() && grupoSeleccionado != null) {
+                        double horas = Double.parseDouble(event.getDragboard().getString());
+                        int spanFilasVisuales = (int)(horas * 2);
+                        int duracionBloques = spanFilasVisuales;
+
+                        int hInicioReal = HORA_INICIO + ((filaActualDrop - 1) / 2);
+                        int mInicioReal = ((filaActualDrop - 1) % 2) * 30;
+                        int slotDelDia = (hInicioReal * 2) + ((filaActualDrop - 1) % 2);
+                        int slotSemanal = ((colActual - 1) * 48) + slotDelDia;
+
+                        boolean ocupado = false;
+                        for (int i = 0; i < duracionBloques; i++) {
+                            if (mapaOcupacion.profesorOcupadoEnSlot(grupoSeleccionado.getGrupo().getProfesor().getId(), slotSemanal + i) ||
+                                    mapaOcupacion.rangoOcupadoEnSlot(grupoSeleccionado.getGrupo().getRangoInicial(), grupoSeleccionado.getGrupo().getRangoFinal(), slotSemanal + i)) {
+                                ocupado = true; break;
+                            }
+                        }
+
+                        boolean fueraDeHorario = false;
+                        for (int i = 0; i < spanFilasVisuales; i++) {
+                            int filaRevisada = filaActualDrop + i;
+                            if (filaRevisada >= matrizCeldasReceptoras[colActual].length ||
+                                    matrizCeldasReceptoras[colActual][filaRevisada] == null ||
+                                    !matrizCeldasReceptoras[colActual][filaRevisada].getProperties().containsKey("esValido")) {
+                                fueraDeHorario = true; break;
+                            }
+                        }
+
+                        // --- NUEVO: VALIDACIÓN DE 1 SESIÓN POR DÍA PARA EL MISMO GRUPO ---
+                        boolean mismoGrupoMismoDia = false;
+                        for (SesionAsignada s : horarioGenerado) {
+                            if (s.getGrupo().getIdGrupo().equals(grupoSeleccionado.getGrupo().getIdGrupo()) && s.getColumnaDia() == colActual) {
+                                mismoGrupoMismoDia = true;
+                                break;
+                            }
+                        }
+
+                        if (fantasmaDrag != null) {
+                            fantasmaDrag.setVisible(true);
+                            fantasmaDrag.getChildren().clear();
+
+                            ColumnConstraints colObj = gridCalendario.getColumnConstraints().get(colActual);
+                            fantasmaDrag.setMinWidth(colObj.getMinWidth() - 4);
+                            fantasmaDrag.setMinHeight(spanFilasVisuales * 40);
+
+                            int fInicio = filaActualDrop - 1;
+                            int fFin = fInicio + spanFilasVisuales;
+                            String textoHora = String.format("%02d:%02d - %02d:%02d",
+                                    HORA_INICIO + (fInicio / 2), (fInicio % 2) * 30,
+                                    HORA_INICIO + (fFin / 2), (fFin % 2) * 30);
+
+                            Label lblHoraVista = new Label(textoHora);
+                            lblHoraVista.setStyle("-fx-font-weight: bold; -fx-font-size: 10px; -fx-text-fill: #222222;");
+                            fantasmaDrag.getChildren().add(lblHoraVista);
+
+                            Group g = grupoSeleccionado.getGrupo();
+                            if (chkNombreCurso != null && chkNombreCurso.isSelected()) {
+                                Label lbl1 = new Label(g.getCurso().getNombre());
+                                lbl1.setStyle("-fx-font-weight: bold; -fx-font-size: 11px;");
+                                fantasmaDrag.getChildren().add(lbl1);
+                            }
+                            if (chkProfesor != null && chkProfesor.isSelected()) {
+                                Label lbl2 = new Label(g.getProfesor().getNombre());
+                                lbl2.setStyle("-fx-font-size: 10px;");
+                                fantasmaDrag.getChildren().add(lbl2);
+                            }
+                            if (chkRangoAlumnos != null && chkRangoAlumnos.isSelected()) {
+                                Label lbl3 = new Label("Alumnos: " + g.getRangoInicial() + "-" + g.getRangoFinal());
+                                lbl3.setStyle("-fx-font-size: 10px; -fx-font-style: italic;");
+                                fantasmaDrag.getChildren().add(lbl3);
+                            }
+
+                            GridPane.setColumnIndex(fantasmaDrag, colActual);
+                            GridPane.setRowIndex(fantasmaDrag, filaActualDrop);
+                            GridPane.setRowSpan(fantasmaDrag, spanFilasVisuales);
+                            fantasmaDrag.toFront();
+
+                            // SE AÑADIÓ mismoGrupoMismoDia A LA CONDICIÓN DE RECHAZO
+                            if (fueraDeHorario || ocupado || mismoGrupoMismoDia) {
+                                fantasmaDrag.setStyle("-fx-background-color: rgba(255, 0, 0, 0.7); -fx-border-color: darkred; -fx-border-width: 2; -fx-padding: 3; -fx-border-radius: 3;");
+                                esPosicionValida = false;
+                                if (fueraDeHorario) lblHorasRestantes.setText("⚠️ Fuera de horario");
+                                else if (ocupado) lblHorasRestantes.setText("⚠️ Choque de materias");
+                                else lblHorasRestantes.setText("⚠️ 1 bloque por día máximo"); // AVISO PARA EL USUARIO
+                            } else {
+                                event.acceptTransferModes(TransferMode.MOVE);
+                                fantasmaDrag.setStyle("-fx-background-color: rgba(0, 255, 0, 0.7); -fx-border-color: darkgreen; -fx-border-width: 2; -fx-padding: 3; -fx-border-radius: 3;");
+                                esPosicionValida = true;
+                                lblHorasRestantes.setText("Suelte para asignar...");
+                            }
+                        }
+                    }
+                    event.consume();
+                });
+
+                celda.setOnDragExited(event -> {
+                    if (fantasmaDrag != null) fantasmaDrag.setVisible(false);
+                    if (grupoSeleccionado != null) {
+                        lblHorasRestantes.setText(grupoSeleccionado.getHorasRestantes() + " hrs restantes");
+                    }
+                    event.consume();
+                });
+
+                celda.setOnDragDropped(event -> {
+                    if (event.getDragboard().hasString() && grupoSeleccionado != null && esPosicionValida) {
+                        double horas = Double.parseDouble(event.getDragboard().getString());
+                        int spanFilasVisuales = (int)(horas * 2);
+                        int duracionBloques = spanFilasVisuales;
+
+                        int hInicioReal = HORA_INICIO + ((filaActualDrop - 1) / 2);
+                        int mInicioReal = ((filaActualDrop - 1) % 2) * 30;
+                        int slotDelDia = (hInicioReal * 2) + ((filaActualDrop - 1) % 2);
+                        int slotSemanal = ((colActual - 1) * 48) + slotDelDia;
+
+                        grupoSeleccionado.agregarHoras(horas);
+                        SesionAsignada nuevaSesion = new SesionAsignada(grupoSeleccionado.getGrupo(), colActual, filaActualDrop - 1, spanFilasVisuales);
+                        nuevaSesion.setSlotInicioSemanal(slotSemanal);
+                        horarioGenerado.add(nuevaSesion);
+
+                        mapaOcupacion.registrarClase(slotSemanal, duracionBloques, grupoSeleccionado.getGrupo());
+
+                        if (fantasmaDrag != null) fantasmaDrag.setVisible(false);
+
+                        Platform.runLater(() -> {
+                            btnGuardarBD.setDisable(false);
+                            actualizarFabricaDeBloques();
+                            if (listGruposPendientes != null) listGruposPendientes.refresh();
+                            popularFiltros();
+                            aplicarFiltros();
+                            autoGuardar();
+                        });
+                    }
+                    event.setDropCompleted(true);
+                    event.consume();
+                });
+
+                gridCalendario.add(celda, col, fila);
+                matrizCeldasReceptoras[col][fila] = celda;
+            }
+        }
+
+        if (fantasmaDrag == null) {
+            fantasmaDrag = new VBox();
+            fantasmaDrag.setMouseTransparent(true);
+        }
+        fantasmaDrag.setVisible(false);
+        if (!gridCalendario.getChildren().contains(fantasmaDrag)) {
+            gridCalendario.add(fantasmaDrag, 1, 1);
+        }
+    }
+
+    private void iluminarDisponibilidadProfesor(Teacher profe) {
+        if (matrizCeldasReceptoras == null) return;
+
+        for (int col = 1; col <= 7; col++) {
+            for (int fila = 1; fila < matrizCeldasReceptoras[col].length; fila++) {
+                Pane c = matrizCeldasReceptoras[col][fila];
+                if (c != null) {
+                    c.setStyle("-fx-background-color: transparent;");
+                    c.getProperties().remove("estiloOriginal");
+                    c.getProperties().remove("esValido");
+
+                    // Detener animaciones previas para no gastar recursos
+                    if (c.getProperties().containsKey("animacionSug")) {
+                        ((javafx.animation.FadeTransition) c.getProperties().get("animacionSug")).stop();
+                        c.getProperties().remove("animacionSug");
+                        c.setOpacity(1.0);
+                    }
+                }
+            }
+        }
+
+        List<Availability> disponibilidad = availabilityDAO.getByTeacher(profe);
+        for (Availability a : disponibilidad) {
+            for (int slot = a.getStartSlot(); slot < a.getEndSlot(); slot++) {
+                int indexDia = slot / 48;
+                int slotDelDia = slot % 48;
+                int hInicio = slotDelDia / 2;
+                int mInicio = (slotDelDia % 2) * 30;
+
+                int col = indexDia + 1;
+                int filaVisual = ((hInicio - HORA_INICIO) * 2) + (mInicio / 30) + 1;
+
+                if (col >= 1 && col <= 7 && filaVisual >= 1 && filaVisual < matrizCeldasReceptoras[col].length) {
+                    Pane celda1 = matrizCeldasReceptoras[col][filaVisual];
+
+                    String estiloCristal = "-fx-background-color: rgba(76, 175, 80, 0.25); -fx-border-color: rgba(255, 255, 255, 0.5);";
+                    if (celda1 != null) {
+                        celda1.setStyle(estiloCristal);
+                        celda1.getProperties().put("estiloOriginal", estiloCristal);
+                        celda1.getProperties().put("esValido", true);
+                    }
+                }
+            }
+        }
+    }
+
+    // =====================================================================
+    // PINTAR SUGERENCIAS INTELIGENTES DEL PROFESOR
+    // =====================================================================
+    private void pintarSugerencias(Teacher profe) {
+        if (!mostrarSugerencias || profe == null || matrizCeldasReceptoras == null) return;
+
+        List<Availability> disponibilidad = availabilityDAO.getByTeacher(profe);
+
+        for (Availability a : disponibilidad) {
+            boolean esSugerenciaFija = a.getCursoSugerido() != null;
+            int startSlot = a.getStartSlot();
+            int endSlot = a.getEndSlot();
+            int duracionSlots = endSlot - startSlot;
+
+            int indexDia = startSlot / 48;
+            int col = indexDia + 1;
+
+            int slotDelDia = startSlot % 48;
+            int hInicio = slotDelDia / 2;
+            int mInicio = (slotDelDia % 2) * 30;
+            int filaVisual = ((hInicio - HORA_INICIO) * 2) + (mInicio / 30) + 1;
+
+            if (col < 1 || col > 7 || filaVisual < 1 || filaVisual >= matrizCeldasReceptoras[col].length) continue;
+
+            if (esSugerenciaFija) {
+                // TIPO 1: Sugerencia Fija (Tarjeta Rojo Carmesí Punteada)
+                VBox sugerencia = new VBox();
+                sugerencia.setMouseTransparent(true);
+                sugerencia.getProperties().put("esSugerencia", true); // Proteger de la transparencia de arrastre
+
+                sugerencia.setStyle(
+                        "-fx-background-color: rgba(211, 47, 47, 0.15);" +
+                                "-fx-border-color: rgba(211, 47, 47, 0.8);" +
+                                "-fx-border-width: 2;" +
+                                "-fx-border-style: dashed;" +
+                                "-fx-border-radius: 4;" +
+                                "-fx-padding: 3;"
+                );
+                sugerencia.setMinHeight(duracionSlots * 40);
+                sugerencia.setMaxHeight(duracionSlots * 40);
+
+                Label lblIcono = new Label("💡 " + a.getCursoSugerido().getNombre());
+                lblIcono.setStyle("-fx-font-size: 10px; -fx-text-fill: rgba(183, 28, 28, 1.0); -fx-font-weight: bold;");
+                lblIcono.setWrapText(true);
+
+                int hFin = (slotDelDia + duracionSlots) / 2;
+                int mFin = ((slotDelDia + duracionSlots) % 2) * 30;
+                Label lblHoraSug = new Label(String.format("%02d:%02d - %02d:%02d", hInicio, mInicio, hFin, mFin));
+                lblHoraSug.setStyle("-fx-font-size: 9px; -fx-text-fill: rgba(183, 28, 28, 0.85); -fx-font-weight: bold;");
+
+                sugerencia.getChildren().addAll(lblIcono, lblHoraSug);
+
+                ColumnConstraints colObj = gridCalendario.getColumnConstraints().get(col);
+                sugerencia.setMaxWidth(colObj.getMinWidth() - 8);
+
+                gridCalendario.add(sugerencia, col, filaVisual);
+                GridPane.setRowSpan(sugerencia, duracionSlots);
+                sugerencia.toBack();
+
+                // Animación de respiración (Fade)
+                javafx.animation.FadeTransition ft = new javafx.animation.FadeTransition(javafx.util.Duration.millis(800), sugerencia);
+                ft.setFromValue(0.3);
+                ft.setToValue(1.0);
+                ft.setCycleCount(javafx.animation.Animation.INDEFINITE);
+                ft.setAutoReverse(true);
+                ft.play();
+            }
+
+            // TIPO 2: Sugerencia Libre (Borde punteado Rojo Carmesí en el cristal)
+            for (int slot = startSlot; slot < endSlot; slot++) {
+                int sDia = slot % 48;
+                int h = sDia / 2;
+                int m = (sDia % 2) * 30;
+                int fVis = ((h - HORA_INICIO) * 2) + (m / 30) + 1;
+
+                if (col >= 1 && col <= 7 && fVis >= 1 && fVis < matrizCeldasReceptoras[col].length) {
+                    Pane celda = matrizCeldasReceptoras[col][fVis];
+                    if (celda != null && celda.getProperties().containsKey("esValido")) {
+                        if (!esSugerenciaFija) {
+                            String estiloActual = celda.getStyle();
+                            if (!estiloActual.contains("dashed")) {
+                                celda.setStyle(estiloActual
+                                        .replace("-fx-border-color: rgba(255, 255, 255, 0.5);", "")
+                                        + "-fx-border-color: rgba(211, 47, 47, 0.8);"
+                                        + "-fx-border-style: dashed;"
+                                        + "-fx-border-width: 1;"
+                                );
+
+                                // Animación de respiración (Fade)
+                                javafx.animation.FadeTransition ftCelda = new javafx.animation.FadeTransition(javafx.util.Duration.millis(800), celda);
+                                ftCelda.setFromValue(0.4);
+                                ftCelda.setToValue(1.0);
+                                ftCelda.setCycleCount(javafx.animation.Animation.INDEFINITE);
+                                ftCelda.setAutoReverse(true);
+                                ftCelda.play();
+
+                                celda.getProperties().put("animacionSug", ftCelda);
+                            }
+                        }
+                    }
+                }
+            }
         }
     }
 
@@ -387,21 +981,19 @@ public class ScheduleController {
         Map<Integer, String> coloresPorCurso = new HashMap<>();
         Map<SesionAsignada, PosicionVisual> layout = calcularLayoutCartas(sesiones);
 
-        // 1. CÁLCULO DE EMPALMES PARA EXPANSIÓN DINÁMICA
         int[] maxEmpalmesPorDia = new int[8];
         Arrays.fill(maxEmpalmesPorDia, 1);
 
         for (SesionAsignada s : sesiones) {
             PosicionVisual pos = layout.get(s);
             int dia = s.getColumnaDia();
-            if (pos.totalColumnas > maxEmpalmesPorDia[dia]) {
-                maxEmpalmesPorDia[dia] = pos.totalColumnas;
-            }
+            if (pos.totalColumnas > maxEmpalmesPorDia[dia]) maxEmpalmesPorDia[dia] = pos.totalColumnas;
         }
         actualizarBotonesDeExpansion(maxEmpalmesPorDia);
 
-        // 2. CREACIÓN DE TARJETAS (VBox)
-        for (SesionAsignada s : sesiones) {
+        List<SesionAsignada> sesionesParaPintar = new ArrayList<>(sesiones);
+
+        for (SesionAsignada s : sesionesParaPintar) {
             Group g = s.getGrupo();
             int idCurso = g.getCurso().getId();
 
@@ -410,74 +1002,137 @@ public class ScheduleController {
                 String hex = String.format("#%02X%02X%02X", (int)(color.getRed()*255), (int)(color.getGreen()*255), (int)(color.getBlue()*255));
                 coloresPorCurso.put(idCurso, hex);
             }
-            String hexColor = coloresPorCurso.get(idCurso);
 
             VBox caja = new VBox();
-            caja.setStyle("-fx-background-color: " + hexColor + "; -fx-border-color: black; -fx-padding: 3; -fx-border-radius: 3; -fx-background-radius: 3;");
+            caja.setStyle("-fx-background-color: " + coloresPorCurso.get(idCurso) + "; -fx-border-color: black; -fx-padding: 3; -fx-border-radius: 3;");
 
-            if (chkNombreCurso.isSelected()) {
+            int fInicio = s.getFilaHora();
+            int fFin = fInicio + s.getSpanFilas();
+            String textoHora = String.format("%02d:%02d - %02d:%02d",
+                    HORA_INICIO + (fInicio / 2), (fInicio % 2) * 30,
+                    HORA_INICIO + (fFin / 2), (fFin % 2) * 30);
+
+            Label lblHoraVista = new Label(textoHora);
+            lblHoraVista.setStyle("-fx-font-weight: bold; -fx-font-size: 10px; -fx-text-fill: #222222;");
+            caja.getChildren().add(lblHoraVista);
+
+            if (chkNombreCurso != null && chkNombreCurso.isSelected()) {
                 Label lblCurso = new Label(g.getCurso().getNombre());
                 lblCurso.setStyle("-fx-font-weight: bold; -fx-font-size: 11px;");
-                lblCurso.setWrapText(true); lblCurso.setMaxWidth(Double.MAX_VALUE);
+                lblCurso.setWrapText(true);
                 caja.getChildren().add(lblCurso);
             }
-
-            if (chkProfesor.isSelected()) {
+            if (chkProfesor != null && chkProfesor.isSelected()) {
                 Label lblProf = new Label(g.getProfesor().getNombre());
                 lblProf.setStyle("-fx-font-size: 10px;");
-                lblProf.setWrapText(true); lblProf.setMaxWidth(Double.MAX_VALUE);
+                lblProf.setWrapText(true);
                 caja.getChildren().add(lblProf);
             }
-
-            if (chkRangoAlumnos.isSelected()) {
+            if (chkRangoAlumnos != null && chkRangoAlumnos.isSelected()) {
                 Label lblAlumnos = new Label("Alumnos: " + g.getRangoInicial() + "-" + g.getRangoFinal());
                 lblAlumnos.setStyle("-fx-font-size: 10px; -fx-font-style: italic;");
                 caja.getChildren().add(lblAlumnos);
             }
-
-            if (chkIdGrupo.isSelected()) {
+            if (chkIdGrupo != null && chkIdGrupo.isSelected()) {
                 Label lblId = new Label("ID: " + g.getIdGrupo());
                 lblId.setStyle("-fx-font-size: 10px;");
                 caja.getChildren().add(lblId);
             }
 
-            // --- NUEVA LÓGICA DE DIMENSIONAMIENTO DINÁMICO ---
-            PosicionVisual pos = layout.get(s);
-
-            // Obtenemos la columna exacta donde está ubicada esta tarjeta
-            ColumnConstraints columnaExacta = gridCalendario.getColumnConstraints().get(s.getColumnaDia());
-
-            // VINCULAMOS el ancho de la tarjeta al ancho "minWidth" real de la columna
-            javafx.beans.property.DoubleProperty anchoDinamicoColumna = columnaExacta.minWidthProperty();
-
-            // Dividimos el ancho de la columna entre la cantidad de empalmes
-            caja.maxWidthProperty().bind(anchoDinamicoColumna.divide(pos.totalColumnas).subtract(4));
-
-            // Movemos la tarjeta horizontalmente si está empalmada, basándonos en el mismo ancho dinámico
-            caja.translateXProperty().bind(anchoDinamicoColumna.divide(pos.totalColumnas).multiply(pos.indiceColumna).add(2));
-
-            // Evitamos que el texto desaparezca por completo si se empalman muchas clases
-            caja.setMinWidth(45);
-
-            GridPane.setHalignment(caja, HPos.LEFT);
-            GridPane.setValignment(caja, VPos.TOP);
-
-            DropShadow sombra = new DropShadow(); sombra.setRadius(2.0); sombra.setOffsetY(1.0); sombra.setColor(Color.color(0, 0, 0, 0.4));
-            caja.setEffect(sombra);
-
-            String infoTooltip = String.format("Materia: %s\nProfesor: %s\nAlumnos: %d al %d",
-                    g.getCurso().getNombre(), g.getProfesor().getNombre(), g.getRangoInicial(), g.getRangoFinal());
+            String infoTooltip = String.format("Horario: %s\nMateria: %s\nProfesor: %s\nAlumnos: %d al %d\nID Grupo: %s",
+                    textoHora, g.getCurso().getNombre(), g.getProfesor().getNombre() + " " + g.getProfesor().getApellidoPaterno(),
+                    g.getRangoInicial(), g.getRangoFinal(), g.getIdGrupo());
             Tooltip tooltip = new Tooltip(infoTooltip);
             Tooltip.install(caja, tooltip);
 
-            caja.setOnMouseEntered((MouseEvent e) -> {
-                caja.toFront();
-                caja.setStyle("-fx-background-color: " + hexColor + "; -fx-border-color: white; -fx-border-width: 2; -fx-padding: 2; -fx-border-radius: 3; -fx-background-radius: 3;");
+            ContextMenu menu = new ContextMenu();
+            MenuItem itemEliminar = new MenuItem("🗑️ Eliminar clase y reembolsar horas");
+            itemEliminar.setOnAction(e -> {
+                horarioGenerado.remove(s);
+                int duracionBloques = s.getSpanFilas();
+                mapaOcupacion.eliminarClase(s.getSlotInicioSemanal(), duracionBloques, s.getGrupo());
+
+                for (EstadoGrupo eg : todosLosEstados) {
+                    if (eg.getGrupo().getIdGrupo().equals(s.getGrupo().getIdGrupo())) {
+                        eg.reembolsarHoras(duracionBloques / 2.0);
+                        break;
+                    }
+                }
+
+                // NUEVO: Sincronizar todos los paneles y Guardar al eliminar
+                Platform.runLater(() -> {
+                    actualizarFabricaDeBloques();
+                    if (listGruposPendientes != null) listGruposPendientes.refresh();
+                    popularFiltros();
+                    aplicarFiltros();
+                    autoGuardar();
+                });
+            });
+            menu.getItems().add(itemEliminar);
+            caja.setOnContextMenuRequested(e -> menu.show(caja, e.getScreenX(), e.getScreenY()));
+
+            caja.setOnDragDetected(event -> {
+                Dragboard db = caja.startDragAndDrop(TransferMode.MOVE);
+                ClipboardContent content = new ClipboardContent();
+                double horas = s.getSpanFilas() / 2.0;
+                content.putString(String.valueOf(horas));
+                db.setContent(content);
+
+                for (EstadoGrupo eg : todosLosEstados) {
+                    if (eg.getGrupo().getIdGrupo().equals(s.getGrupo().getIdGrupo())) {
+                        grupoSeleccionado = eg;
+                        if (cmbProfesorManual != null) cmbProfesorManual.setValue(eg.getGrupo().getProfesor());
+                        break;
+                    }
+                }
+
+                horarioGenerado.remove(s);
+                int duracionBloques = s.getSpanFilas();
+                mapaOcupacion.eliminarClase(s.getSlotInicioSemanal(), duracionBloques, s.getGrupo());
+                if (grupoSeleccionado != null) grupoSeleccionado.reembolsarHoras(horas);
+
+                caja.setVisible(false);
+                if (grupoSeleccionado != null) {
+                    iluminarDisponibilidadProfesor(grupoSeleccionado.getGrupo().getProfesor());
+                    pintarSugerencias(grupoSeleccionado.getGrupo().getProfesor());
+                }
+
+                // ACTIVAR MODO FANTASMA
+                aplicarModoFantasmaATarjetas(true);
+
+                event.consume();
             });
 
-            caja.setOnMouseExited((MouseEvent e) -> {
-                caja.setStyle("-fx-background-color: " + hexColor + "; -fx-border-color: black; -fx-border-width: 1; -fx-padding: 3; -fx-border-radius: 3; -fx-background-radius: 3;");
+            caja.setOnDragDone(event -> {
+                if (event.getTransferMode() == null) {
+                    double horas = s.getSpanFilas() / 2.0;
+                    if (grupoSeleccionado != null) grupoSeleccionado.agregarHoras(horas);
+                    horarioGenerado.add(s);
+                    mapaOcupacion.registrarClase(s.getSlotInicioSemanal(), s.getSpanFilas(), s.getGrupo());
+
+                    // Sincronizar también si la reubicación se cancela y regresa al mismo lugar
+                    Platform.runLater(() -> {
+                        if (listGruposPendientes != null) listGruposPendientes.refresh();
+                        popularFiltros();
+                        aplicarFiltros();
+                        autoGuardar();
+                    });
+                }
+
+                // DESACTIVAR MODO FANTASMA
+                aplicarModoFantasmaATarjetas(false);
+
+                event.consume();
             });
+
+            PosicionVisual pos = layout.get(s);
+            ColumnConstraints columnaExacta = gridCalendario.getColumnConstraints().get(s.getColumnaDia());
+            javafx.beans.property.DoubleProperty anchoDinamico = columnaExacta.minWidthProperty();
+            caja.maxWidthProperty().bind(anchoDinamico.divide(pos.totalColumnas).subtract(4));
+            caja.translateXProperty().bind(anchoDinamico.divide(pos.totalColumnas).multiply(pos.indiceColumna).add(2));
+            caja.setMinWidth(45);
+            caja.setMouseTransparent(false);
+            caja.setStyle(caja.getStyle() + "-fx-cursor: hand;");
 
             int filaReal = s.getFilaHora() + 1;
             gridCalendario.add(caja, s.getColumnaDia(), filaReal);
@@ -488,28 +1143,22 @@ public class ScheduleController {
     private void actualizarBotonesDeExpansion(int[] maxEmpalmesPorDia) {
         for (int i = 1; i <= 7; i++) {
             final int columnaDia = i;
-
             HBox headerBox = (HBox) gridCalendario.getChildren().stream()
                     .filter(node -> GridPane.getRowIndex(node) != null && GridPane.getRowIndex(node) == 0)
                     .filter(node -> GridPane.getColumnIndex(node) != null && GridPane.getColumnIndex(node) == columnaDia)
                     .filter(node -> node instanceof HBox)
-                    .findFirst()
-                    .orElse(null);
+                    .findFirst().orElse(null);
 
             if (headerBox != null) {
                 Button btnExpandir = (Button) headerBox.getChildren().get(1);
                 ColumnConstraints colAfectada = gridCalendario.getColumnConstraints().get(columnaDia);
-
                 int empalmes = maxEmpalmesPorDia[columnaDia];
                 final double anchoDinamico = Math.max(180.0, empalmes * 100.0);
 
                 if (empalmes <= 1) {
-                    btnExpandir.setDisable(true);
-                    btnExpandir.setOpacity(0.3);
+                    btnExpandir.setDisable(true); btnExpandir.setOpacity(0.3);
                 } else {
-                    btnExpandir.setDisable(false);
-                    btnExpandir.setOpacity(1.0);
-
+                    btnExpandir.setDisable(false); btnExpandir.setOpacity(1.0);
                     btnExpandir.setOnAction(e -> {
                         if (colAfectada.getMinWidth() == 180.0) {
                             colAfectada.setMinWidth(anchoDinamico);
@@ -539,12 +1188,10 @@ public class ScheduleController {
                 int inicio = s.getFilaHora();
                 int fin = inicio + s.getSpanFilas();
                 if (bloqueActual.isEmpty() || inicio < maxFilaFin) {
-                    bloqueActual.add(s);
-                    maxFilaFin = Math.max(maxFilaFin, fin);
+                    bloqueActual.add(s); maxFilaFin = Math.max(maxFilaFin, fin);
                 } else {
                     bloques.add(new ArrayList<>(bloqueActual));
-                    bloqueActual.clear();
-                    bloqueActual.add(s);
+                    bloqueActual.clear(); bloqueActual.add(s);
                     maxFilaFin = fin;
                 }
             }
@@ -581,57 +1228,71 @@ public class ScheduleController {
         });
     }
 
-    private void imprimirSolucionConsola(List<SesionAsignada> sesiones) {
-        System.out.println("\n🗓️ REPORTE DE HORARIOS GENERADOS");
-    }
-
     public void actualizarMensajeIA(String mensaje) {
         Platform.runLater(() -> lblEstadoIA.setText(mensaje));
     }
 
+    // --- NUEVO: REFRESCADO DINÁMICO DE FILTROS ---
     private void popularFiltros() {
+        String cursoSel = cmbFiltroCurso.getValue();
+        String profSel = cmbFiltroProfesor.getValue();
+
         Set<String> cursos = new HashSet<>();
         Set<String> profesores = new HashSet<>();
-
         for (SesionAsignada s : horarioGenerado) {
             cursos.add(s.getGrupo().getCurso().getNombre());
             profesores.add(s.getGrupo().getProfesor().getNombre());
         }
-
         List<String> listaCursos = new ArrayList<>(cursos); Collections.sort(listaCursos);
         List<String> listaProfesores = new ArrayList<>(profesores); Collections.sort(listaProfesores);
+
+        // Desactivamos temporalmente los eventos para que no causen un bucle visual al cambiar los items
+        cmbFiltroCurso.setOnAction(null);
+        cmbFiltroProfesor.setOnAction(null);
 
         cmbFiltroCurso.getItems().setAll(listaCursos);
         cmbFiltroProfesor.getItems().setAll(listaProfesores);
 
-        cmbFiltroCurso.setDisable(false);
-        cmbFiltroProfesor.setDisable(false);
-        btnLimpiarFiltros.setDisable(false);
+        // Restaurar la selección si el profesor/curso aún existe en el tablero
+        if (listaCursos.contains(cursoSel)) cmbFiltroCurso.setValue(cursoSel);
+        if (listaProfesores.contains(profSel)) cmbFiltroProfesor.setValue(profSel);
+
+        cmbFiltroCurso.setDisable(listaCursos.isEmpty());
+        cmbFiltroProfesor.setDisable(listaProfesores.isEmpty());
+        btnLimpiarFiltros.setDisable(listaCursos.isEmpty() && listaProfesores.isEmpty());
+
+        // Reactivar los eventos
+        cmbFiltroCurso.setOnAction(e -> aplicarFiltros());
+        cmbFiltroProfesor.setOnAction(e -> aplicarFiltros());
     }
 
     private void aplicarFiltros() {
-        if (horarioGenerado == null || horarioGenerado.isEmpty()) return;
+        if (horarioGenerado == null || horarioGenerado.isEmpty()) {
+            construirTablaBase();
+        } else {
+            String cursoSel = cmbFiltroCurso.getValue();
+            String profSel = cmbFiltroProfesor.getValue();
 
-        String cursoSel = cmbFiltroCurso.getValue();
-        String profSel = cmbFiltroProfesor.getValue();
-
-        List<SesionAsignada> filtradas = new ArrayList<>();
-        for (SesionAsignada s : horarioGenerado) {
-            boolean matchC = (cursoSel == null || cursoSel.isEmpty() || s.getGrupo().getCurso().getNombre().equals(cursoSel));
-            boolean matchP = (profSel == null || profSel.isEmpty() || s.getGrupo().getProfesor().getNombre().equals(profSel));
-            if (matchC && matchP) filtradas.add(s);
+            List<SesionAsignada> filtradas = new ArrayList<>();
+            for (SesionAsignada s : horarioGenerado) {
+                boolean matchC = (cursoSel == null || cursoSel.isEmpty() || s.getGrupo().getCurso().getNombre().equals(cursoSel));
+                boolean matchP = (profSel == null || profSel.isEmpty() || s.getGrupo().getProfesor().getNombre().equals(profSel));
+                if (matchC && matchP) filtradas.add(s);
+            }
+            construirTablaBase();
+            pintarBloques(filtradas);
         }
 
-        construirTablaBase();
-        pintarBloques(filtradas);
+        if (cmbProfesorManual != null && cmbProfesorManual.getValue() != null) {
+            iluminarDisponibilidadProfesor(cmbProfesorManual.getValue());
+            pintarSugerencias(cmbProfesorManual.getValue());
+        }
     }
 
     private void limpiarFiltros() {
         cmbFiltroCurso.setOnAction(null); cmbFiltroProfesor.setOnAction(null);
-        cmbFiltroCurso.getSelectionModel().clearSelection();
-        cmbFiltroCurso.setValue(null);
-        cmbFiltroProfesor.getSelectionModel().clearSelection();
-        cmbFiltroProfesor.setValue(null);
+        cmbFiltroCurso.getSelectionModel().clearSelection(); cmbFiltroCurso.setValue(null);
+        cmbFiltroProfesor.getSelectionModel().clearSelection(); cmbFiltroProfesor.setValue(null);
         cmbFiltroCurso.setOnAction(e -> aplicarFiltros()); cmbFiltroProfesor.setOnAction(e -> aplicarFiltros());
         aplicarFiltros();
     }

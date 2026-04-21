@@ -5,6 +5,7 @@
 <?import javafx.scene.control.CheckBox?>
 <?import javafx.scene.control.ComboBox?>
 <?import javafx.scene.control.Label?>
+<?import javafx.scene.control.ListView?>
 <?import javafx.scene.control.ScrollPane?>
 <?import javafx.scene.control.Separator?>
 <?import javafx.scene.layout.BorderPane?>
@@ -14,7 +15,7 @@
 <?import javafx.scene.layout.VBox?>
 <?import javafx.scene.text.Font?>
 
-<BorderPane prefHeight="650.0" prefWidth="1100.0" xmlns="http://javafx.com/javafx/21" xmlns:fx="http://javafx.com/fxml/1" fx:controller="com.osgadev.organizadorhorariosfx.controller.ScheduleController">
+<BorderPane prefHeight="650.0" prefWidth="1300.0" xmlns="http://javafx.com/javafx/21" xmlns:fx="http://javafx.com/fxml/1" fx:controller="com.osgadev.organizadorhorariosfx.controller.ScheduleController">
 
     <!-- ZONA SUPERIOR: CONTEXTO (AÑO Y ETAPA) -->
     <top>
@@ -34,12 +35,52 @@
         </HBox>
     </top>
 
+    <!-- NUEVA ZONA IZQUIERDA: ALMACÉN MANUAL -->
+    <left>
+        <VBox prefWidth="250.0" spacing="10.0" style="-fx-border-color: lightgray; -fx-border-width: 0 1 0 0; -fx-background-color: #f8f9fa;" BorderPane.alignment="CENTER">
+            <padding>
+                <Insets bottom="15.0" left="15.0" right="15.0" top="15.0" />
+            </padding>
+            <children>
+                <Label style="-fx-font-weight: bold;" text="Anclaje Manual">
+                    <font><Font size="14.0" /></font>
+                </Label>
+
+                <!-- NUEVO: Selector de Profesor -->
+                <Label style="-fx-font-size: 12px; -fx-font-weight: bold;" text="1. Seleccionar Profesor:" />
+                <ComboBox fx:id="cmbProfesorManual" prefWidth="220.0" promptText="Elegir profesor..." />
+
+                <Separator />
+
+                <Label style="-fx-font-size: 12px; -fx-font-weight: bold;" text="2. Grupos Pendientes:" />
+                <Label style="-fx-text-fill: gray; -fx-font-size: 11px;" text="Selecciona la materia para generar los bloques." wrapText="true" />
+
+                <!-- Lista de materias (Ahora se filtrará por profesor) -->
+                <ListView fx:id="listGruposPendientes" VBox.vgrow="ALWAYS" />
+
+                <!-- Generador de bloques (Fábrica) -->
+                <VBox spacing="8.0" style="-fx-background-color: white; -fx-border-color: lightgray; -fx-border-radius: 5; -fx-background-radius: 5; -fx-padding: 10;">
+                    <children>
+                        <Label style="-fx-font-weight: bold; -fx-font-size: 12px;" text="3. Generador de Bloques" />
+                        <Label fx:id="lblMateriaSeleccionada" style="-fx-text-fill: #1565C0; -fx-font-weight: bold;" text="Selecciona una materia" wrapText="true" />
+                        <Label fx:id="lblHorasRestantes" style="-fx-text-fill: #e65100; -fx-font-weight: bold;" text="---" />
+
+                        <HBox fx:id="cajaBloquesGeneradores" alignment="CENTER" spacing="8.0">
+                            <VBox.margin><Insets top="5.0" /></VBox.margin>
+                        </HBox>
+                    </children>
+                </VBox>
+            </children>
+        </VBox>
+    </left>
+
+    <!-- ZONA CENTRAL: TABLERO -->
     <center>
         <StackPane prefHeight="150.0" prefWidth="200.0" BorderPane.alignment="CENTER">
             <children>
                 <VBox fx:id="fase1Vacia" alignment="CENTER" prefHeight="200.0" prefWidth="100.0" spacing="10.0">
                     <children>
-                        <Label style="-fx-text-fill: gray;" text="Aún no se ha generado ningún horario para este ciclo.&#10;Presione 'Generar Horarios' para comenzar con la IA." textAlignment="CENTER">
+                        <Label style="-fx-text-fill: gray;" text="Aún no se ha generado ningún horario para este ciclo.&#10;Puedes acomodar bloques manualmente desde el panel izquierdo,&#10;o presionar 'Generar Horarios' para usar la IA." textAlignment="CENTER">
                             <font>
                                 <Font size="14.0" />
                             </font>
@@ -58,6 +99,7 @@
         </StackPane>
     </center>
 
+    <!-- ZONA DERECHA: ACCIONES Y FILTROS -->
     <right>
         <VBox prefHeight="600.0" prefWidth="220.0" spacing="15.0" style="-fx-border-color: lightgray; -fx-border-width: 0 1 0 0;" BorderPane.alignment="CENTER">
             <padding>
@@ -68,7 +110,7 @@
                 <Label style="-fx-font-weight: bold;" text="Motor IA y BD">
                     <font><Font size="14.0" /></font>
                 </Label>
-                <Button fx:id="btnGenerar" disable="true" mnemonicParsing="false" onAction="#generarHorario" prefWidth="200.0" style="-fx-base: #4CAF50; -fx-text-fill: white; -fx-font-weight: bold;" text="Generar Horarios (IA)" />
+                <Button fx:id="btnGenerar" disable="true" mnemonicParsing="false" onAction="#generarHorario" prefWidth="200.0" style="-fx-base: #4CAF50; -fx-text-fill: white; -fx-font-weight: bold;" text="Autocompletar (IA)" />
                 <Button fx:id="btnGuardarBD" disable="true" mnemonicParsing="false" onAction="#guardarEnBD" prefWidth="200.0" text="💾 Guardar en BD" />
                 <Button fx:id="btnBorrarBD" disable="true" mnemonicParsing="false" onAction="#borrarDeBD" prefWidth="200.0" style="-fx-base: #f44336; -fx-text-fill: white;" text="🗑 Borrar Horario" />
 
