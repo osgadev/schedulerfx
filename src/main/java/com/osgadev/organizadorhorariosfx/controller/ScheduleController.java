@@ -25,6 +25,7 @@ import javafx.scene.input.ClipboardContent;
 import javafx.scene.input.Dragboard;
 import javafx.scene.input.TransferMode;
 
+import java.io.File;
 import java.util.*;
 
 public class ScheduleController {
@@ -208,6 +209,12 @@ public class ScheduleController {
             aplicarFiltros();
         });
 
+        // --- NUEVO BOTÓN: EXPORTAR A EXCEL ---
+        Button btnExportarExcel = new Button("📥 Exportar a Excel");
+        btnExportarExcel.setPrefWidth(200.0);
+        btnExportarExcel.setStyle("-fx-base: #4CAF50; -fx-text-fill: white; -fx-font-weight: bold;");
+        btnExportarExcel.setOnAction(e -> exportarAExcel());
+
         btnPausar.setOnAction(e -> {
             isPaused = !isPaused;
             if (isPaused) {
@@ -227,9 +234,38 @@ public class ScheduleController {
         });
 
         int index = panelDerecho.getChildren().indexOf(btnGenerar);
-        panelDerecho.getChildren().add(index + 1, btnPausar);
-        panelDerecho.getChildren().add(index + 2, btnSiguientePaso);
-        panelDerecho.getChildren().add(index + 3, btnToggleSugerencias);
+        // Insertamos el botón de exportar justo debajo del botón "Generar"
+        panelDerecho.getChildren().add(index + 1, btnExportarExcel);
+        panelDerecho.getChildren().add(index + 2, btnPausar);
+        panelDerecho.getChildren().add(index + 3, btnSiguientePaso);
+        panelDerecho.getChildren().add(index + 4, btnToggleSugerencias);
+    }
+
+    @FXML
+    public void exportarAExcel() {
+        if (horarioGenerado == null || horarioGenerado.isEmpty()) {
+            mostrarAlerta("Sin datos", "No hay horario generado para exportar.");
+            return;
+        }
+
+        javafx.stage.FileChooser fileChooser = new javafx.stage.FileChooser();
+        fileChooser.setTitle("Exportar Horarios de Profesores");
+        fileChooser.getExtensionFilters().add(new javafx.stage.FileChooser.ExtensionFilter("Archivos Excel (*.xlsx)", "*.xlsx"));
+
+        String nombreSugerido = "Horarios_Profesores_" + cmbAnio.getValue() + "_" + cmbEtapa.getValue() + ".xlsx";
+        fileChooser.setInitialFileName(nombreSugerido);
+
+        File archivoDestino = fileChooser.showSaveDialog(gridCalendario.getScene().getWindow());
+
+        if (archivoDestino != null) {
+            try {
+                com.osgadev.organizadorhorariosfx.util.ExportadorExcel.exportarHorarioPersonalizado(horarioGenerado, archivoDestino);
+                mostrarAlerta("Exportación Exitosa", "El archivo Excel se ha guardado correctamente.");
+            } catch (Exception e) {
+                e.printStackTrace();
+                mostrarAlerta("Error de Exportación", "Ocurrió un error al exportar el archivo: " + e.getMessage());
+            }
+        }
     }
 
     // =====================================================================

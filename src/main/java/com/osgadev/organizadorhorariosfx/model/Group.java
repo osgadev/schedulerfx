@@ -1,5 +1,7 @@
 package com.osgadev.organizadorhorariosfx.model;
 
+import java.util.Objects;
+
 public class Group {
 
     private String idGrupo;
@@ -80,5 +82,17 @@ public class Group {
 
     public String getRangoTexto(){
         return rangoInicial + " - " + getRangoFinal();
+    }
+
+    @Override
+    public boolean equals(Object o) {
+        if (o == null || getClass() != o.getClass()) return false;
+        Group group = (Group) o;
+        return Objects.equals(idGrupo, group.idGrupo);
+    }
+
+    @Override
+    public int hashCode() {
+        return Objects.hashCode(idGrupo);
     }
 }

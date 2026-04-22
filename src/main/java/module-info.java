@@ -14,6 +14,8 @@ module com.osgadev.organizadorhorariosfx {
     requires mysql.connector.j;
     requires java.desktop;
     requires org.chocosolver.solver;
+    requires org.apache.poi.poi;
+    requires org.apache.poi.ooxml;
 
     opens com.osgadev.organizadorhorariosfx to javafx.fxml;
     exports com.osgadev.organizadorhorariosfx;
