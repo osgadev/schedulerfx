@@ -1,11 +1,14 @@
 package com.osgadev.organizadorhorariosfx.controller;
 
+import com.osgadev.organizadorhorariosfx.DAO.AlumnoDAO;
 import com.osgadev.organizadorhorariosfx.DAO.GroupDAO;
 import com.osgadev.organizadorhorariosfx.DAO.TeacherDAO;
 import com.osgadev.organizadorhorariosfx.model.Course;
 import com.osgadev.organizadorhorariosfx.model.Group;
 import com.osgadev.organizadorhorariosfx.model.Teacher;
+import com.osgadev.organizadorhorariosfx.model.Alumno;
 import com.osgadev.organizadorhorariosfx.service.GroupService;
+import com.osgadev.organizadorhorariosfx.util.ImportadorExcel;
 
 import javafx.beans.property.SimpleIntegerProperty;
 import javafx.beans.property.SimpleStringProperty;
@@ -16,7 +19,9 @@ import javafx.fxml.FXML;
 import javafx.scene.control.*;
 import javafx.scene.layout.HBox;
 import javafx.scene.layout.VBox;
+import javafx.stage.FileChooser;
 
+import java.io.File;
 import java.time.Year;
 import java.util.ArrayList;
 import java.util.List;
@@ -61,12 +66,16 @@ public class GroupController {
     // --- Lógica de Negocio y Datos ---
     private GroupService groupService = new GroupService();
     private GroupDAO groupDAO = new GroupDAO();
-    private TeacherDAO teacherDAO = new TeacherDAO(); // DAO de ejemplo para obtener todos los profes
+    private AlumnoDAO alumnoDAO = new AlumnoDAO();
+    private TeacherDAO teacherDAO = new TeacherDAO();
 
     private ObservableList<Group> listaBaseGrupos = FXCollections.observableArrayList();
     private FilteredList<Group> gruposFiltrados;
     private List<Course> cursosUnicos = new ArrayList<>();
     private int indiceCursoActual = 0;
+
+    // --- NUEVO: Memoria temporal para los alumnos importados ---
+    private List<Alumno> alumnosImportados = null;
 
     @FXML
     public void initialize() {
@@ -74,7 +83,7 @@ public class GroupController {
         llenarComboBoxes();
 
         // El FilteredList se inicializa envuelto en la lista base
-        gruposFiltrados = new FilteredList<>(listaBaseGrupos, p -> true); // [web:489]
+        gruposFiltrados = new FilteredList<>(listaBaseGrupos, p -> true);
         tablaGrupos.setItems(gruposFiltrados);
 
         // Al abrir la ventana, iniciamos en Modo Consulta
@@ -86,7 +95,6 @@ public class GroupController {
     // ==========================================
 
     private void configurarColumnas() {
-        // El "No." de fila lo calculamos con el índice dinámico del FilteredList
         colNumeroGrupo.setCellValueFactory(celda -> {
             int indice = tablaGrupos.getItems().indexOf(celda.getValue());
             return new SimpleIntegerProperty(indice + 1).asObject();
@@ -95,13 +103,10 @@ public class GroupController {
         colIdGrupo.setCellValueFactory(celda -> new SimpleStringProperty(celda.getValue().getIdGrupo()));
         colProfesor.setCellValueFactory(celda -> new SimpleStringProperty(celda.getValue().getNombreProfesor()));
         colAlumnos.setCellValueFactory(celda -> new SimpleIntegerProperty(celda.getValue().getTamanioGrupo()).asObject());
-
-        // Ahora el rango viene directo del modelo
         colRango.setCellValueFactory(celda -> new SimpleStringProperty(celda.getValue().getRangoTexto()));
     }
 
     private void llenarComboBoxes() {
-
         int anioActual = Year.now().getValue();
         ObservableList<String> anios = FXCollections.observableArrayList();
         for (int i = anioActual - 2; i < anioActual + 5; i++) {
@@ -112,7 +117,6 @@ public class GroupController {
         cbAnioConsulta.setItems(anios); cbEtapaConsulta.setItems(etapas);
         cbAnioCreacion.setItems(anios); cbEtapaCreacion.setItems(etapas);
 
-        // Seleccionar valores por defecto [web:491]
         cbAnioConsulta.getSelectionModel().select(String.valueOf(anioActual));
         cbEtapaConsulta.getSelectionModel().selectFirst();
         cbAnioCreacion.getSelectionModel().select(String.valueOf(anioActual));
@@ -127,7 +131,7 @@ public class GroupController {
         panelConsulta.setVisible(true); panelConsulta.setManaged(true);
         panelCreacion.setVisible(false); panelCreacion.setManaged(false);
 
-        listaBaseGrupos.clear(); // Limpiamos la tabla
+        listaBaseGrupos.clear();
         mostrarVistaVacia("Selecciona un Año y Etapa para consultar.");
         actualizarEstadisticas();
     }
@@ -136,15 +140,22 @@ public class GroupController {
     private void onActivarModoCreacionClick() {
         panelConsulta.setVisible(false); panelConsulta.setManaged(false);
         panelCreacion.setVisible(true); panelCreacion.setManaged(true);
-        btnGuardarBD.setDisable(true); // Se activa hasta que generen el borrador
+        btnGuardarBD.setDisable(true);
+
+        // Resetear estado manual o de Excel al entrar al modo creación
+        alumnosImportados = null;
+        txtTotalAlumnos.setDisable(false);
+        txtTotalAlumnos.clear();
 
         listaBaseGrupos.clear();
-        mostrarVistaVacia("Ingresa el número de alumnos y calcula el borrador.");
+        mostrarVistaVacia("Ingresa el número de alumnos o sube un Excel y calcula el borrador.");
         actualizarEstadisticas();
     }
 
     @FXML
     private void onCancelarCreacionClick() {
+        alumnosImportados = null;
+        txtTotalAlumnos.setDisable(false);
         activarModoConsulta();
     }
 
@@ -181,10 +192,44 @@ public class GroupController {
         }
     }
 
+    // --- NUEVO: Cargar lista desde Excel ---
+    @FXML
+    private void onCargarListaExcelClick() {
+        FileChooser fileChooser = new FileChooser();
+        fileChooser.setTitle("Seleccionar Lista de Alumnos");
+        fileChooser.getExtensionFilters().add(new FileChooser.ExtensionFilter("Archivos Excel (*.xlsx)", "*.xlsx"));
+
+        File archivo = fileChooser.showOpenDialog(tablaGrupos.getScene().getWindow());
+
+        if (archivo != null) {
+            try {
+                alumnosImportados = ImportadorExcel.leerListaAlumnos(archivo);
+
+                if (alumnosImportados.isEmpty()) {
+                    mostrarAlerta("Archivo Vacío", "No se encontraron alumnos válidos en el archivo Excel.", Alert.AlertType.WARNING);
+                } else {
+                    txtTotalAlumnos.setText(String.valueOf(alumnosImportados.size()));
+                    txtTotalAlumnos.setDisable(true); // Bloquear input para evitar inconsistencias
+                    mostrarAlerta("Éxito", "Se detectaron y cargaron " + alumnosImportados.size() + " alumnos desde el Excel.", Alert.AlertType.INFORMATION);
+                }
+            } catch (Exception e) {
+                e.printStackTrace();
+                mostrarAlerta("Error de Lectura", "No se pudo leer el archivo: " + e.getMessage(), Alert.AlertType.ERROR);
+            }
+        }
+    }
+
+    private void mostrarAlerta(String titulo, String contenido, Alert.AlertType tipo) {
+        Alert alerta = new Alert(tipo);
+        alerta.setTitle(titulo);
+        alerta.setHeaderText(null);
+        alerta.setContentText(contenido);
+        alerta.showAndWait();
+    }
+
     @FXML
     private void onGenerarBorradorClick() {
         try {
-
             String anio = cbAnioCreacion.getValue();
             String etapa = cbEtapaCreacion.getEditor().getText().trim();
 
@@ -201,10 +246,7 @@ public class GroupController {
             int alumnos = Integer.parseInt(txtTotalAlumnos.getText());
             if (alumnos <= 0) throw new NumberFormatException();
 
-            // Obtenemos los profesores desde la BD
             List<Teacher> profes = teacherDAO.obtenerProfesoresObservable();
-
-            // Generamos en memoria
             List<Group> borrador = groupService.generarGrupos(alumnos, profes, anio, etapa);
 
             if (borrador.isEmpty()) {
@@ -213,10 +255,10 @@ public class GroupController {
             }
 
             cargarDatosEnTabla(borrador);
-            btnGuardarBD.setDisable(false); // Ya pueden guardar
+            btnGuardarBD.setDisable(false);
 
         } catch (NumberFormatException e) {
-            System.out.println("Error: Ingresa un número válido de alumnos.");
+            mostrarAlerta("Error", "Ingresa un número válido de alumnos o sube un Excel.", Alert.AlertType.ERROR);
         }
     }
 
@@ -225,11 +267,31 @@ public class GroupController {
         String anio = cbAnioCreacion.getValue();
         String etapa = cbEtapaCreacion.getValue();
 
-        // Convertimos la ObservableList a una ArrayList normal y la enviamos al DAO
+        // 1. Guardar primero los grupos
         groupDAO.guardarGruposMasivo(new ArrayList<>(listaBaseGrupos), anio, etapa);
-        System.out.println("Borrador guardado exitosamente en BD.");
 
-        // Regresamos al modo normal y consultamos lo que acabamos de guardar
+        // 2. Asociar los alumnos a los grupos en memoria y guardarlos
+        if (alumnosImportados != null && !alumnosImportados.isEmpty()) {
+            for (int i = 0; i < alumnosImportados.size(); i++) {
+                int numeroLista = i + 1; // El primer alumno del Excel es el número 1
+                Alumno al = alumnosImportados.get(i);
+                al.setNumeroLista(numeroLista);
+                al.getGruposAsignados().clear(); // Limpiar por si el usuario le dio click 2 veces
+
+                // Asignarle TODAS las materias que le toquen según su número
+                for (Group g : listaBaseGrupos) {
+                    if (numeroLista >= g.getRangoInicial() && numeroLista <= g.getRangoFinal()) {
+                        al.agregarGrupo(g);
+                    }
+                }
+            }
+            // Mandarlos a la BD (El DAO guardará al alumno y sus relaciones M:M)
+            com.osgadev.organizadorhorariosfx.DAO.AlumnoDAO alumnoDAO = new com.osgadev.organizadorhorariosfx.DAO.AlumnoDAO();
+            alumnoDAO.guardarAlumnosYRelaciones(alumnosImportados, anio, etapa);
+        }
+
+        System.out.println("Grupos y Alumnos (Relacionales) guardados exitosamente en BD.");
+
         activarModoConsulta();
         cbAnioConsulta.setValue(anio);
         cbEtapaConsulta.setValue(etapa);
@@ -242,7 +304,7 @@ public class GroupController {
         String etapa = cbEtapaConsulta.getValue();
 
         groupDAO.eliminarPorAnioYEtapa(anio, etapa);
-        activarModoConsulta(); // Limpia la pantalla
+        activarModoConsulta();
     }
 
     // ==========================================
@@ -252,7 +314,6 @@ public class GroupController {
     private void cargarDatosEnTabla(List<Group> datos) {
         listaBaseGrupos.setAll(datos);
 
-        // Extraer qué materias únicas hay en esta lista
         cursosUnicos.clear();
         for (Group g : listaBaseGrupos) {
             if (!cursosUnicos.contains(g.getCurso())) {
@@ -293,7 +354,6 @@ public class GroupController {
         btnAnterior.setDisable(indiceCursoActual == 0);
         btnSiguiente.setDisable(indiceCursoActual == cursosUnicos.size() - 1);
 
-        // Refrescamos el Predicate para que la tabla solo muestre los grupos del curso actual [web:489]
         gruposFiltrados.setPredicate(grupo -> grupo.getCurso().getId() == cursoActual.getId());
     }
 
@@ -310,13 +370,10 @@ public class GroupController {
         List<Integer> idsProfesoresUnicos = new ArrayList<>();
 
         for (Group g : listaBaseGrupos) {
-            // El total de alumnos es la suma de los alumnos asignados al primer curso
-            // Para no contar doble, solo sumamos los del primer curso de la lista
             if (g.getCurso().getId() == cursosUnicos.get(0).getId()) {
                 totalAlumnos += g.getTamanioGrupo();
             }
 
-            // Contar profesores únicos
             if (!idsProfesoresUnicos.contains(g.getProfesor().getId())) {
                 idsProfesoresUnicos.add(g.getProfesor().getId());
             }

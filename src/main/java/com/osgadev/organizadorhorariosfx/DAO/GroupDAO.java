@@ -55,10 +55,11 @@ public class GroupDAO {
     public List<Group> obtenerPorAnioYEtapa(String anio, String etapa) {
         List<Group> lista = new ArrayList<>();
 
-        // CORRECCIÓN: Agregado el alias AS course_horas
+        // CORRECCIÓN: Agregado el alias AS course_horas y los campos correo_electronico y telefono del profesor
         String sql = "SELECT g.grupo_id, g.tamanio_grupo, g.rango_inicial, g.rango_final, " +
                 "c.curso_id AS course_id, c.nombre AS course_nombre, c.min_horas_semanales AS course_horas, " +
-                "t.profesor_id AS teacher_id, t.nombre AS teacher_nombre, t.apellido_paterno, t.apellido_materno " +
+                "t.profesor_id AS teacher_id, t.nombre AS teacher_nombre, t.apellido_paterno, t.apellido_materno, " +
+                "t.correo_electronico, t.telefono " +
                 "FROM grupo g " +
                 "INNER JOIN curso c ON g.curso_id = c.curso_id " +
                 "INNER JOIN profesor t ON g.profesor_id = t.profesor_id " +
@@ -84,6 +85,9 @@ public class GroupDAO {
                 teacher.setNombre(rs.getString("teacher_nombre"));
                 teacher.setApellidoPaterno(rs.getString("apellido_paterno"));
                 teacher.setApellidoMaterno(rs.getString("apellido_materno"));
+                // AÑADIDO: Leer y asignar correo y teléfono
+                teacher.setCorreoElectronico(rs.getString("correo_electronico"));
+                teacher.setTelefono(rs.getString("telefono"));
 
                 Group grupo = new Group(
                         rs.getString("grupo_id"),

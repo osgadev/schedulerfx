@@ -3,6 +3,7 @@ package com.osgadev.organizadorhorariosfx.controller;
 import com.osgadev.organizadorhorariosfx.DAO.AvailabilityDAO;
 import com.osgadev.organizadorhorariosfx.DAO.GroupDAO;
 import com.osgadev.organizadorhorariosfx.DAO.ScheduleDAO;
+import com.osgadev.organizadorhorariosfx.model.Alumno;
 import com.osgadev.organizadorhorariosfx.model.Availability;
 import com.osgadev.organizadorhorariosfx.model.Group;
 import com.osgadev.organizadorhorariosfx.model.Teacher;
@@ -252,14 +253,21 @@ public class ScheduleController {
         fileChooser.setTitle("Exportar Horarios de Profesores");
         fileChooser.getExtensionFilters().add(new javafx.stage.FileChooser.ExtensionFilter("Archivos Excel (*.xlsx)", "*.xlsx"));
 
-        String nombreSugerido = "Horarios_Profesores_" + cmbAnio.getValue() + "_" + cmbEtapa.getValue() + ".xlsx";
-        fileChooser.setInitialFileName(nombreSugerido);
+        String anio = cmbAnio.getValue();
+        String etapa = cmbEtapa.getValue();
+        fileChooser.setInitialFileName("Horarios_Profesores_" + anio + "_" + etapa + ".xlsx");
 
         File archivoDestino = fileChooser.showSaveDialog(gridCalendario.getScene().getWindow());
 
         if (archivoDestino != null) {
             try {
-                com.osgadev.organizadorhorariosfx.util.ExportadorExcel.exportarHorarioPersonalizado(horarioGenerado, archivoDestino);
+                // Instanciamos el DAO y sacamos el Mapa relacional
+                com.osgadev.organizadorhorariosfx.DAO.AlumnoDAO alumnoDAO = new com.osgadev.organizadorhorariosfx.DAO.AlumnoDAO();
+                Map<String, List<Alumno>> alumnosPorGrupo = alumnoDAO.obtenerAlumnosAgrupadosPorBD(anio, etapa);
+
+                // Exportamos pasando el mapa
+                com.osgadev.organizadorhorariosfx.util.ExportadorExcel.exportarHorarioPersonalizado(horarioGenerado, alumnosPorGrupo, archivoDestino);
+
                 mostrarAlerta("Exportación Exitosa", "El archivo Excel se ha guardado correctamente.");
             } catch (Exception e) {
                 e.printStackTrace();
