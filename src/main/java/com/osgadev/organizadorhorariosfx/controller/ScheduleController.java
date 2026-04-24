@@ -577,6 +577,12 @@ public class ScheduleController {
                 bloqueVisual.setDisable(true);
                 bloqueVisual.setOpacity(0.4);
             } else {
+                // SOLUCIÓN AL BUG: Forzar el foco y la detección de arrastre al primer clic
+                bloqueVisual.setOnMousePressed(event -> {
+                    bloqueVisual.requestFocus();
+                    event.setDragDetect(true);
+                });
+
                 bloqueVisual.setOnDragDetected(event -> {
                     Dragboard db = bloqueVisual.startDragAndDrop(TransferMode.MOVE);
                     ClipboardContent content = new ClipboardContent();
@@ -872,6 +878,15 @@ public class ScheduleController {
     private void iluminarDisponibilidadProfesor(Teacher profe) {
         if (matrizCeldasReceptoras == null) return;
 
+        // ==========================================================
+        // NUEVO: ELIMINAR SUGERENCIAS FIJAS (VBox) DEL GRID
+        // ==========================================================
+        gridCalendario.getChildren().removeIf(nodo ->
+                nodo instanceof VBox && nodo.getProperties().containsKey("esSugerencia")
+        );
+        // ==========================================================
+
+
         for (int col = 1; col <= 7; col++) {
             for (int fila = 1; fila < matrizCeldasReceptoras[col].length; fila++) {
                 Pane c = matrizCeldasReceptoras[col][fila];
@@ -1116,35 +1131,60 @@ public class ScheduleController {
             caja.setOnContextMenuRequested(e -> menu.show(caja, e.getScreenX(), e.getScreenY()));
 
             caja.setOnDragDetected(event -> {
+                // 1. INICIAMOS EL DRAG & DROP INMEDIATAMENTE (Sin tocar la UI todavía)
                 Dragboard db = caja.startDragAndDrop(TransferMode.MOVE);
-                ClipboardContent content = new ClipboardContent();
+                ClipboardContent clipboardContent = new ClipboardContent();
                 double horas = s.getSpanFilas() / 2.0;
-                content.putString(String.valueOf(horas));
-                db.setContent(content);
+                clipboardContent.putString(String.valueOf(horas));
+                db.setContent(clipboardContent);
 
-                for (EstadoGrupo eg : todosLosEstados) {
-                    if (eg.getGrupo().getIdGrupo().equals(s.getGrupo().getIdGrupo())) {
-                        grupoSeleccionado = eg;
-                        if (cmbProfesorManual != null) cmbProfesorManual.setValue(eg.getGrupo().getProfesor());
-                        break;
+                event.consume(); // Confirmamos el inicio del arrastre
+
+                // 2. EN EL SIGUIENTE FOTOGRAMA, HACEMOS LOS CAMBIOS VISUALES
+                Platform.runLater(() -> {
+                    for (EstadoGrupo eg : todosLosEstados) {
+                        if (eg.getGrupo().getIdGrupo().equals(s.getGrupo().getIdGrupo())) {
+                            grupoSeleccionado = eg;
+
+                            // Cambio silencioso del ComboBox
+                            if (cmbProfesorManual != null) {
+                                javafx.event.EventHandler<javafx.event.ActionEvent> handler = cmbProfesorManual.getOnAction();
+                                cmbProfesorManual.setOnAction(null);
+                                cmbProfesorManual.setValue(eg.getGrupo().getProfesor());
+                                cmbProfesorManual.setOnAction(handler);
+
+                                // Actualizar panel lateral
+                                List<EstadoGrupo> filtrados = new ArrayList<>();
+                                for (EstadoGrupo e : todosLosEstados) {
+                                    if (e.getGrupo().getProfesor().getId() == eg.getGrupo().getProfesor().getId()) {
+                                        filtrados.add(e);
+                                    }
+                                }
+                                listaEstados.setAll(filtrados);
+                                actualizarFabricaDeBloques();
+                            }
+                            break;
+                        }
                     }
-                }
 
-                horarioGenerado.remove(s);
-                int duracionBloques = s.getSpanFilas();
-                mapaOcupacion.eliminarClase(s.getSlotInicioSemanal(), duracionBloques, s.getGrupo());
-                if (grupoSeleccionado != null) grupoSeleccionado.reembolsarHoras(horas);
+                    // Remover lógicamente la clase
+                    horarioGenerado.remove(s);
+                    int duracionBloques = s.getSpanFilas();
+                    mapaOcupacion.eliminarClase(s.getSlotInicioSemanal(), duracionBloques, s.getGrupo());
+                    if (grupoSeleccionado != null) grupoSeleccionado.reembolsarHoras(horas);
 
-                caja.setVisible(false);
-                if (grupoSeleccionado != null) {
-                    iluminarDisponibilidadProfesor(grupoSeleccionado.getGrupo().getProfesor());
-                    pintarSugerencias(grupoSeleccionado.getGrupo().getProfesor());
-                }
+                    // Ocultar el bloque que tienes en el cursor
+                    caja.setVisible(false);
 
-                // ACTIVAR MODO FANTASMA
-                aplicarModoFantasmaATarjetas(true);
+                    // PINTAR NUEVAS DISPONIBILIDADES (limpiando las anteriores)
+                    if (grupoSeleccionado != null) {
+                        iluminarDisponibilidadProfesor(grupoSeleccionado.getGrupo().getProfesor());
+                        pintarSugerencias(grupoSeleccionado.getGrupo().getProfesor());
+                    }
 
-                event.consume();
+                    // ACTIVAR MODO FANTASMA
+                    aplicarModoFantasmaATarjetas(true);
+                });
             });
 
             caja.setOnDragDone(event -> {
