@@ -1,4 +1,4 @@
-package com.osgadev.organizadorhorariosfx.DAO;
+package com.osgadev.organizadorhorariosfx.dao;
 
 import com.osgadev.organizadorhorariosfx.model.Course;
 import com.osgadev.organizadorhorariosfx.util.DatabaseConnection;
@@ -115,6 +115,18 @@ public class CourseDAO {
             e.printStackTrace();
         }
         return curso;
+    }
+
+    public int contarCursos() {
+        int total = 0;
+        // Cambiado de 'cursos' a 'curso'
+        String sql = "SELECT COUNT(*) FROM curso";
+        try (java.sql.Connection conn = DatabaseConnection.getInstance().getConnection();
+             java.sql.PreparedStatement pstmt = conn.prepareStatement(sql);
+             java.sql.ResultSet rs = pstmt.executeQuery()) {
+            if (rs.next()) total = rs.getInt(1);
+        } catch (Exception e) { e.printStackTrace(); }
+        return total;
     }
 
 

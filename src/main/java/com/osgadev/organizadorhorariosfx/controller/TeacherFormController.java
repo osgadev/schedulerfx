@@ -1,14 +1,12 @@
 package com.osgadev.organizadorhorariosfx.controller;
 
-import com.osgadev.organizadorhorariosfx.DAO.CourseDAO;
-import com.osgadev.organizadorhorariosfx.DAO.TeacherDAO;
-import com.osgadev.organizadorhorariosfx.OrganizadorApplication;
+import com.osgadev.organizadorhorariosfx.dao.CourseDAO;
+import com.osgadev.organizadorhorariosfx.dao.TeacherDAO;
 import com.osgadev.organizadorhorariosfx.model.Course;
 import com.osgadev.organizadorhorariosfx.model.Teacher;
 import javafx.beans.property.SimpleStringProperty;
 import javafx.collections.FXCollections;
 import javafx.collections.ObservableList;
-import javafx.event.ActionEvent;
 import javafx.fxml.FXML;
 import javafx.fxml.Initializable;
 import javafx.geometry.Pos;

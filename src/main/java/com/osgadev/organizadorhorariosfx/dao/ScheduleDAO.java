@@ -1,6 +1,6 @@
-package com.osgadev.organizadorhorariosfx.DAO;
+package com.osgadev.organizadorhorariosfx.dao;
 
-import com.osgadev.organizadorhorariosfx.DTO.SesionAsignada;
+import com.osgadev.organizadorhorariosfx.dto.AssignedSession;
 import com.osgadev.organizadorhorariosfx.model.Group;
 import com.osgadev.organizadorhorariosfx.util.DatabaseConnection;
 
@@ -22,7 +22,7 @@ public class ScheduleDAO {
     /**
      * Guarda la lista completa de sesiones generadas por la IA en la base de datos.
      */
-    public boolean saveSchedule(List<SesionAsignada> sesiones, String anio, String etapa) {
+    public boolean saveSchedule(List<AssignedSession> sesiones, String anio, String etapa) {
         String sqlDelete = "DELETE FROM horario WHERE anio = ? AND etapa = ?";
 
         String sqlInsert = "INSERT INTO horario (grupo_id, anio, etapa, columna_dia, fila_visual_inicio, span_visual_filas, bloque_logico_inicio) " +
@@ -39,7 +39,7 @@ public class ScheduleDAO {
             }
 
             try (PreparedStatement pstmtInsert = conn.prepareStatement(sqlInsert)) {
-                for (SesionAsignada s : sesiones) {
+                for (AssignedSession s : sesiones) {
                     pstmtInsert.setString(1, s.getGrupo().getIdGrupo());
                     pstmtInsert.setString(2, anio);
                     pstmtInsert.setString(3, etapa);
@@ -65,8 +65,8 @@ public class ScheduleDAO {
     /**
      * Carga el horario guardado en la base de datos y reconstruye la vista.
      */
-    public List<SesionAsignada> loadSchedule(String anio, String etapa) {
-        List<SesionAsignada> horarioCargado = new ArrayList<>();
+    public List<AssignedSession> loadSchedule(String anio, String etapa) {
+        List<AssignedSession> horarioCargado = new ArrayList<>();
         String sql = "SELECT * FROM horario WHERE anio = ? AND etapa = ?";
 
         System.out.println("Iniciando carga de horario para " + anio + " - Etapa " + etapa);
@@ -117,11 +117,11 @@ public class ScheduleDAO {
             Group grupo = groupDAO.obtenerPorId(fila.idGrupo);
 
             if (grupo != null) {
-                SesionAsignada sesion = new SesionAsignada(grupo, fila.colDia, fila.filaVisual, fila.spanFilas);
+                AssignedSession sesion = new AssignedSession(grupo, fila.colDia, fila.filaVisual, fila.spanFilas);
                 sesion.setSlotInicioSemanal(fila.slotInicio);
                 horarioCargado.add(sesion);
             } else {
-                System.err.println("Advertencia DAO: No se pudo encontrar el grupo_id: " + fila.idGrupo);
+                System.err.println("Advertencia dao: No se pudo encontrar el grupo_id: " + fila.idGrupo);
             }
         }
 
@@ -170,5 +170,35 @@ public class ScheduleDAO {
             e.printStackTrace();
             return false;
         }
+    }
+
+    public int contarGruposConHorario(String anio, String etapa) {
+        int total = 0;
+        // Cuenta cuántos grupos distintos ya tienen al menos un bloque de horario asignado
+        String sql = "SELECT COUNT(DISTINCT grupo_id) FROM horario WHERE anio = ? AND etapa = ?";
+        try (java.sql.Connection conn = DatabaseConnection.getInstance().getConnection();
+             java.sql.PreparedStatement pstmt = conn.prepareStatement(sql)) {
+            pstmt.setString(1, anio);
+            pstmt.setString(2, etapa);
+            try (java.sql.ResultSet rs = pstmt.executeQuery()) {
+                if (rs.next()) total = rs.getInt(1);
+            }
+        } catch (Exception e) { e.printStackTrace(); }
+        return total;
+    }
+
+    public double calcularHorasAsignadas(String anio, String etapa) {
+        double horasAsignadas = 0;
+        // Sumamos el span de todas las tarjetas y dividimos entre 2 para obtener horas reales
+        String sql = "SELECT SUM(span_visual_filas) / 2.0 FROM horario WHERE anio = ? AND etapa = ?";
+        try (java.sql.Connection conn = DatabaseConnection.getInstance().getConnection();
+             java.sql.PreparedStatement pstmt = conn.prepareStatement(sql)) {
+            pstmt.setString(1, anio);
+            pstmt.setString(2, etapa);
+            try (java.sql.ResultSet rs = pstmt.executeQuery()) {
+                if (rs.next()) horasAsignadas = rs.getDouble(1);
+            }
+        } catch (Exception e) { e.printStackTrace(); }
+        return horasAsignadas;
     }
 }

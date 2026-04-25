@@ -1,4 +1,4 @@
-package com.osgadev.organizadorhorariosfx.DAO;
+package com.osgadev.organizadorhorariosfx.dao;
 
 import com.osgadev.organizadorhorariosfx.model.Course;
 import com.osgadev.organizadorhorariosfx.model.Group;
@@ -208,5 +208,37 @@ public class GroupDAO {
         }
 
         return grupo;
+    }
+
+    public int contarGrupos(String anio, String etapa) {
+        int total = 0;
+        // Cambiado de 'grupos' a 'grupo'
+        String sql = "SELECT COUNT(*) FROM grupo WHERE anio = ? AND etapa = ?";
+        try (java.sql.Connection conn = DatabaseConnection.getInstance().getConnection();
+             java.sql.PreparedStatement pstmt = conn.prepareStatement(sql)) {
+            pstmt.setString(1, anio);
+            pstmt.setString(2, etapa);
+            try (java.sql.ResultSet rs = pstmt.executeQuery()) {
+                if (rs.next()) total = rs.getInt(1);
+            }
+        } catch (Exception e) { e.printStackTrace(); }
+        return total;
+    }
+
+    public double calcularHorasTotalesRequeridas(String anio, String etapa) {
+        double totalHoras = 0;
+        // Hacemos JOIN con 'curso' para sumar las horas_semanales de cada grupo de ese ciclo
+        String sql = "SELECT SUM(c.min_horas_semanales) FROM grupo g " +
+                "JOIN curso c ON g.curso_id = c.curso_id " +
+                "WHERE g.anio = ? AND g.etapa = ?";
+        try (java.sql.Connection conn = DatabaseConnection.getInstance().getConnection();
+             java.sql.PreparedStatement pstmt = conn.prepareStatement(sql)) {
+            pstmt.setString(1, anio);
+            pstmt.setString(2, etapa);
+            try (java.sql.ResultSet rs = pstmt.executeQuery()) {
+                if (rs.next()) totalHoras = rs.getDouble(1);
+            }
+        } catch (Exception e) { e.printStackTrace(); }
+        return totalHoras;
     }
 }

@@ -1,0 +1,124 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<?import javafx.geometry.Insets?>
+<?import javafx.scene.chart.PieChart?>
+<?import javafx.scene.control.ComboBox?>
+<?import javafx.scene.control.Label?>
+<?import javafx.scene.layout.ColumnConstraints?>
+<?import javafx.scene.layout.GridPane?>
+<?import javafx.scene.layout.HBox?>
+<?import javafx.scene.layout.StackPane?>
+<?import javafx.scene.layout.VBox?>
+<?import javafx.scene.shape.Circle?>
+<?import javafx.scene.text.Font?>
+
+<VBox prefHeight="650.0" prefWidth="850.0" spacing="25.0" style="-fx-background-color: #f8f9fa;" xmlns="http://javafx.com/javafx/21" xmlns:fx="http://javafx.com/fxml/1" fx:controller="com.osgadev.organizadorhorariosfx.controller.HomeController">
+    <padding>
+        <Insets bottom="30.0" left="40.0" right="40.0" top="30.0" />
+    </padding>
+
+    <!-- Header con Filtros Globales -->
+    <HBox alignment="CENTER_LEFT" spacing="20.0">
+        <VBox HBox.hgrow="ALWAYS">
+            <Label text="Centro de Mando" textFill="#2c3e50">
+                <font><Font name="System Bold" size="28.0" /></font>
+            </Label>
+            <Label text="Resumen y estado de la configuración global" textFill="#7f8c8d">
+                <font><Font size="14.0" /></font>
+            </Label>
+        </VBox>
+
+        <HBox alignment="CENTER_RIGHT" spacing="10.0" style="-fx-background-color: white; -fx-padding: 10; -fx-background-radius: 8; -fx-effect: dropshadow(three-pass-box, rgba(0,0,0,0.05), 5, 0, 0, 0);">
+            <Label text="Ciclo Global:" textFill="#2c3e50">
+                <font><Font name="System Bold" size="14.0" /></font>
+            </Label>
+            <ComboBox fx:id="cmbAnio" prefWidth="100.0" promptText="Año" />
+            <ComboBox fx:id="cmbEtapa" prefWidth="100.0" promptText="Etapa" />
+        </HBox>
+    </HBox>
+
+    <!-- Grid de Tarjetas de Resumen -->
+    <GridPane hgap="20.0" vgap="20.0" VBox.vgrow="NEVER">
+        <columnConstraints>
+            <ColumnConstraints hgrow="SOMETIMES" minWidth="10.0" percentWidth="33.3" />
+            <ColumnConstraints hgrow="SOMETIMES" minWidth="10.0" percentWidth="33.3" />
+            <ColumnConstraints hgrow="SOMETIMES" minWidth="10.0" percentWidth="33.3" />
+        </columnConstraints>
+
+        <!-- Tarjeta 1: Profesores (Global) -->
+        <VBox alignment="CENTER_LEFT" prefHeight="120.0" style="-fx-background-color: white; -fx-background-radius: 10; -fx-border-color: #e0e0e0; -fx-border-radius: 10; -fx-effect: dropshadow(three-pass-box, rgba(0,0,0,0.05), 10, 0, 0, 2);" GridPane.columnIndex="0" GridPane.rowIndex="0">
+            <padding><Insets bottom="15.0" left="20.0" right="20.0" top="15.0" /></padding>
+            <Label text="👨‍🏫 Total Profesores" textFill="#7f8c8d"><font><Font name="System Bold" size="14.0" /></font></Label>
+            <Label fx:id="lblTotalProfesores" text="0" textFill="#2980b9"><font><Font name="System Bold" size="36.0" /></font></Label>
+            <Label fx:id="lblProfesoresAlerta" text="Todos con disponibilidad" textFill="#27ae60"><font><Font size="11.0" /></font></Label>
+        </VBox>
+
+        <!-- Tarjeta 2: Cursos (Global) -->
+        <VBox alignment="CENTER_LEFT" prefHeight="120.0" style="-fx-background-color: white; -fx-background-radius: 10; -fx-border-color: #e0e0e0; -fx-border-radius: 10; -fx-effect: dropshadow(three-pass-box, rgba(0,0,0,0.05), 10, 0, 0, 2);" GridPane.columnIndex="1" GridPane.rowIndex="0">
+            <padding><Insets bottom="15.0" left="20.0" right="20.0" top="15.0" /></padding>
+            <Label text="📚 Cursos en Catálogo" textFill="#7f8c8d"><font><Font name="System Bold" size="14.0" /></font></Label>
+            <Label fx:id="lblTotalCursos" text="0" textFill="#8e44ad"><font><Font name="System Bold" size="36.0" /></font></Label>
+            <Label text="Catálogo Histórico" textFill="#7f8c8d"><font><Font size="11.0" /></font></Label>
+        </VBox>
+
+        <!-- Tarjeta 3: Grupos (Por Ciclo) -->
+        <VBox alignment="CENTER_LEFT" prefHeight="120.0" style="-fx-background-color: white; -fx-background-radius: 10; -fx-border-color: #e0e0e0; -fx-border-radius: 10; -fx-effect: dropshadow(three-pass-box, rgba(0,0,0,0.05), 10, 0, 0, 2);" GridPane.columnIndex="2" GridPane.rowIndex="0">
+            <padding><Insets bottom="15.0" left="20.0" right="20.0" top="15.0" /></padding>
+            <Label text="👥 Grupos del Ciclo" textFill="#7f8c8d"><font><Font name="System Bold" size="14.0" /></font></Label>
+            <Label fx:id="lblTotalGrupos" text="0" textFill="#2c3e50"><font><Font name="System Bold" size="36.0" /></font></Label>
+            <Label text="Generados" textFill="#7f8c8d"><font><Font size="11.0" /></font></Label>
+        </VBox>
+
+        <!-- Tarjeta 4: Alumnos (Por Ciclo) -->
+        <VBox alignment="CENTER_LEFT" prefHeight="120.0" style="-fx-background-color: white; -fx-background-radius: 10; -fx-border-color: #e0e0e0; -fx-border-radius: 10; -fx-effect: dropshadow(three-pass-box, rgba(0,0,0,0.05), 10, 0, 0, 2);" GridPane.columnIndex="0" GridPane.rowIndex="1">
+            <padding><Insets bottom="15.0" left="20.0" right="20.0" top="15.0" /></padding>
+            <Label text="📝 Padrón de Alumnos" textFill="#7f8c8d"><font><Font name="System Bold" size="14.0" /></font></Label>
+            <Label fx:id="lblEstadoAlumnos" text="0" textFill="#f39c12"><font><Font name="System Bold" size="28.0" /></font></Label>
+            <Label text="Matriculados en BD" textFill="#7f8c8d"><font><Font size="11.0" /></font></Label>
+        </VBox>
+
+        <!-- Tarjeta 5: Progreso de Horarios (Por Ciclo) con Gráfico de Dona -->
+        <HBox alignment="CENTER_LEFT" prefHeight="120.0" spacing="20.0" style="-fx-background-color: white; -fx-background-radius: 10; -fx-border-color: #e0e0e0; -fx-border-radius: 10; -fx-effect: dropshadow(three-pass-box, rgba(0,0,0,0.05), 10, 0, 0, 2);" GridPane.columnIndex="1" GridPane.rowIndex="1" GridPane.columnSpan="2">
+            <padding><Insets bottom="15.0" left="20.0" right="20.0" top="15.0" /></padding>
+
+            <!-- CONTENEDOR DEL GRÁFICO DE DONA -->
+            <StackPane minHeight="100.0" minWidth="100.0">
+                <!-- Gráfico de Pastel Nativo -->
+                <PieChart fx:id="pieHorarios" labelsVisible="false" legendVisible="false" prefHeight="100.0" prefWidth="100.0" />
+
+                <!-- Círculo central para darle el efecto de "Dona" -->
+                <Circle fill="WHITE" radius="35.0" />
+
+                <!-- Etiqueta del porcentaje justo en el centro de la dona -->
+                <Label fx:id="lblEstadoHorario" text="0%">
+                    <font><Font name="System Bold" size="18.0" /></font>
+                </Label>
+            </StackPane>
+
+            <!-- Textos descriptivos -->
+            <VBox alignment="CENTER_LEFT" spacing="5.0">
+                <Label text="📅 Progreso de Horarios" textFill="#7f8c8d">
+                    <font><Font name="System Bold" size="14.0" /></font>
+                </Label>
+                <Label fx:id="lblDetalleHorario" text="0 de 0 hrs asignadas" textFill="#34495e">
+                    <font><Font name="System Bold" size="16.0" /></font>
+                </Label>
+                <Label text="Estado de asignación" textFill="#7f8c8d">
+                    <font><Font size="11.0" /></font>
+                </Label>
+            </VBox>
+        </HBox>
+    </GridPane>
+
+    <!-- Panel de Diagnóstico -->
+    <VBox style="-fx-background-color: white; -fx-background-radius: 10; -fx-border-color: #e0e0e0; -fx-border-radius: 10; -fx-effect: dropshadow(three-pass-box, rgba(0,0,0,0.05), 10, 0, 0, 2);" VBox.vgrow="ALWAYS">
+        <padding><Insets bottom="20.0" left="20.0" right="20.0" top="20.0" /></padding>
+        <Label text="Diagnóstico del Sistema" textFill="#2c3e50">
+            <font><Font name="System Bold" size="18.0" /></font>
+        </Label>
+        <Label fx:id="lblStatusDetallado" text="Calculando diagnóstico..." textFill="#34495e" wrapText="true">
+            <font><Font size="14.0" /></font>
+            <VBox.margin><Insets top="10.0" /></VBox.margin>
+        </Label>
+    </VBox>
+</VBox>

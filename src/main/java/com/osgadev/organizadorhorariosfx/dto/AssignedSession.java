@@ -1,15 +1,15 @@
-package com.osgadev.organizadorhorariosfx.DTO; // O model
+package com.osgadev.organizadorhorariosfx.dto; // O model
 
 import com.osgadev.organizadorhorariosfx.model.Group;
 
-public class SesionAsignada {
+public class AssignedSession {
     private Group grupo;
     private int columnaDia;
     private int filaHora;
     private int spanFilas;
     private int slotInicioSemanal;
 
-    public SesionAsignada(Group grupo, int columnaDia, int filaHora, int spanFilas) {
+    public AssignedSession(Group grupo, int columnaDia, int filaHora, int spanFilas) {
         this.grupo = grupo;
         this.columnaDia = columnaDia;
         this.filaHora = filaHora;

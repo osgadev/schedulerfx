@@ -130,7 +130,7 @@
 
                 <!-- ZONA DE PERSONALIZACIÓN DE TARJETAS -->
                 <Label text="Mostrar en bloques:" />
-                <CheckBox fx:id="chkRangoAlumnos" selected="true" style="-fx-font-weight: bold;" text="Rango de alumnos" />
+                <CheckBox fx:id="chkRangoAlumnos" selected="true" style="-fx-font-weight: bold;" text="Rango de students" />
                 <CheckBox fx:id="chkProfesor" selected="true" text="Profesor" />
                 <CheckBox fx:id="chkIdGrupo" text="ID de Grupo" />
                 <CheckBox fx:id="chkNombreCurso" selected="true" text="Nombre del Curso" />

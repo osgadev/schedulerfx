@@ -4,7 +4,7 @@ import com.osgadev.organizadorhorariosfx.model.Group;
 import java.util.ArrayList;
 import java.util.List;
 
-public class MapaOcupacion {
+public class OccupationMap {
 
     // 7 días * 48 bloques = 336 bloques de 30 minutos a la semana
     private static final int TOTAL_SLOTS = 336;
@@ -14,7 +14,7 @@ public class MapaOcupacion {
     private final List<Group>[] mapa;
 
     @SuppressWarnings("unchecked")
-    public MapaOcupacion() {
+    public OccupationMap() {
         mapa = new ArrayList[TOTAL_SLOTS];
         for (int i = 0; i < TOTAL_SLOTS; i++) {
             mapa[i] = new ArrayList<>();

@@ -1,6 +1,6 @@
 package com.osgadev.organizadorhorariosfx.service;
 
-import com.osgadev.organizadorhorariosfx.DAO.AvailabilityDAO;
+import com.osgadev.organizadorhorariosfx.dao.AvailabilityDAO;
 import com.osgadev.organizadorhorariosfx.model.Availability;
 import com.osgadev.organizadorhorariosfx.model.Group;
 import com.osgadev.organizadorhorariosfx.model.Teacher;
@@ -10,13 +10,13 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
 
-public class OptimizadorGrupos {
+public class GroupOptimizer {
 
     private final AvailabilityDAO availabilityDAO;
-    private final MapaOcupacion mapa;
+    private final OccupationMap mapa;
     private static final int BLOQUES_POR_DIA = 48;
 
-    public OptimizadorGrupos(AvailabilityDAO availabilityDAO, MapaOcupacion mapa) {
+    public GroupOptimizer(AvailabilityDAO availabilityDAO, OccupationMap mapa) {
         this.availabilityDAO = availabilityDAO;
         this.mapa = mapa;
     }

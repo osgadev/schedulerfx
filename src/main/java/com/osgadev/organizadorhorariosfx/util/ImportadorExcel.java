@@ -1,6 +1,6 @@
 package com.osgadev.organizadorhorariosfx.util;
 
-import com.osgadev.organizadorhorariosfx.model.Alumno;
+import com.osgadev.organizadorhorariosfx.model.Student;
 import org.apache.poi.ss.usermodel.*;
 import org.apache.poi.xssf.usermodel.XSSFWorkbook;
 
@@ -15,8 +15,8 @@ public class ImportadorExcel {
     // El dominio de tu escuela para auto-generar correos si el usuario no los incluye
     private static final String DOMINIO_ESCUELA = "@tuescuela.edu.mx";
 
-    public static List<Alumno> leerListaAlumnos(File archivoExcel) throws Exception {
-        List<Alumno> alumnos = new ArrayList<>();
+    public static List<Student> leerListaAlumnos(File archivoExcel) throws Exception {
+        List<Student> students = new ArrayList<>();
 
         try (FileInputStream fis = new FileInputStream(archivoExcel);
              Workbook workbook = new XSSFWorkbook(fis)) {
@@ -24,7 +24,7 @@ public class ImportadorExcel {
             Sheet sheet = workbook.getSheetAt(0);
             Iterator<Row> rowIterator = sheet.iterator();
 
-            if (!rowIterator.hasNext()) return alumnos; // Archivo vacío
+            if (!rowIterator.hasNext()) return students; // Archivo vacío
 
             // Saltamos la fila 1 (Cabeceras) porque no nos importa qué texto digan
             Row filaCabecera = rowIterator.next();
@@ -75,10 +75,10 @@ public class ImportadorExcel {
                     correo = matricula.toLowerCase() + DOMINIO_ESCUELA;
                 }
 
-                alumnos.add(new Alumno(matricula, nombreCompleto, correo.toLowerCase()));
+                students.add(new Student(matricula, nombreCompleto, correo.toLowerCase()));
             }
         }
-        return alumnos;
+        return students;
     }
 
     // Método de soporte para leer celdas (números o texto) sin que POI lance excepciones

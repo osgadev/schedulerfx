@@ -1,6 +1,6 @@
 package com.osgadev.organizadorhorariosfx.controller;
 
-import com.osgadev.organizadorhorariosfx.DAO.CourseDAO;
+import com.osgadev.organizadorhorariosfx.dao.CourseDAO;
 import com.osgadev.organizadorhorariosfx.OrganizadorApplication;
 import com.osgadev.organizadorhorariosfx.model.Course;
 import javafx.beans.property.SimpleIntegerProperty;

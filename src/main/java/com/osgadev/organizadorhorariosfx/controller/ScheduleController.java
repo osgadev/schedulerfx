@@ -1,16 +1,17 @@
 package com.osgadev.organizadorhorariosfx.controller;
 
-import com.osgadev.organizadorhorariosfx.DAO.AvailabilityDAO;
-import com.osgadev.organizadorhorariosfx.DAO.GroupDAO;
-import com.osgadev.organizadorhorariosfx.DAO.ScheduleDAO;
-import com.osgadev.organizadorhorariosfx.model.Alumno;
+import com.osgadev.organizadorhorariosfx.dao.AvailabilityDAO;
+import com.osgadev.organizadorhorariosfx.dao.GroupDAO;
+import com.osgadev.organizadorhorariosfx.dao.ScheduleDAO;
+import com.osgadev.organizadorhorariosfx.dao.StudentDAO;
+import com.osgadev.organizadorhorariosfx.model.Student;
 import com.osgadev.organizadorhorariosfx.model.Availability;
 import com.osgadev.organizadorhorariosfx.model.Group;
 import com.osgadev.organizadorhorariosfx.model.Teacher;
-import com.osgadev.organizadorhorariosfx.service.HorarioService;
-import com.osgadev.organizadorhorariosfx.service.MapaOcupacion;
-import com.osgadev.organizadorhorariosfx.DTO.SesionAsignada;
-import com.osgadev.organizadorhorariosfx.DTO.EstadoGrupo;
+import com.osgadev.organizadorhorariosfx.service.ScheduleService;
+import com.osgadev.organizadorhorariosfx.service.OccupationMap;
+import com.osgadev.organizadorhorariosfx.dto.AssignedSession;
+import com.osgadev.organizadorhorariosfx.dto.GroupState;
 
 import javafx.application.Platform;
 import javafx.collections.FXCollections;
@@ -58,7 +59,7 @@ public class ScheduleController {
 
     // --- ALMACÉN MANUAL ---
     @FXML private ComboBox<Teacher> cmbProfesorManual;
-    @FXML private ListView<EstadoGrupo> listGruposPendientes;
+    @FXML private ListView<GroupState> listGruposPendientes;
     @FXML private Label lblMateriaSeleccionada;
     @FXML private Label lblHorasRestantes;
     @FXML private HBox cajaBloquesGeneradores;
@@ -67,17 +68,17 @@ public class ScheduleController {
     // VARIABLES DE ESTADO
     // =====================================================================
 
-    private List<SesionAsignada> horarioGenerado = new ArrayList<>();
+    private List<AssignedSession> horarioGenerado = new ArrayList<>();
     private GroupDAO groupDAO;
     private AvailabilityDAO availabilityDAO;
-    private HorarioService horarioService;
+    private ScheduleService scheduleService;
     private ScheduleDAO scheduleDAO;
 
     // Estado Manual
-    private ObservableList<EstadoGrupo> listaEstados;
-    private List<EstadoGrupo> todosLosEstados = new ArrayList<>();
-    private EstadoGrupo grupoSeleccionado;
-    private MapaOcupacion mapaOcupacion;
+    private ObservableList<GroupState> listaEstados;
+    private List<GroupState> todosLosEstados = new ArrayList<>();
+    private GroupState grupoSeleccionado;
+    private OccupationMap occupationMap;
     private Pane[][] matrizCeldasReceptoras;
     private final double[] TAMANOS_BLOQUES = {1.0, 1.5, 2.0, 2.5};
 
@@ -103,9 +104,9 @@ public class ScheduleController {
     public void initialize() {
         groupDAO = new GroupDAO();
         availabilityDAO = new AvailabilityDAO();
-        horarioService = new HorarioService(availabilityDAO);
+        scheduleService = new ScheduleService(availabilityDAO);
         scheduleDAO = new ScheduleDAO();
-        mapaOcupacion = new MapaOcupacion();
+        occupationMap = new OccupationMap();
 
         fase1Vacia.setVisible(true);
         scrollCalendario.setVisible(false);
@@ -144,9 +145,9 @@ public class ScheduleController {
             listGruposPendientes.setItems(listaEstados);
 
             // PERSONALIZACIÓN VISUAL DE LA LISTA DE MATERIAS
-            listGruposPendientes.setCellFactory(lv -> new ListCell<EstadoGrupo>() {
+            listGruposPendientes.setCellFactory(lv -> new ListCell<GroupState>() {
                 @Override
-                protected void updateItem(EstadoGrupo eg, boolean empty) {
+                protected void updateItem(GroupState eg, boolean empty) {
                     super.updateItem(eg, empty);
                     if (empty || eg == null) {
                         setText(null);
@@ -261,9 +262,9 @@ public class ScheduleController {
 
         if (archivoDestino != null) {
             try {
-                // Instanciamos el DAO y sacamos el Mapa relacional
-                com.osgadev.organizadorhorariosfx.DAO.AlumnoDAO alumnoDAO = new com.osgadev.organizadorhorariosfx.DAO.AlumnoDAO();
-                Map<String, List<Alumno>> alumnosPorGrupo = alumnoDAO.obtenerAlumnosAgrupadosPorBD(anio, etapa);
+                // Instanciamos el dao y sacamos el Mapa relacional
+                StudentDAO studentDAO = new StudentDAO();
+                Map<String, List<Student>> alumnosPorGrupo = studentDAO.obtenerAlumnosAgrupadosPorBD(anio, etapa);
 
                 // Exportamos pasando el mapa
                 com.osgadev.organizadorhorariosfx.util.ExportadorExcel.exportarHorarioPersonalizado(horarioGenerado, alumnosPorGrupo, archivoDestino);
@@ -295,12 +296,12 @@ public class ScheduleController {
 
         if (scheduleDAO.existsSchedule(anio, etapa)) {
             this.horarioGenerado = scheduleDAO.loadSchedule(anio, etapa);
-            mapaOcupacion.limpiar();
+            occupationMap.limpiar();
 
-            for (SesionAsignada s : horarioGenerado) {
-                mapaOcupacion.registrarClase(s.getSlotInicioSemanal(), s.getSpanFilas(), s.getGrupo());
+            for (AssignedSession s : horarioGenerado) {
+                occupationMap.registrarClase(s.getSlotInicioSemanal(), s.getSpanFilas(), s.getGrupo());
                 // SINCRONIZAR HORAS CON EL ALMACÉN MANUAL
-                for (EstadoGrupo eg : todosLosEstados) {
+                for (GroupState eg : todosLosEstados) {
                     if (eg.getGrupo().getIdGrupo().equals(s.getGrupo().getIdGrupo())) {
                         eg.agregarHoras(s.getSpanFilas() / 2.0); // Deduce horas
                         break;
@@ -319,7 +320,7 @@ public class ScheduleController {
             actualizarMensajeIA("Horario cargado desde la Base de Datos.");
         } else {
             this.horarioGenerado.clear();
-            mapaOcupacion.limpiar();
+            occupationMap.limpiar();
 
             fase1Vacia.setVisible(false);
             scrollCalendario.setVisible(true);
@@ -346,11 +347,11 @@ public class ScheduleController {
         fase1Vacia.setVisible(false);
         scrollCalendario.setVisible(true);
 
-        Task<List<SesionAsignada>> task = new Task<>() {
+        Task<List<AssignedSession>> task = new Task<>() {
             @Override
-            protected List<SesionAsignada> call() {
+            protected List<AssignedSession> call() {
                 List<Group> grupos = groupDAO.obtenerPorAnioYEtapa(anio, etapa);
-                return horarioService.generarHorario(grupos, (estadoParcial, mensajeIA) -> {
+                return scheduleService.generarHorario(grupos, (estadoParcial, mensajeIA) -> {
                     Platform.runLater(() -> {
                         actualizarMensajeIA(mensajeIA);
                         construirTablaBase();
@@ -369,20 +370,20 @@ public class ScheduleController {
         };
 
         task.setOnSucceeded(e -> {
-            List<SesionAsignada> resultado = task.getValue();
+            List<AssignedSession> resultado = task.getValue();
             restaurarBotonesIA();
 
             if (resultado != null) {
                 this.horarioGenerado = resultado;
-                mapaOcupacion.limpiar();
+                occupationMap.limpiar();
 
                 // Refrescar almacén para sincronizar con la IA
                 List<Group> grupos = groupDAO.obtenerPorAnioYEtapa(anio, etapa);
                 cargarGruposEnAlmacen(grupos);
 
-                for (SesionAsignada s : resultado) {
-                    mapaOcupacion.registrarClase(s.getSlotInicioSemanal(), s.getSpanFilas(), s.getGrupo());
-                    for (EstadoGrupo eg : todosLosEstados) {
+                for (AssignedSession s : resultado) {
+                    occupationMap.registrarClase(s.getSlotInicioSemanal(), s.getSpanFilas(), s.getGrupo());
+                    for (GroupState eg : todosLosEstados) {
                         if (eg.getGrupo().getIdGrupo().equals(s.getGrupo().getIdGrupo())) {
                             eg.agregarHoras(s.getSpanFilas() / 2.0);
                             break;
@@ -460,7 +461,7 @@ public class ScheduleController {
     // Calcula si un profesor ya no tiene horas por asignar en toda su carga
     private double calcularHorasPendientes(Teacher t) {
         double total = 0;
-        for (EstadoGrupo eg : todosLosEstados) {
+        for (GroupState eg : todosLosEstados) {
             if (eg.getGrupo().getProfesor().getId() == t.getId()) {
                 total += eg.getHorasRestantes();
             }
@@ -504,7 +505,7 @@ public class ScheduleController {
         Map<Integer, Teacher> mapaProfesoresUnicos = new HashMap<>();
 
         for (Group g : grupos) {
-            todosLosEstados.add(new EstadoGrupo(g));
+            todosLosEstados.add(new GroupState(g));
             if (g.getProfesor() != null) {
                 mapaProfesoresUnicos.put(g.getProfesor().getId(), g.getProfesor());
             }
@@ -524,8 +525,8 @@ public class ScheduleController {
             cmbProfesorManual.setOnAction(e -> {
                 Teacher profeElegido = cmbProfesorManual.getValue();
                 if (profeElegido != null) {
-                    List<EstadoGrupo> filtrados = new ArrayList<>();
-                    for (EstadoGrupo eg : todosLosEstados) {
+                    List<GroupState> filtrados = new ArrayList<>();
+                    for (GroupState eg : todosLosEstados) {
                         if (eg.getGrupo().getProfesor().getId() == profeElegido.getId()) {
                             filtrados.add(eg);
                         }
@@ -546,7 +547,7 @@ public class ScheduleController {
         if (lblHorasRestantes != null) lblHorasRestantes.setText("---");
     }
 
-    private void seleccionarGrupoManual(EstadoGrupo estado) {
+    private void seleccionarGrupoManual(GroupState estado) {
         this.grupoSeleccionado = estado;
         if (lblMateriaSeleccionada != null) {
             lblMateriaSeleccionada.setText(
@@ -736,8 +737,8 @@ public class ScheduleController {
 
                         boolean ocupado = false;
                         for (int i = 0; i < duracionBloques; i++) {
-                            if (mapaOcupacion.profesorOcupadoEnSlot(grupoSeleccionado.getGrupo().getProfesor().getId(), slotSemanal + i) ||
-                                    mapaOcupacion.rangoOcupadoEnSlot(grupoSeleccionado.getGrupo().getRangoInicial(), grupoSeleccionado.getGrupo().getRangoFinal(), slotSemanal + i)) {
+                            if (occupationMap.profesorOcupadoEnSlot(grupoSeleccionado.getGrupo().getProfesor().getId(), slotSemanal + i) ||
+                                    occupationMap.rangoOcupadoEnSlot(grupoSeleccionado.getGrupo().getRangoInicial(), grupoSeleccionado.getGrupo().getRangoFinal(), slotSemanal + i)) {
                                 ocupado = true; break;
                             }
                         }
@@ -754,7 +755,7 @@ public class ScheduleController {
 
                         // --- NUEVO: VALIDACIÓN DE 1 SESIÓN POR DÍA PARA EL MISMO GRUPO ---
                         boolean mismoGrupoMismoDia = false;
-                        for (SesionAsignada s : horarioGenerado) {
+                        for (AssignedSession s : horarioGenerado) {
                             if (s.getGrupo().getIdGrupo().equals(grupoSeleccionado.getGrupo().getIdGrupo()) && s.getColumnaDia() == colActual) {
                                 mismoGrupoMismoDia = true;
                                 break;
@@ -839,11 +840,11 @@ public class ScheduleController {
                         int slotSemanal = ((colActual - 1) * 48) + slotDelDia;
 
                         grupoSeleccionado.agregarHoras(horas);
-                        SesionAsignada nuevaSesion = new SesionAsignada(grupoSeleccionado.getGrupo(), colActual, filaActualDrop - 1, spanFilasVisuales);
+                        AssignedSession nuevaSesion = new AssignedSession(grupoSeleccionado.getGrupo(), colActual, filaActualDrop - 1, spanFilasVisuales);
                         nuevaSesion.setSlotInicioSemanal(slotSemanal);
                         horarioGenerado.add(nuevaSesion);
 
-                        mapaOcupacion.registrarClase(slotSemanal, duracionBloques, grupoSeleccionado.getGrupo());
+                        occupationMap.registrarClase(slotSemanal, duracionBloques, grupoSeleccionado.getGrupo());
 
                         if (fantasmaDrag != null) fantasmaDrag.setVisible(false);
 
@@ -1035,24 +1036,24 @@ public class ScheduleController {
         }
     }
 
-    private void pintarBloques(List<SesionAsignada> sesiones) {
+    private void pintarBloques(List<AssignedSession> sesiones) {
         Random rand = new Random();
         Map<Integer, String> coloresPorCurso = new HashMap<>();
-        Map<SesionAsignada, PosicionVisual> layout = calcularLayoutCartas(sesiones);
+        Map<AssignedSession, PosicionVisual> layout = calcularLayoutCartas(sesiones);
 
         int[] maxEmpalmesPorDia = new int[8];
         Arrays.fill(maxEmpalmesPorDia, 1);
 
-        for (SesionAsignada s : sesiones) {
+        for (AssignedSession s : sesiones) {
             PosicionVisual pos = layout.get(s);
             int dia = s.getColumnaDia();
             if (pos.totalColumnas > maxEmpalmesPorDia[dia]) maxEmpalmesPorDia[dia] = pos.totalColumnas;
         }
         actualizarBotonesDeExpansion(maxEmpalmesPorDia);
 
-        List<SesionAsignada> sesionesParaPintar = new ArrayList<>(sesiones);
+        List<AssignedSession> sesionesParaPintar = new ArrayList<>(sesiones);
 
-        for (SesionAsignada s : sesionesParaPintar) {
+        for (AssignedSession s : sesionesParaPintar) {
             Group g = s.getGrupo();
             int idCurso = g.getCurso().getId();
 
@@ -1109,9 +1110,9 @@ public class ScheduleController {
             itemEliminar.setOnAction(e -> {
                 horarioGenerado.remove(s);
                 int duracionBloques = s.getSpanFilas();
-                mapaOcupacion.eliminarClase(s.getSlotInicioSemanal(), duracionBloques, s.getGrupo());
+                occupationMap.eliminarClase(s.getSlotInicioSemanal(), duracionBloques, s.getGrupo());
 
-                for (EstadoGrupo eg : todosLosEstados) {
+                for (GroupState eg : todosLosEstados) {
                     if (eg.getGrupo().getIdGrupo().equals(s.getGrupo().getIdGrupo())) {
                         eg.reembolsarHoras(duracionBloques / 2.0);
                         break;
@@ -1142,7 +1143,7 @@ public class ScheduleController {
 
                 // 2. EN EL SIGUIENTE FOTOGRAMA, HACEMOS LOS CAMBIOS VISUALES
                 Platform.runLater(() -> {
-                    for (EstadoGrupo eg : todosLosEstados) {
+                    for (GroupState eg : todosLosEstados) {
                         if (eg.getGrupo().getIdGrupo().equals(s.getGrupo().getIdGrupo())) {
                             grupoSeleccionado = eg;
 
@@ -1154,8 +1155,8 @@ public class ScheduleController {
                                 cmbProfesorManual.setOnAction(handler);
 
                                 // Actualizar panel lateral
-                                List<EstadoGrupo> filtrados = new ArrayList<>();
-                                for (EstadoGrupo e : todosLosEstados) {
+                                List<GroupState> filtrados = new ArrayList<>();
+                                for (GroupState e : todosLosEstados) {
                                     if (e.getGrupo().getProfesor().getId() == eg.getGrupo().getProfesor().getId()) {
                                         filtrados.add(e);
                                     }
@@ -1170,7 +1171,7 @@ public class ScheduleController {
                     // Remover lógicamente la clase
                     horarioGenerado.remove(s);
                     int duracionBloques = s.getSpanFilas();
-                    mapaOcupacion.eliminarClase(s.getSlotInicioSemanal(), duracionBloques, s.getGrupo());
+                    occupationMap.eliminarClase(s.getSlotInicioSemanal(), duracionBloques, s.getGrupo());
                     if (grupoSeleccionado != null) grupoSeleccionado.reembolsarHoras(horas);
 
                     // Ocultar el bloque que tienes en el cursor
@@ -1192,7 +1193,7 @@ public class ScheduleController {
                     double horas = s.getSpanFilas() / 2.0;
                     if (grupoSeleccionado != null) grupoSeleccionado.agregarHoras(horas);
                     horarioGenerado.add(s);
-                    mapaOcupacion.registrarClase(s.getSlotInicioSemanal(), s.getSpanFilas(), s.getGrupo());
+                    occupationMap.registrarClase(s.getSlotInicioSemanal(), s.getSpanFilas(), s.getGrupo());
 
                     // Sincronizar también si la reubicación se cancela y regresa al mismo lugar
                     Platform.runLater(() -> {
@@ -1257,18 +1258,18 @@ public class ScheduleController {
         }
     }
 
-    private Map<SesionAsignada, PosicionVisual> calcularLayoutCartas(List<SesionAsignada> sesiones) {
-        Map<SesionAsignada, PosicionVisual> layout = new HashMap<>();
-        Map<Integer, List<SesionAsignada>> porDia = new HashMap<>();
-        for (SesionAsignada s : sesiones) porDia.computeIfAbsent(s.getColumnaDia(), k -> new ArrayList<>()).add(s);
+    private Map<AssignedSession, PosicionVisual> calcularLayoutCartas(List<AssignedSession> sesiones) {
+        Map<AssignedSession, PosicionVisual> layout = new HashMap<>();
+        Map<Integer, List<AssignedSession>> porDia = new HashMap<>();
+        for (AssignedSession s : sesiones) porDia.computeIfAbsent(s.getColumnaDia(), k -> new ArrayList<>()).add(s);
 
-        for (List<SesionAsignada> diaSesiones : porDia.values()) {
-            diaSesiones.sort(Comparator.comparingInt(SesionAsignada::getFilaHora).thenComparingInt(SesionAsignada::getSpanFilas));
-            List<List<SesionAsignada>> bloques = new ArrayList<>();
-            List<SesionAsignada> bloqueActual = new ArrayList<>();
+        for (List<AssignedSession> diaSesiones : porDia.values()) {
+            diaSesiones.sort(Comparator.comparingInt(AssignedSession::getFilaHora).thenComparingInt(AssignedSession::getSpanFilas));
+            List<List<AssignedSession>> bloques = new ArrayList<>();
+            List<AssignedSession> bloqueActual = new ArrayList<>();
             int maxFilaFin = -1;
 
-            for (SesionAsignada s : diaSesiones) {
+            for (AssignedSession s : diaSesiones) {
                 int inicio = s.getFilaHora();
                 int fin = inicio + s.getSpanFilas();
                 if (bloqueActual.isEmpty() || inicio < maxFilaFin) {
@@ -1281,24 +1282,24 @@ public class ScheduleController {
             }
             if (!bloqueActual.isEmpty()) bloques.add(bloqueActual);
 
-            for (List<SesionAsignada> bloque : bloques) {
-                List<List<SesionAsignada>> columnasVisuales = new ArrayList<>();
-                for (SesionAsignada s : bloque) {
+            for (List<AssignedSession> bloque : bloques) {
+                List<List<AssignedSession>> columnasVisuales = new ArrayList<>();
+                for (AssignedSession s : bloque) {
                     boolean colocada = false;
-                    for (List<SesionAsignada> col : columnasVisuales) {
-                        SesionAsignada ultimaEnCol = col.get(col.size() - 1);
+                    for (List<AssignedSession> col : columnasVisuales) {
+                        AssignedSession ultimaEnCol = col.get(col.size() - 1);
                         if (s.getFilaHora() >= ultimaEnCol.getFilaHora() + ultimaEnCol.getSpanFilas()) {
                             col.add(s); colocada = true; break;
                         }
                     }
                     if (!colocada) {
-                        List<SesionAsignada> nuevaCol = new ArrayList<>();
+                        List<AssignedSession> nuevaCol = new ArrayList<>();
                         nuevaCol.add(s); columnasVisuales.add(nuevaCol);
                     }
                 }
                 int totalColumnasBloque = columnasVisuales.size();
                 for (int i = 0; i < totalColumnasBloque; i++) {
-                    for (SesionAsignada s : columnasVisuales.get(i)) layout.put(s, new PosicionVisual(i, totalColumnasBloque));
+                    for (AssignedSession s : columnasVisuales.get(i)) layout.put(s, new PosicionVisual(i, totalColumnasBloque));
                 }
             }
         }
@@ -1323,7 +1324,7 @@ public class ScheduleController {
 
         Set<String> cursos = new HashSet<>();
         Set<String> profesores = new HashSet<>();
-        for (SesionAsignada s : horarioGenerado) {
+        for (AssignedSession s : horarioGenerado) {
             cursos.add(s.getGrupo().getCurso().getNombre());
             profesores.add(s.getGrupo().getProfesor().getNombre());
         }
@@ -1357,8 +1358,8 @@ public class ScheduleController {
             String cursoSel = cmbFiltroCurso.getValue();
             String profSel = cmbFiltroProfesor.getValue();
 
-            List<SesionAsignada> filtradas = new ArrayList<>();
-            for (SesionAsignada s : horarioGenerado) {
+            List<AssignedSession> filtradas = new ArrayList<>();
+            for (AssignedSession s : horarioGenerado) {
                 boolean matchC = (cursoSel == null || cursoSel.isEmpty() || s.getGrupo().getCurso().getNombre().equals(cursoSel));
                 boolean matchP = (profSel == null || profSel.isEmpty() || s.getGrupo().getProfesor().getNombre().equals(profSel));
                 if (matchC && matchP) filtradas.add(s);

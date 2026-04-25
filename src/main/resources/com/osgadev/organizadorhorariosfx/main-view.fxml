@@ -51,7 +51,7 @@
                   <Insets left="10.0" right="10.0" top="15.0" />
                </padding>
                <children>
-                  <Button fx:id="btnInicio" alignment="BASELINE_LEFT" graphicTextGap="15.0" mnemonicParsing="false" prefHeight="45.0" prefWidth="180.0" style="-fx-background-color: transparent;" text="Inicio" textFill="WHITE">
+                  <Button fx:id="btnInicio" alignment="BASELINE_LEFT" graphicTextGap="15.0" mnemonicParsing="false" onAction="#onHomeButtonClick" prefHeight="45.0" prefWidth="180.0" style="-fx-background-color: transparent;" text="Inicio" textFill="WHITE">
                      <graphic>
                         <ImageView fitHeight="25.0" fitWidth="25.0" pickOnBounds="true" preserveRatio="true">
                            <image>

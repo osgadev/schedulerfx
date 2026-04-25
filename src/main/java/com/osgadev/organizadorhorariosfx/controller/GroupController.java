@@ -1,12 +1,12 @@
 package com.osgadev.organizadorhorariosfx.controller;
 
-import com.osgadev.organizadorhorariosfx.DAO.AlumnoDAO;
-import com.osgadev.organizadorhorariosfx.DAO.GroupDAO;
-import com.osgadev.organizadorhorariosfx.DAO.TeacherDAO;
+import com.osgadev.organizadorhorariosfx.dao.StudentDAO;
+import com.osgadev.organizadorhorariosfx.dao.GroupDAO;
+import com.osgadev.organizadorhorariosfx.dao.TeacherDAO;
 import com.osgadev.organizadorhorariosfx.model.Course;
 import com.osgadev.organizadorhorariosfx.model.Group;
 import com.osgadev.organizadorhorariosfx.model.Teacher;
-import com.osgadev.organizadorhorariosfx.model.Alumno;
+import com.osgadev.organizadorhorariosfx.model.Student;
 import com.osgadev.organizadorhorariosfx.service.GroupService;
 import com.osgadev.organizadorhorariosfx.util.ImportadorExcel;
 
@@ -66,7 +66,7 @@ public class GroupController {
     // --- Lógica de Negocio y Datos ---
     private GroupService groupService = new GroupService();
     private GroupDAO groupDAO = new GroupDAO();
-    private AlumnoDAO alumnoDAO = new AlumnoDAO();
+    private StudentDAO studentDAO = new StudentDAO();
     private TeacherDAO teacherDAO = new TeacherDAO();
 
     private ObservableList<Group> listaBaseGrupos = FXCollections.observableArrayList();
@@ -75,7 +75,7 @@ public class GroupController {
     private int indiceCursoActual = 0;
 
     // --- NUEVO: Memoria temporal para los alumnos importados ---
-    private List<Alumno> alumnosImportados = null;
+    private List<Student> alumnosImportados = null;
 
     @FXML
     public void initialize() {
@@ -274,7 +274,7 @@ public class GroupController {
         if (alumnosImportados != null && !alumnosImportados.isEmpty()) {
             for (int i = 0; i < alumnosImportados.size(); i++) {
                 int numeroLista = i + 1; // El primer alumno del Excel es el número 1
-                Alumno al = alumnosImportados.get(i);
+                Student al = alumnosImportados.get(i);
                 al.setNumeroLista(numeroLista);
                 al.getGruposAsignados().clear(); // Limpiar por si el usuario le dio click 2 veces
 
@@ -285,9 +285,9 @@ public class GroupController {
                     }
                 }
             }
-            // Mandarlos a la BD (El DAO guardará al alumno y sus relaciones M:M)
-            com.osgadev.organizadorhorariosfx.DAO.AlumnoDAO alumnoDAO = new com.osgadev.organizadorhorariosfx.DAO.AlumnoDAO();
-            alumnoDAO.guardarAlumnosYRelaciones(alumnosImportados, anio, etapa);
+            // Mandarlos a la BD (El dao guardará al alumno y sus relaciones M:M)
+            StudentDAO studentDAO = new StudentDAO();
+            studentDAO.guardarAlumnosYRelaciones(alumnosImportados, anio, etapa);
         }
 
         System.out.println("Grupos y Alumnos (Relacionales) guardados exitosamente en BD.");

@@ -1,10 +1,9 @@
 package com.osgadev.organizadorhorariosfx.service;
 
-import com.osgadev.organizadorhorariosfx.DAO.AvailabilityDAO;
+import com.osgadev.organizadorhorariosfx.dao.AvailabilityDAO;
 import com.osgadev.organizadorhorariosfx.model.Availability;
 import com.osgadev.organizadorhorariosfx.model.Group;
-import com.osgadev.organizadorhorariosfx.model.Teacher;
-import com.osgadev.organizadorhorariosfx.DTO.SesionAsignada;
+import com.osgadev.organizadorhorariosfx.dto.AssignedSession;
 
 import org.chocosolver.solver.Model;
 import org.chocosolver.solver.constraints.Constraint;
@@ -15,16 +14,16 @@ import org.chocosolver.solver.variables.Task;
 import java.util.function.BiConsumer;
 import java.util.*;
 
-public class HorarioService {
+public class ScheduleService {
 
     private final AvailabilityDAO availabilityDAO;
     private static final int BLOQUES_POR_DIA = 48;
 
-    public HorarioService(AvailabilityDAO availabilityDAO) {
+    public ScheduleService(AvailabilityDAO availabilityDAO) {
         this.availabilityDAO = availabilityDAO;
     }
 
-    public List<SesionAsignada> generarHorario(List<Group> todosLosGrupos, BiConsumer<List<SesionAsignada>, String> onProgressUpdate) {
+    public List<AssignedSession> generarHorario(List<Group> todosLosGrupos, BiConsumer<List<AssignedSession>, String> onProgressUpdate) {
 
         // --- HEURÍSTICA HUMANA 1: ORDENAR POR PROFESORES MÁS DIFÍCILES PRIMERO ---
         Map<Integer, Integer> espacioPorProfesor = new HashMap<>();
@@ -172,7 +171,7 @@ public class HorarioService {
             model.getSolver().limitTime("10s");
 
             if (model.getSolver().solve()) {
-                List<SesionAsignada> horarioFinal = extraerHorario(gruposOrdenados, tareasPorGrupo);
+                List<AssignedSession> horarioFinal = extraerHorario(gruposOrdenados, tareasPorGrupo);
                 if (onProgressUpdate != null) onProgressUpdate.accept(horarioFinal, "✅ ¡Horario Generado con Éxito en el Intento " + (intento + 1) + "!");
                 return horarioFinal;
             } else {
@@ -243,8 +242,8 @@ public class HorarioService {
         return validos.stream().mapToInt(i -> i).toArray();
     }
 
-    private List<SesionAsignada> extraerHorario(List<Group> gruposOrdenados, Map<Group, List<Task>> tareasPorGrupo) {
-        List<SesionAsignada> variantesResultantes = new ArrayList<>();
+    private List<AssignedSession> extraerHorario(List<Group> gruposOrdenados, Map<Group, List<Task>> tareasPorGrupo) {
+        List<AssignedSession> variantesResultantes = new ArrayList<>();
         for (Group g : gruposOrdenados) {
             for (Task tarea : tareasPorGrupo.get(g)) {
                 int slotInicioSemanal = tarea.getStart().getValue();
@@ -259,7 +258,7 @@ public class HorarioService {
                 int filaInicioVisual = ((hInicio - 7) * 2) + (mInicio / 30);
                 int spanFilasVisuales = duracionBloques;
 
-                SesionAsignada nuevaSesion = new SesionAsignada(g, columnaDia, filaInicioVisual, spanFilasVisuales);
+                AssignedSession nuevaSesion = new AssignedSession(g, columnaDia, filaInicioVisual, spanFilasVisuales);
                 nuevaSesion.setSlotInicioSemanal(slotInicioSemanal);
                 variantesResultantes.add(nuevaSesion);
             }

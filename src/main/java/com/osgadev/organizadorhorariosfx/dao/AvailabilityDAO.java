@@ -1,4 +1,4 @@
-package com.osgadev.organizadorhorariosfx.DAO;
+package com.osgadev.organizadorhorariosfx.dao;
 
 import com.osgadev.organizadorhorariosfx.model.Availability;
 import com.osgadev.organizadorhorariosfx.model.Course;
@@ -14,7 +14,7 @@ import java.util.List;
 
 public class AvailabilityDAO {
 
-    // Instanciamos el DAO de cursos para poder reconstruir el objeto Course al leer la BD
+    // Instanciamos el dao de cursos para poder reconstruir el objeto Course al leer la BD
     private CourseDAO courseDAO = new CourseDAO();
 
     public void saveAll(Teacher profesor, List<Availability> bloquesNuevos) {
@@ -86,7 +86,7 @@ public class AvailabilityDAO {
                     int bInicio = rs.getInt("bloque_inicial");
                     int bFin = rs.getInt("bloque_final");
 
-                    // Guardamos todo en memoria sin llamar a ningún otro DAO todavía
+                    // Guardamos todo en memoria sin llamar a ningún otro dao todavía
                     datosTemporales.add(new DatosBD(idDisp, cursoId, tieneCurso, bInicio, bFin));
                 }
             }

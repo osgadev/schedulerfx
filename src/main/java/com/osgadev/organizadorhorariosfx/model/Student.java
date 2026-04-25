@@ -3,14 +3,14 @@ package com.osgadev.organizadorhorariosfx.model;
 import java.util.ArrayList;
 import java.util.List;
 
-public class Alumno {
+public class Student {
     private String matricula;
     private String nombreCompleto;
     private String correo_electronico;
     private int numeroLista;
     private List<Group> gruposAsignados; // NUEVO: Relación con sus materias
 
-    public Alumno(String matricula, String nombreCompleto, String correo_electronico) {
+    public Student(String matricula, String nombreCompleto, String correo_electronico) {
         this.matricula = matricula;
         this.nombreCompleto = nombreCompleto;
         this.correo_electronico = correo_electronico;

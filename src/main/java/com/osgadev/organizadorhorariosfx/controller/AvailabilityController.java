@@ -1,8 +1,8 @@
 package com.osgadev.organizadorhorariosfx.controller;
 
-import com.osgadev.organizadorhorariosfx.DAO.AvailabilityDAO;
-import com.osgadev.organizadorhorariosfx.DAO.CourseDAO;
-import com.osgadev.organizadorhorariosfx.DAO.TeacherDAO;
+import com.osgadev.organizadorhorariosfx.dao.AvailabilityDAO;
+import com.osgadev.organizadorhorariosfx.dao.CourseDAO;
+import com.osgadev.organizadorhorariosfx.dao.TeacherDAO;
 import com.osgadev.organizadorhorariosfx.model.Availability;
 import com.osgadev.organizadorhorariosfx.model.Course;
 import com.osgadev.organizadorhorariosfx.model.Teacher;

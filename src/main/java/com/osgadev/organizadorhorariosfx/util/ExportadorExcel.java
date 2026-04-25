@@ -1,7 +1,7 @@
 package com.osgadev.organizadorhorariosfx.util;
 
-import com.osgadev.organizadorhorariosfx.DTO.SesionAsignada;
-import com.osgadev.organizadorhorariosfx.model.Alumno;
+import com.osgadev.organizadorhorariosfx.dto.AssignedSession;
+import com.osgadev.organizadorhorariosfx.model.Student;
 import com.osgadev.organizadorhorariosfx.model.Group;
 import com.osgadev.organizadorhorariosfx.model.Teacher;
 import org.apache.poi.ss.usermodel.*;
@@ -13,14 +13,14 @@ import java.util.*;
 
 public class ExportadorExcel {
 
-    public static void exportarHorarioPersonalizado(List<SesionAsignada> horarioGenerado,
-                                                    Map<String, List<Alumno>> alumnosPorGrupo,
+    public static void exportarHorarioPersonalizado(List<AssignedSession> horarioGenerado,
+                                                    Map<String, List<Student>> alumnosPorGrupo,
                                                     File archivoDestino) throws Exception {
         Workbook workbook = new XSSFWorkbook();
 
         // 1. Agrupar por Profesor y luego por Grupo
-        Map<Teacher, Map<Group, List<SesionAsignada>>> datosAgrupados = new HashMap<>();
-        for (SesionAsignada s : horarioGenerado) {
+        Map<Teacher, Map<Group, List<AssignedSession>>> datosAgrupados = new HashMap<>();
+        for (AssignedSession s : horarioGenerado) {
             Teacher profe = s.getGrupo().getProfesor();
             datosAgrupados.computeIfAbsent(profe, k -> new HashMap<>())
                     .computeIfAbsent(s.getGrupo(), k -> new ArrayList<>()).add(s);
@@ -81,7 +81,7 @@ public class ExportadorExcel {
         }
 
         // 2. Crear una hoja por cada Profesor
-        for (Map.Entry<Teacher, Map<Group, List<SesionAsignada>>> entryProfe : datosAgrupados.entrySet()) {
+        for (Map.Entry<Teacher, Map<Group, List<AssignedSession>>> entryProfe : datosAgrupados.entrySet()) {
             Teacher profe = entryProfe.getKey();
 
             String apellidoMat = (profe.getApellidoMaterno() != null) ? profe.getApellidoMaterno() : "";
@@ -95,9 +95,9 @@ public class ExportadorExcel {
             int numFilaActual = 0;
 
             // 3. Crear las mini-tablas por cada Grupo
-            for (Map.Entry<Group, List<SesionAsignada>> entryGrupo : entryProfe.getValue().entrySet()) {
+            for (Map.Entry<Group, List<AssignedSession>> entryGrupo : entryProfe.getValue().entrySet()) {
                 Group grupo = entryGrupo.getKey();
-                List<SesionAsignada> sesiones = entryGrupo.getValue();
+                List<AssignedSession> sesiones = entryGrupo.getValue();
 
                 // Datos del Profesor y Grupo
                 Row filaNombre = sheet.createRow(numFilaActual++);
@@ -128,7 +128,7 @@ public class ExportadorExcel {
                 filaHorarios.setHeightInPoints(30);
                 for (int i = 0; i < 7; i++) crearCelda(filaHorarios, i, "", estiloCeldaHorario);
 
-                for (SesionAsignada s : sesiones) {
+                for (AssignedSession s : sesiones) {
                     int indexColumnaExcel = s.getColumnaDia() - 1;
                     int slotInicio = s.getSlotInicioSemanal() % 48;
                     int slotFin = slotInicio + s.getSpanFilas();
@@ -149,10 +149,10 @@ public class ExportadorExcel {
                 crearCelda(filaCabeceraAlumnos, 3, "Correo Electrónico", estiloCabeceraTabla);
 
                 // Obtener los alumnos extraídos de la Base de Datos para este grupo en específico
-                List<Alumno> alumnosDelGrupo = (alumnosPorGrupo != null) ? alumnosPorGrupo.get(grupo.getIdGrupo()) : null;
+                List<Student> alumnosDelGrupo = (alumnosPorGrupo != null) ? alumnosPorGrupo.get(grupo.getIdGrupo()) : null;
 
                 if (alumnosDelGrupo != null && !alumnosDelGrupo.isEmpty()) {
-                    for (Alumno al : alumnosDelGrupo) {
+                    for (Student al : alumnosDelGrupo) {
                         Row filaAl = sheet.createRow(numFilaActual++);
                         // IMPRIME EL NÚMERO DE LISTA REAL DEL ALUMNO
                         crearCelda(filaAl, 0, String.valueOf(al.getNumeroLista()), estiloCeldaAlumno);
