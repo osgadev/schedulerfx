@@ -1,205 +1,362 @@
 package com.osgadev.organizadorhorariosfx.controller;
 
+import com.osgadev.organizadorhorariosfx.dao.AvailabilityDAO;
+import com.osgadev.organizadorhorariosfx.dao.CourseDAO;
 import com.osgadev.organizadorhorariosfx.dao.TeacherDAO;
-import com.osgadev.organizadorhorariosfx.OrganizadorApplication;
 import com.osgadev.organizadorhorariosfx.model.Course;
 import com.osgadev.organizadorhorariosfx.model.Teacher;
-import javafx.beans.property.SimpleIntegerProperty;
+import com.osgadev.organizadorhorariosfx.util.SessionGlobal;
+
+import javafx.beans.property.ReadOnlyObjectWrapper;
 import javafx.beans.property.SimpleStringProperty;
 import javafx.collections.FXCollections;
 import javafx.collections.ObservableList;
+import javafx.collections.transformation.FilteredList;
+import javafx.collections.transformation.SortedList;
 import javafx.fxml.FXML;
-import javafx.fxml.FXMLLoader;
 import javafx.fxml.Initializable;
-import javafx.geometry.Pos;
-import javafx.scene.Parent;
-import javafx.scene.Scene;
 import javafx.scene.control.*;
+import javafx.scene.image.Image;
+import javafx.scene.image.ImageView;
 import javafx.scene.layout.HBox;
-import javafx.stage.Modality;
-import javafx.stage.Stage;
+import javafx.scene.layout.VBox;
 import javafx.util.Callback;
 
-import java.io.IOException;
 import java.net.URL;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
 import java.util.ResourceBundle;
-import java.util.stream.Collectors;
 
 public class TeacherController implements Initializable {
-    @FXML
-    private TableView<Teacher> tablaProfesores;
-    @FXML
-    private TableColumn<Teacher, Number> colNumeroProfesor;
-    @FXML
-    private TableColumn<Teacher, String> colNombre;
-    @FXML
-    private TableColumn<Teacher, String> colCursos;
-    @FXML
-    private TableColumn<Teacher, Void> colAcciones;
-    @FXML
-    private Button guardarButton;
 
+    // ==========================================
+    // LADO IZQUIERDO (MASTER)
+    // ==========================================
+    @FXML private HBox rootHBox;
+
+    @FXML private TextField txtBuscarProfesor; // Barra de Búsqueda
+
+    @FXML private TableView<Teacher> tablaProfesores;
+    @FXML private TableColumn<Teacher, Integer> colNumeroProfesor;
+    @FXML private TableColumn<Teacher, String> colEstado;
+    @FXML private TableColumn<Teacher, String> colNombre;
+
+    // ==========================================
+    // LADO DERECHO (DETALLE Y ESTADO VACÍO)
+    // ==========================================
+    @FXML private VBox panelVacio;
+    @FXML private VBox panelFormulario;
+    @FXML private HBox boxAlertaDisponibilidad;
+
+    @FXML private Label lblTituloDetalle;
+    @FXML private Button btnIrDisponibilidad;
+    @FXML private Button btnEliminarProfesor;
+
+    @FXML private TextField txtNombre;
+    @FXML private TextField txtApellidoP;
+    @FXML private TextField txtApellidoM;
+    @FXML private TextField txtCorreo;
+    @FXML private TextField txtTelefono;
+
+    @FXML private ComboBox<Course> cmbCursos;
+    @FXML private TableView<Course> tablaCursosAsignados;
+    @FXML private TableColumn<Course, String> colNombreCursoDetalle;
+    @FXML private TableColumn<Course, Void> colAccionesCursoDetalle;
+
+    // ==========================================
+    // VARIABLES DE ESTADO Y DAOs
+    // ==========================================
     private TeacherDAO teacherDAO = new TeacherDAO();
-    private ObservableList<Teacher> listaProfesoresFx;
+    private CourseDAO courseDAO = new CourseDAO();
+    private AvailabilityDAO availabilityDAO = new AvailabilityDAO();
 
+    private ObservableList<Teacher> listaProfesoresFx;
+    private ObservableList<Course> cursosAsignadosFx = FXCollections.observableArrayList();
+
+    private Teacher profesorSeleccionado = null; // null significa "Modo Crear"
 
     @Override
     public void initialize(URL url, ResourceBundle resourceBundle) {
-        configurarColumnas();
-        cargarDatosEnTabla();
-        agregarBotonesAccion();
-    }
 
-    public void onAddNewTeacherButtonClick(){
-        showTeacherFormView(null);
-    }
-
-    public void showTeacherFormView(Teacher profesorAEditar){ //esta vista nos ayuda a agregar un nuevo curso o editar uno ya existente
+        // --- CARGAR LA HOJA DE ESTILOS CSS ---
         try {
-            FXMLLoader loader = new FXMLLoader(OrganizadorApplication.class.getResource("teacher-form-view.fxml")); // cargarmos el FXML
-            Parent root = loader.load();
+            String cssPath = getClass().getResource("/css/styles.css").toExternalForm();
+            rootHBox.getStylesheets().add(cssPath);
+        } catch (NullPointerException e) {
+            System.err.println("No se pudo cargar el archivo CSS. Verifica que esté en src/main/resources/css/styles.css");
+        }
 
-            TeacherFormController teacherFormController = loader.getController();  //obtenemos el controlador de la ventana form
+        configurarTablaMaestra();
+        configurarTablaDetalle();
+        cargarComboCursos();
+        cargarDatosMaestros();
 
-            Stage stage = new Stage();   //preparamos el stage
-            stage.setScene(new Scene(root));
-            stage.initModality(Modality.APPLICATION_MODAL); // APPLICATION_MODAL bloquea la ventana de atras
+        // Asegurarnos de que inicie en Estado Vacío
+        panelFormulario.setVisible(false);
+        panelVacio.setVisible(true);
 
-            if (profesorAEditar == null) {   // decidimos el modo en que se abre la ventana (CREAR O EDITAR)
-                // CREAR
-                stage.setTitle("Agregar Nuevo Profesor");
-                teacherFormController.cargarProfesorNuevo();
-            } else {
-                // EDITAR
-                stage.setTitle("Informacion Profesor");
-                teacherFormController.cargarProfesorExistente(profesorAEditar);
+        // Listener: Detectar cuando el usuario hace clic en un profesor de la tabla
+        tablaProfesores.getSelectionModel().selectedItemProperty().addListener((obs, oldSelection, newSelection) -> {
+            if (newSelection != null) {
+                cargarDetalleProfesor(newSelection);
             }
+        });
+    }
 
-            //mostrar la ventana y pausar el código hasta que se cierre
-            stage.showAndWait();
+    // ==========================================
+    // MÉTODOS DE CONFIGURACIÓN
+    // ==========================================
+    private void configurarTablaMaestra() {
+        // En lugar de usar el índice de la tabla (que cambia al filtrar), mostramos el ID o generamos un índice basado en la lista original
+        colNumeroProfesor.setCellValueFactory(celda -> new ReadOnlyObjectWrapper<>(listaProfesoresFx.indexOf(celda.getValue()) + 1));
 
-            cargarDatosEnTabla(); // recargamos los datos desde MySQL para ver los cambios
-//            tablaCursos.refresh();// aseguramos que la vista se repinte
+        colNombre.setCellValueFactory(celda -> new SimpleStringProperty(
+                celda.getValue().getNombre() + " " +
+                        celda.getValue().getApellidoPaterno() + " " +
+                        (celda.getValue().getApellidoMaterno() != null ? celda.getValue().getApellidoMaterno() : "")
+        ));
 
-        } catch (IOException e) {
-            System.err.println("Error al abrir el formulario de curso: " + e.getMessage());
-            e.printStackTrace();
+        // Columna de Estado (✅ o ⚠️) leyendo directamente del modelo optimizado
+        colEstado.setCellValueFactory(celda -> {
+            Teacher profe = celda.getValue();
+            // Ya no consultamos a la BD, usamos el atributo booleano
+            return new SimpleStringProperty(profe.isTieneDisponibilidad() ? "✅" : "⚠️");
+        });
+
+        // Darle color y Tooltip a la columna de estado
+        colEstado.setCellFactory(columna -> new TableCell<>() {
+            @Override
+            protected void updateItem(String item, boolean empty) {
+                super.updateItem(item, empty);
+                if (empty || item == null) {
+                    setText(null);
+                    setTooltip(null);
+                } else {
+                    setText(item);
+                    if (item.equals("⚠️")) {
+                        setStyle("-fx-text-fill: #e67e22; -fx-alignment: CENTER; -fx-font-size: 14px;");
+                        setTooltip(new Tooltip("Sin disponibilidad asignada"));
+                    } else {
+                        setStyle("-fx-text-fill: #27ae60; -fx-alignment: CENTER; -fx-font-size: 14px;");
+                        setTooltip(new Tooltip("Disponibilidad OK"));
+                    }
+                }
+            }
+        });
+    }
+
+    private void configurarTablaDetalle() {
+        colNombreCursoDetalle.setCellValueFactory(celda -> new SimpleStringProperty(celda.getValue().getNombre()));
+        tablaCursosAsignados.setItems(cursosAsignadosFx);
+
+        // Botón Eliminar Curso de la tabla de detalle (del formulario derecho)
+        Callback<TableColumn<Course, Void>, TableCell<Course, Void>> cellFactory = param -> new TableCell<>() {
+            private final Button btnEliminar = new Button();
+            {
+                Image iconoEliminar = new Image(getClass().getResourceAsStream("/images/remove.png"));
+                ImageView iconoView = new ImageView(iconoEliminar);
+                iconoView.setFitWidth(15); iconoView.setFitHeight(15);
+                btnEliminar.setGraphic(iconoView);
+                btnEliminar.setStyle("-fx-background-color: transparent; -fx-cursor: hand;");
+                btnEliminar.setOnAction(e -> cursosAsignadosFx.remove(getIndex()));
+            }
+            @Override
+            protected void updateItem(Void item, boolean empty) {
+                super.updateItem(item, empty);
+                setGraphic(empty ? null : btnEliminar);
+            }
+        };
+        colAccionesCursoDetalle.setCellFactory(cellFactory);
+    }
+
+    private void cargarComboCursos() {
+        List<Course> listaCursos = courseDAO.obtenerCursos();
+        cmbCursos.setItems(FXCollections.observableArrayList(listaCursos));
+
+        // Personalizar ComboBox para que muestre solo el nombre
+        cmbCursos.setCellFactory(param -> new ListCell<Course>() {
+            @Override protected void updateItem(Course c, boolean empty) {
+                super.updateItem(c, empty);
+                setText(empty || c == null ? null : c.getNombre());
+            }
+        });
+        cmbCursos.setButtonCell(new ListCell<Course>() {
+            @Override protected void updateItem(Course c, boolean empty) {
+                super.updateItem(c, empty);
+                setText(empty || c == null ? null : c.getNombre());
+            }
+        });
+    }
+
+    private void cargarDatosMaestros() {
+        // Cargar datos originales
+        listaProfesoresFx = FXCollections.observableArrayList(teacherDAO.obtenerProfesoresObservable());
+
+        // Envolver la lista para aplicar el filtro
+        FilteredList<Teacher> datosFiltrados = new FilteredList<>(listaProfesoresFx, p -> true);
+
+        // Configurar listener para el campo de búsqueda
+        txtBuscarProfesor.textProperty().addListener((observable, oldValue, newValue) -> {
+            datosFiltrados.setPredicate(profesor -> {
+                if (newValue == null || newValue.isEmpty()) {
+                    return true;
+                }
+
+                String filtro = newValue.toLowerCase();
+
+                if (profesor.getNombre().toLowerCase().contains(filtro)) {
+                    return true;
+                } else if (profesor.getApellidoPaterno().toLowerCase().contains(filtro)) {
+                    return true;
+                } else if (profesor.getApellidoMaterno() != null && profesor.getApellidoMaterno().toLowerCase().contains(filtro)) {
+                    return true;
+                }
+                return false;
+            });
+        });
+
+        // Envolver el FilteredList en un SortedList para soportar ordenamiento de columnas
+        SortedList<Teacher> datosOrdenados = new SortedList<>(datosFiltrados);
+        datosOrdenados.comparatorProperty().bind(tablaProfesores.comparatorProperty());
+
+        // Establecer la lista ordenada y filtrada en la tabla
+        tablaProfesores.setItems(datosOrdenados);
+    }
+
+    // ==========================================
+    // MÉTODOS DE ACCIÓN (INTERFAZ)
+    // ==========================================
+    @FXML
+    protected void onNuevoProfesorClick() {
+        profesorSeleccionado = null; // Modo Creación
+        tablaProfesores.getSelectionModel().clearSelection();
+
+        lblTituloDetalle.setText("Nuevo Profesor");
+        btnEliminarProfesor.setVisible(false);
+        btnIrDisponibilidad.setVisible(false);
+
+        // Ocultar alerta de disponibilidad en modo nuevo
+        boxAlertaDisponibilidad.setVisible(false);
+        boxAlertaDisponibilidad.setManaged(false);
+
+        limpiarFormulario();
+
+        // Alternar vistas al modo Formulario
+        panelVacio.setVisible(false);
+        panelFormulario.setVisible(true);
+    }
+
+    private void cargarDetalleProfesor(Teacher profe) {
+        profesorSeleccionado = profe; // Modo Edición
+
+        lblTituloDetalle.setText("Editando a: " + profe.getNombre());
+        btnEliminarProfesor.setVisible(true);
+        btnIrDisponibilidad.setVisible(true);
+
+        // Lógica de validación de Disponibilidad para la alerta, leyendo del modelo
+        boolean tieneDisp = profe.isTieneDisponibilidad();
+        if (!tieneDisp) {
+            boxAlertaDisponibilidad.setVisible(true);
+            boxAlertaDisponibilidad.setManaged(true);
+        } else {
+            boxAlertaDisponibilidad.setVisible(false);
+            boxAlertaDisponibilidad.setManaged(false);
+        }
+
+        txtNombre.setText(profe.getNombre());
+        txtApellidoP.setText(profe.getApellidoPaterno());
+        txtApellidoM.setText(profe.getApellidoMaterno() != null ? profe.getApellidoMaterno() : "");
+        txtCorreo.setText(profe.getCorreoElectronico());
+        txtTelefono.setText(profe.getTelefono());
+
+        cursosAsignadosFx.clear();
+        if (profe.getCursos() != null) {
+            cursosAsignadosFx.addAll(profe.getCursos());
+        }
+
+        // Alternar vistas al modo Formulario
+        panelVacio.setVisible(false);
+        panelFormulario.setVisible(true);
+    }
+
+    @FXML
+    protected void onGuardarClick() {
+        Teacher profeAGuardar = new Teacher(
+                txtNombre.getText(), txtApellidoP.getText(), txtApellidoM.getText(),
+                txtCorreo.getText(), txtTelefono.getText(), new ArrayList<>(cursosAsignadosFx)
+        );
+
+        if (profesorSeleccionado == null) {
+            // INSERT
+            if (teacherDAO.insertar(profeAGuardar)) {
+                cargarDatosMaestros(); // Recargamos lista completa
+                onCancelarClick(); // Limpiamos pantalla
+            }
+        } else {
+            // UPDATE
+            profeAGuardar.setId(profesorSeleccionado.getId());
+            if (teacherDAO.actualizar(profeAGuardar)) {
+                cargarDatosMaestros();
+                onCancelarClick();
+            }
         }
     }
 
-    private void configurarColumnas(){
-        colNumeroProfesor.setCellValueFactory(celda -> {
-            int indice = tablaProfesores.getItems().indexOf(celda.getValue());
-            return new SimpleIntegerProperty(indice + 1);
-        });
-//        colId.setCellValueFactory(celda -> new SimpleIntegerProperty(celda.getValue().getId()).asObject());
-        colNombre.setCellValueFactory(celda -> new SimpleStringProperty(celda.getValue().getNombre() +" "+ celda.getValue().getApellidoPaterno() +" "+ celda.getValue().getApellidoMaterno()));
-        colCursos.setCellValueFactory(celda -> {
-            List<Course> listaCursos = celda.getValue().getCursos();
-            if (listaCursos == null || listaCursos.isEmpty()){
-                return new SimpleStringProperty("Sin cursos asignados");
+    @FXML
+    protected void onEliminarProfesorClick() {
+        if (profesorSeleccionado == null) return;
+
+        Alert alert = new Alert(Alert.AlertType.CONFIRMATION);
+        alert.setTitle("Confirmar Eliminación");
+        alert.setHeaderText("¿Eliminar al profesor " + profesorSeleccionado.getNombre() + "?");
+
+        Optional<ButtonType> result = alert.showAndWait();
+        if (result.isPresent() && result.get() == ButtonType.OK) {
+            if (teacherDAO.eliminar(profesorSeleccionado.getId())) {
+                listaProfesoresFx.remove(profesorSeleccionado); // La lista se actualiza y la UI refleja el cambio
+                onCancelarClick();
+            } else {
+                new Alert(Alert.AlertType.ERROR, "No se pudo eliminar, el profesor está en uso.").showAndWait();
             }
-            String nombresCursos = listaCursos.stream().map(Course::getNombre).collect(Collectors.joining(", "));
-            return new SimpleStringProperty(nombresCursos);
-        });
+        }
     }
 
-    private void cargarDatosEnTabla() {
-        System.out.println("Cargando datos en tabla...");
+    @FXML
+    protected void onCancelarClick() {
+        tablaProfesores.getSelectionModel().clearSelection();
+        profesorSeleccionado = null;
+        limpiarFormulario();
 
-        listaProfesoresFx = FXCollections.observableArrayList(teacherDAO.obtenerProfesoresObservable());
-        tablaProfesores.setItems(listaProfesoresFx);
-
-        System.out.println("Total profesores cargados: " + listaProfesoresFx.size());
-
+        // Regresar al estado vacío (Empty State)
+        panelFormulario.setVisible(false);
+        panelVacio.setVisible(true);
     }
 
-    private void agregarBotonesAccion() {
-        Callback<TableColumn<Teacher, Void>, TableCell<Teacher, Void>> cellFactory = new Callback<>() {
-            @Override
-            public TableCell<Teacher, Void> call(final TableColumn<Teacher, Void> param) {
+    @FXML
+    protected void onAgregarCursoClick() {
+        Course cursoSel = cmbCursos.getSelectionModel().getSelectedItem();
+        if (cursoSel != null && !cursosAsignadosFx.contains(cursoSel)) {
+            cursosAsignadosFx.add(cursoSel);
+        }
+    }
 
-                return new TableCell<>() {
-                    // 1. Instanciar los componentes visuales
-                    private final Button btnEditar = new Button("Ver información");
-                    private final Button btnEliminar = new Button("Eliminar");
-                    private final HBox panelBotones = new HBox(10); // Espacio de 10px entre botones
+    @FXML
+    protected void onIrDisponibilidadClick() {
+        if (profesorSeleccionado != null) {
+            SessionGlobal.setProfesorNavegacion(profesorSeleccionado.getId());
 
-                    {
-                        // 2. Aplicar estilos básicos
-                        btnEditar.setStyle("-fx-background-color: #3498db; -fx-text-fill: white; -fx-cursor: hand;");
-                        btnEliminar.setStyle("-fx-background-color: #e74c3c; -fx-text-fill: white; -fx-cursor: hand;");
-
-                        // 3. Configurar el contenedor
-                        panelBotones.setAlignment(Pos.CENTER);
-                        panelBotones.getChildren().addAll(btnEditar, btnEliminar);
-
-                        // ======================================
-                        // ACCIÓN: ELIMINAR INFORMACION DEL PROFESOR
-                        // ======================================
-                        btnEliminar.setOnAction(event -> {
-
-                            Teacher profesorSeleccionado = getTableView().getItems().get(getIndex());
-
-                            Alert confirmationAlert = new Alert(Alert.AlertType.CONFIRMATION);
-                            confirmationAlert.setTitle("Confirmar Eliminación");
-                            confirmationAlert.setHeaderText("¿Estas seguro de borrar al profesor de la lista?");
-                            confirmationAlert.setContentText("Profesor: " + profesorSeleccionado.getNombre() + "\nEsta accion no se puede deshacer.");
-
-                            Optional<ButtonType> resultado = confirmationAlert.showAndWait();
-
-                            if(resultado.isPresent() && resultado.get()==ButtonType.OK){
-                                boolean borradoExitoso = teacherDAO.eliminar(profesorSeleccionado.getId());
-
-                                if (borradoExitoso) {
-                                    // Si se borró en BD, lo borramos de la lista observable para actualizar la vista
-                                    listaProfesoresFx.remove(profesorSeleccionado);
-
-                                    Alert succesAlert = new Alert(Alert.AlertType.INFORMATION);
-                                    succesAlert.setTitle("Exito");
-                                    succesAlert.setHeaderText(null);
-                                    succesAlert.setContentText("El curso se ha eliminado correctamente");
-                                    succesAlert.showAndWait();
-
-                                } else {
-                                    Alert errorAlert = new Alert(Alert.AlertType.ERROR);
-                                    errorAlert.setTitle("Error");
-                                    errorAlert.setHeaderText("No se pudo eliminar el curso");
-                                    errorAlert.setHeaderText("Ocurrió un error en la base de datos o el curso esta siendo usado por un profesor.");
-                                    errorAlert.showAndWait();
-                                }
-                            }
-
-
-                        });
-
-                        // ======================================
-                        // ACCIÓN: VER INFORMACION DEL PROFESOR (ABRIR POPUP)
-                        // ======================================
-                        btnEditar.setOnAction(event -> {
-                            Teacher profesorSeleccionado = getTableView().getItems().get(getIndex());
-                            showTeacherFormView(profesorSeleccionado);
-
-                        });
-                    }
-
-                    // 4. Metodo que dibuja los botones en la tabla
-                    @Override
-                    protected void updateItem(Void item, boolean empty) {
-                        super.updateItem(item, empty);
-
-                        // Solo dibujamos los botones si la fila actual pertenece a un curso válido
-                        if (empty) {
-                            setGraphic(null);
-                        } else {
-                            setGraphic(panelBotones);
-                        }
-                    }
-                };
+            // Llama a la instancia global de MainController para cambiar la vista
+            if (MainController.getInstance() != null) {
+                MainController.getInstance().onAvailabilityButtonClick();
             }
-        };
-        colAcciones.setCellFactory(cellFactory);
+        }
+    }
+
+    private void limpiarFormulario() {
+        txtNombre.clear(); txtApellidoP.clear(); txtApellidoM.clear();
+        txtCorreo.clear(); txtTelefono.clear();
+        cursosAsignadosFx.clear();
+        cmbCursos.getSelectionModel().clearSelection();
     }
 }

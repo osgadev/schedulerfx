@@ -2,74 +2,179 @@
 
 <?import javafx.geometry.Insets?>
 <?import javafx.scene.control.Button?>
+<?import javafx.scene.control.ComboBox?>
 <?import javafx.scene.control.Label?>
+<?import javafx.scene.control.Separator?>
 <?import javafx.scene.control.TableColumn?>
 <?import javafx.scene.control.TableView?>
-<?import javafx.scene.image.Image?>
-<?import javafx.scene.image.ImageView?>
+<?import javafx.scene.control.TextField?>
+<?import javafx.scene.layout.ColumnConstraints?>
+<?import javafx.scene.layout.GridPane?>
 <?import javafx.scene.layout.HBox?>
 <?import javafx.scene.layout.Region?>
+<?import javafx.scene.layout.RowConstraints?>
+<?import javafx.scene.layout.StackPane?>
 <?import javafx.scene.layout.VBox?>
 <?import javafx.scene.text.Font?>
 
-<VBox fx:id="teacherAnchorPane" prefHeight="500.0" prefWidth="600.0" spacing="20.0" style="-fx-background-color: #f4f4f4;" xmlns="http://javafx.com/javafx/25" xmlns:fx="http://javafx.com/fxml/1" fx:controller="com.osgadev.organizadorhorariosfx.controller.TeacherController">
+<HBox fx:id="rootHBox" prefHeight="650.0" prefWidth="1000.0" spacing="20.0" style="-fx-background-color: #f4f4f4;" xmlns="http://javafx.com/javafx/21" xmlns:fx="http://javafx.com/fxml/1" fx:controller="com.osgadev.organizadorhorariosfx.controller.TeacherController">
     <padding>
-        <Insets bottom="20.0" left="25.0" right="25.0" top="20.0" />
+        <Insets bottom="20.0" left="20.0" right="20.0" top="20.0" />
     </padding>
     <children>
-
         <!-- ============================================== -->
-        <!-- ENCABEZADO: TÍTULO Y BOTONES DE ACCIÓN         -->
+        <!-- LADO IZQUIERDO: LISTA (MASTER)                 -->
         <!-- ============================================== -->
-        <HBox alignment="BOTTOM_LEFT" prefHeight="50.0" prefWidth="550.0">
+        <VBox prefWidth="380.0" spacing="15.0" HBox.hgrow="NEVER">
             <children>
                 <VBox spacing="5.0">
                     <children>
                         <Label text="Gestión de Profesores">
-                            <font>
-                                <Font name="System Bold" size="24.0" />
-                            </font>
+                            <font><Font name="System Bold" size="22.0" /></font>
                         </Label>
-                        <Label text="Administra el catálogo de docentes y sus materias asignadas" textFill="#666666">
-                            <font>
-                                <Font size="13.0" />
-                            </font>
+                        <Label text="Catálogo de docentes" textFill="#666666">
+                            <font><Font size="13.0" /></font>
                         </Label>
                     </children>
                 </VBox>
 
-                <!-- Resorte invisible para empujar el botón a la derecha -->
-                <Region HBox.hgrow="ALWAYS" />
+                <Button maxWidth="1.7976931348623157E308" mnemonicParsing="false" onAction="#onNuevoProfesorClick" prefHeight="35.0" style="-fx-background-color: #28a745; -fx-text-fill: white; -fx-font-weight: bold; -fx-cursor: hand;" text="+ Nuevo Profesor" />
 
-                <Button fx:id="addNewTeacherButton" alignment="CENTER" graphicTextGap="10.0" mnemonicParsing="false" onAction="#onAddNewTeacherButtonClick" prefHeight="35.0" style="-fx-background-color: #28a745; -fx-background-radius: 4; -fx-font-weight: bold;" text="Nuevo Profesor" textFill="WHITE">
-                    <graphic>
-                        <ImageView fitHeight="18.0" fitWidth="18.0" pickOnBounds="true" preserveRatio="true">
-                            <image>
-                                <Image url="@../../../images/adduser.png" />
-                            </image>
-                        </ImageView>
-                    </graphic>
-                    <padding>
-                        <Insets left="15.0" right="15.0" />
-                    </padding>
-                </Button>
+                <!-- Barra de búsqueda agregada -->
+                <TextField fx:id="txtBuscarProfesor" promptText="🔍 Buscar por nombre o apellido..." styleClass="search-field" />
+
+                <TableView fx:id="tablaProfesores" VBox.vgrow="ALWAYS">
+                    <columns>
+                        <TableColumn fx:id="colNumeroProfesor" maxWidth="40.0" minWidth="40.0" prefWidth="40.0" style="-fx-alignment: CENTER;" text="No." />
+                        <TableColumn fx:id="colNombre" prefWidth="250.0" text="Nombre" />
+                        <!-- Columna ampliada a 70px y con texto 'Estado' -->
+                        <TableColumn fx:id="colEstado" maxWidth="70.0" minWidth="70.0" prefWidth="70.0" style="-fx-alignment: CENTER;" text="Estado" />
+                    </columns>
+                    <columnResizePolicy>
+                        <TableView fx:constant="CONSTRAINED_RESIZE_POLICY" />
+                    </columnResizePolicy>
+                </TableView>
             </children>
-        </HBox>
+        </VBox>
 
         <!-- ============================================== -->
-        <!-- ÁREA CENTRAL: TABLA DE DATOS                   -->
+        <!-- LADO DERECHO: CONTENEDOR DINÁMICO              -->
         <!-- ============================================== -->
-        <TableView fx:id="tablaProfesores" style="-fx-border-color: #dddddd; -fx-border-radius: 4; -fx-background-radius: 4;" VBox.vgrow="ALWAYS">
-            <columns>
-                <TableColumn fx:id="colNumeroProfesor" maxWidth="50.0" minWidth="23.0" prefWidth="30.0" text="No." />
-                <TableColumn fx:id="colNombre" minWidth="150.0" prefWidth="213.0" text="Nombre Completo" />
-                <TableColumn fx:id="colCursos" minWidth="120.0" prefWidth="135.0" text="Cursos Asignados" />
-                <TableColumn fx:id="colAcciones" maxWidth="191.0" minWidth="120.0" prefWidth="176.0" text="Acciones" />
-            </columns>
-            <columnResizePolicy>
-                <TableView fx:constant="CONSTRAINED_RESIZE_POLICY" />
-            </columnResizePolicy>
-        </TableView>
+        <StackPane HBox.hgrow="ALWAYS">
+            <children>
 
+                <!-- 1. ESTADO VACÍO -->
+                <VBox fx:id="panelVacio" alignment="CENTER" spacing="15.0" style="-fx-background-color: white; -fx-background-radius: 8; -fx-effect: dropshadow(three-pass-box, rgba(0,0,0,0.1), 10, 0, 0, 0);">
+                    <children>
+                        <Label text="👨‍🏫" textFill="#bdc3c7">
+                            <font><Font size="64.0" /></font>
+                        </Label>
+                        <Label text="Selecciona un profesor de la lista" textFill="#34495e">
+                            <font><Font name="System Bold" size="20.0" /></font>
+                        </Label>
+                        <Label text="O haz clic en '+ Nuevo Profesor' para registrar uno en el sistema." textFill="#7f8c8d">
+                            <font><Font size="14.0" /></font>
+                        </Label>
+                    </children>
+                </VBox>
+
+                <!-- 2. DETALLE / FORMULARIO -->
+                <VBox fx:id="panelFormulario" prefWidth="550.0" spacing="15.0" style="-fx-background-color: white; -fx-background-radius: 8; -fx-effect: dropshadow(three-pass-box, rgba(0,0,0,0.1), 10, 0, 0, 0);" visible="false">
+                    <padding>
+                        <Insets bottom="25.0" left="30.0" right="30.0" top="25.0" />
+                    </padding>
+                    <children>
+                        <HBox alignment="CENTER_LEFT" spacing="10.0">
+                            <children>
+                                <Label fx:id="lblTituloDetalle" text="Información del Profesor" textFill="#2c3e50">
+                                    <font><Font name="System Bold" size="18.0" /></font>
+                                </Label>
+                                <Region HBox.hgrow="ALWAYS" />
+                                <Button fx:id="btnIrDisponibilidad" mnemonicParsing="false" onAction="#onIrDisponibilidadClick" style="-fx-background-color: transparent; -fx-border-color: #3498db; -fx-text-fill: #3498db; -fx-border-radius: 4; -fx-cursor: hand;" text="🗓️ Configurar Disponibilidad" visible="false" />
+                            </children>
+                        </HBox>
+
+                        <HBox fx:id="boxAlertaDisponibilidad" alignment="CENTER_LEFT" managed="false" spacing="10.0" style="-fx-background-color: #fff3cd; -fx-border-color: #ffeeba; -fx-border-radius: 4; -fx-background-radius: 4;" visible="false">
+                            <padding>
+                                <Insets bottom="10.0" left="15.0" right="15.0" top="10.0" />
+                            </padding>
+                            <children>
+                                <Label text="⚠️" />
+                                <Label text="Este profesor no tiene disponibilidad registrada." textFill="#856404">
+                                    <font><Font name="System Bold" size="12.0" /></font>
+                                </Label>
+                            </children>
+                        </HBox>
+
+                        <Separator prefWidth="200.0" />
+
+                        <GridPane hgap="15.0" vgap="15.0">
+                            <columnConstraints>
+                                <ColumnConstraints hgrow="SOMETIMES" maxWidth="150.0" minWidth="10.0" prefWidth="120.0" />
+                                <ColumnConstraints hgrow="SOMETIMES" minWidth="10.0" prefWidth="200.0" />
+                            </columnConstraints>
+                            <rowConstraints>
+                                <RowConstraints minHeight="10.0" prefHeight="30.0" vgrow="SOMETIMES" />
+                                <RowConstraints minHeight="10.0" prefHeight="30.0" vgrow="SOMETIMES" />
+                                <RowConstraints minHeight="10.0" prefHeight="30.0" vgrow="SOMETIMES" />
+                                <RowConstraints minHeight="10.0" prefHeight="30.0" vgrow="SOMETIMES" />
+                            </rowConstraints>
+                            <children>
+                                <Label text="Nombre(s):" />
+                                <TextField fx:id="txtNombre" promptText="Ej. Juan Carlos" GridPane.columnIndex="1" />
+
+                                <Label text="Apellidos:" GridPane.rowIndex="1" />
+                                <HBox spacing="10.0" GridPane.columnIndex="1" GridPane.rowIndex="1">
+                                    <children>
+                                        <TextField fx:id="txtApellidoP" promptText="Paterno" HBox.hgrow="ALWAYS" />
+                                        <TextField fx:id="txtApellidoM" promptText="Materno" HBox.hgrow="ALWAYS" />
+                                    </children>
+                                </HBox>
+
+                                <Label text="Correo Electrónico:" GridPane.rowIndex="2" />
+                                <TextField fx:id="txtCorreo" promptText="ejemplo@correo.com" GridPane.columnIndex="1" GridPane.rowIndex="2" />
+
+                                <Label text="Teléfono:" GridPane.rowIndex="3" />
+                                <TextField fx:id="txtTelefono" promptText="10 dígitos" GridPane.columnIndex="1" GridPane.rowIndex="3" />
+                            </children>
+                        </GridPane>
+
+                        <Separator prefWidth="200.0" />
+
+                        <Label text="Cursos Asignados" textFill="#2c3e50">
+                            <font><Font name="System Bold" size="15.0" /></font>
+                        </Label>
+
+                        <HBox spacing="10.0">
+                            <children>
+                                <ComboBox fx:id="cmbCursos" prefWidth="250.0" promptText="Seleccionar curso..." HBox.hgrow="ALWAYS" />
+                                <Button mnemonicParsing="false" onAction="#onAgregarCursoClick" style="-fx-cursor: hand;" text="Agregar a la lista" />
+                            </children>
+                        </HBox>
+
+                        <TableView fx:id="tablaCursosAsignados" prefHeight="150.0" prefWidth="200.0">
+                            <columns>
+                                <TableColumn fx:id="colNombreCursoDetalle" prefWidth="350.0" text="Nombre del Curso" />
+                                <TableColumn fx:id="colAccionesCursoDetalle" prefWidth="100.0" style="-fx-alignment: CENTER;" text="Acción" />
+                            </columns>
+                            <columnResizePolicy>
+                                <TableView fx:constant="CONSTRAINED_RESIZE_POLICY" />
+                            </columnResizePolicy>
+                        </TableView>
+
+                        <Region VBox.vgrow="ALWAYS" />
+
+                        <HBox alignment="CENTER_RIGHT" spacing="15.0">
+                            <children>
+                                <Button fx:id="btnEliminarProfesor" mnemonicParsing="false" onAction="#onEliminarProfesorClick" prefHeight="35.0" style="-fx-background-color: #e74c3c; -fx-text-fill: white; -fx-cursor: hand;" text="Eliminar Profesor" visible="false" />
+                                <Region HBox.hgrow="ALWAYS" />
+                                <Button mnemonicParsing="false" onAction="#onCancelarClick" prefHeight="35.0" prefWidth="100.0" style="-fx-cursor: hand;" text="Cancelar" />
+                                <Button mnemonicParsing="false" onAction="#onGuardarClick" prefHeight="35.0" prefWidth="130.0" style="-fx-background-color: #3498db; -fx-text-fill: white; -fx-font-weight: bold; -fx-cursor: hand;" text="Guardar Cambios" />
+                            </children>
+                        </HBox>
+                    </children>
+                </VBox>
+            </children>
+        </StackPane>
     </children>
-</VBox>
+</HBox>

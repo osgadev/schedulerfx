@@ -1,0 +1,112 @@
+/* =========================================================
+   ESTILOS GENERALES DE LA TABLA (TABLEVIEW)
+   ========================================================= */
+.table-view {
+    -fx-background-color: transparent;
+    -fx-border-color: #e0e0e0;
+    -fx-border-radius: 8px;
+    -fx-background-radius: 8px;
+    /* Evita que se vea un fondo gris cuando no hay datos */
+    -fx-control-inner-background: white;
+
+    /* Elimina bordes internos en toda la tabla */
+    -fx-table-cell-border-color: transparent;
+    -fx-table-header-border-color: transparent;
+}
+
+/* =========================================================
+   ENCABEZADOS DE LA TABLA (HEADER)
+   ========================================================= */
+.table-view .column-header-background {
+    -fx-background-color: #f8f9fa; /* Gris muy claro */
+    -fx-background-radius: 8px 8px 0px 0px;
+    -fx-border-color: transparent transparent #e0e0e0 transparent;
+    -fx-border-width: 1px;
+}
+
+.table-view .column-header, .table-view .filler {
+    -fx-size: 35px; /* Altura del encabezado ajustada a la fuente pequeña */
+    -fx-background-color: transparent;
+    /* Forzar eliminación de bordes verticales entre columnas */
+    -fx-border-color: transparent;
+    -fx-border-width: 0px;
+}
+
+.table-view .column-header .label {
+    -fx-font-size: 11px; /* Fuente más pequeña para encabezados */
+    -fx-font-family: "Segoe UI", Helvetica, Arial, sans-serif;
+    -fx-font-weight: bold;
+    -fx-text-fill: #7f8c8d; /* Texto gris oscuro/azulado */
+
+    /* Alineación vertical centrada y padding igual que en las celdas */
+    -fx-alignment: center-left;
+    -fx-padding: 0 10 0 10;
+}
+
+/* =========================================================
+   CELDAS Y FILAS (CELLS & ROWS)
+   ========================================================= */
+.table-row-cell {
+    -fx-background-color: white;
+    /* Se elimina cualquier borde separador para máxima limpieza */
+    -fx-border-width: 0px;
+    -fx-cell-size: 35px; /* Altura de la fila reducida para la fuente pequeña */
+}
+
+.table-cell {
+    -fx-font-size: 12px; /* Fuente más pequeña para el contenido */
+    -fx-font-family: "Segoe UI", Helvetica, Arial, sans-serif;
+    -fx-text-fill: #2c3e50;
+
+    /* Mismo padding que en el header para que se alineen perfectamente */
+    -fx-padding: 0 10 0 10;
+
+    /* Forzar que no haya bordes verticales */
+    -fx-border-width: 0px;
+
+    /* Forzar que todo el texto de las celdas se centre verticalmente */
+    -fx-alignment: center-left;
+}
+
+/* Efecto al pasar el mouse (Hover) */
+.table-row-cell:hover {
+    -fx-background-color: #f1f8ff; /* Azul ultra claro */
+}
+
+/* Efecto Selección (Azul minimalista completo sin líneas) */
+.table-view:focused .table-row-cell:filled:focused:selected,
+.table-row-cell:filled:selected,
+.table-view:row-selection .table-row-cell:filled:selected {
+    -fx-background-color: #e0f0ff; /* Azul suave para la selección */
+    -fx-text-background-color: #2c3e50; /* Mantiene el texto oscuro */
+    /* Quitamos cualquier borde inferior o lateral */
+    -fx-border-color: transparent;
+}
+
+/* =========================================================
+   BARRA DE DESPLAZAMIENTO (SCROLLBAR)
+   ========================================================= */
+/* Ocultar la barra de desplazamiento horizontal si no es necesaria */
+.table-view .scroll-bar:horizontal {
+    -fx-opacity: 0;
+}
+
+/* =========================================================
+   BARRA DE BÚSQUEDA (TEXTFIELD)
+   ========================================================= */
+.search-field {
+    -fx-background-color: white;
+    -fx-border-color: #e0e0e0;
+    -fx-border-radius: 8px;
+    -fx-background-radius: 8px;
+    -fx-padding: 8 10 8 10;
+    -fx-font-size: 13px;
+    -fx-text-fill: #2c3e50;
+    -fx-prompt-text-fill: #95a5a6; /* Color gris suave para el texto de ayuda */
+}
+
+/* Efecto al hacer clic en la barra de búsqueda */
+.search-field:focused {
+    -fx-border-color: #3498db; /* Borde azul al escribir */
+    -fx-background-color: #ffffff;
+}

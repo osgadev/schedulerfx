@@ -6,6 +6,7 @@ import com.osgadev.organizadorhorariosfx.dao.TeacherDAO;
 import com.osgadev.organizadorhorariosfx.model.Availability;
 import com.osgadev.organizadorhorariosfx.model.Course;
 import com.osgadev.organizadorhorariosfx.model.Teacher;
+import com.osgadev.organizadorhorariosfx.util.SessionGlobal;
 
 import javafx.fxml.FXML;
 import javafx.fxml.Initializable;
@@ -89,8 +90,8 @@ public class AvailabilityController implements Initializable {
 
         configurarComboBoxes();
         configurarCuadricula();
-        cargarProfesores();
         cargarCursos();
+        cargarProfesores();
 
         // Asignación de acciones a los botones
         btnAgregar.setOnAction(e -> agregarBloqueDesdeUI());
@@ -100,6 +101,69 @@ public class AvailabilityController implements Initializable {
         btnCambiarCurso.setOnAction(e -> cambiarCursoDeSeleccionados());
 
         deshabilitarControles(true);
+
+        // ========================================================
+        // INTERCEPTAR NAVEGACIÓN CONTEXTUAL (DEEP LINKING)
+        // ========================================================
+        Integer idPendiente = SessionGlobal.getProfesorNavegacion();
+        if (idPendiente != null) {
+            seleccionarProfesorEnComboPorId(idPendiente);
+            // Limpiamos la sesión para no interferir con futuras navegaciones normales
+            SessionGlobal.limpiarProfesorNavegacion();
+        }
+    }
+
+    // ========================================================
+    // MÉTODOS PARA SELECCIÓN DE PROFESORES
+    // ========================================================
+
+    /**
+     * Busca un profesor por ID en el ComboBox y lo selecciona visualmente,
+     * luego procesa su carga en la UI automáticamente.
+     */
+    private void seleccionarProfesorEnComboPorId(int idBuscado) {
+        for (Teacher t : cmbProfesor.getItems()) {
+            if (t != null && t.getId() == idBuscado) {
+                // 1. Seleccionamos visualmente al profesor
+                cmbProfesor.getSelectionModel().select(t);
+
+                // 2. Disparamos manualmente la lógica de carga de BD
+                procesarSeleccionProfesor(t);
+                break;
+            }
+        }
+    }
+
+    /**
+     * Método centralizado para manejar lo que ocurre cuando se selecciona un profesor,
+     * ya sea por clic manual del usuario o por redirección desde otra vista.
+     */
+    private void procesarSeleccionProfesor(Teacher profe) {
+        if (profe != null) {
+            deshabilitarControles(false);
+            cargarDesdeBD(profe); // Aquí es donde se dibujan las tarjetas en el calendario
+        }
+    }
+
+    // ========================================================
+    // LÓGICA DE DATOS Y COMPONENTES
+    // ========================================================
+
+    private void cargarProfesores() {
+        cmbProfesor.getItems().addAll(teacherDAO.obtenerProfesoresObservable());
+
+        cmbProfesor.setConverter(new StringConverter<Teacher>() {
+            @Override
+            public String toString(Teacher t) { return t == null ? "" : t.getNombre() + " " + t.getApellidoPaterno(); }
+            @Override
+            public Teacher fromString(String s) { return null; }
+        });
+
+        // Cuando el usuario hace clic manualmente en el ComboBox
+        cmbProfesor.setOnAction(e -> {
+            Teacher profe = cmbProfesor.getValue();
+            procesarSeleccionProfesor(profe);
+        });
     }
 
     private void cargarCursos() {
@@ -126,25 +190,6 @@ public class AvailabilityController implements Initializable {
         btnEliminarTodo.setDisable(deshabilitar);
         btnBorrar.setDisable(true);
         btnCambiarCurso.setDisable(true);
-    }
-
-    private void cargarProfesores() {
-        cmbProfesor.getItems().addAll(teacherDAO.obtenerProfesoresObservable());
-
-        cmbProfesor.setConverter(new StringConverter<Teacher>() {
-            @Override
-            public String toString(Teacher t) { return t == null ? "" : t.getNombre() + " " + t.getApellidoPaterno(); }
-            @Override
-            public Teacher fromString(String s) { return null; }
-        });
-
-        cmbProfesor.setOnAction(e -> {
-            Teacher profe = cmbProfesor.getValue();
-            if (profe != null) {
-                deshabilitarControles(false);
-                cargarDesdeBD(profe);
-            }
-        });
     }
 
     private void cargarDesdeBD(Teacher profe) {

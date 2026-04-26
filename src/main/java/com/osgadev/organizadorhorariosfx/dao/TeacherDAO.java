@@ -60,7 +60,7 @@ public class TeacherDAO {
             return true;
 
         } catch (SQLException e){
-            System.err.println("Error al actualizar la inforamcion del profesor" + e.getMessage());
+            System.err.println("Error al actualizar la informacion del profesor" + e.getMessage());
             e.printStackTrace();
         }
         return false;
@@ -73,13 +73,22 @@ public class TeacherDAO {
 
     private List<Teacher> obtenerProfesoresConCursos() {
         Map<Integer, Teacher> profesorMap = new LinkedHashMap<>();
+
+        // =========================================================================
+        // CONSULTA MODIFICADA: Se agrega el LEFT JOIN con la tabla disponibilidad
+        // y un COUNT para saber si tiene registros de disponibilidad.
+        // Se agrupa al final para que el COUNT funcione correctamente.
+        // =========================================================================
         String query = "SELECT " +
                 "p.profesor_id, p.nombre, p.apellido_paterno, p.apellido_materno, " +
                 "p.correo_electronico, p.telefono, " +
-                "c.curso_id, c.nombre as curso_nombre, c.min_horas_semanales " +
+                "c.curso_id, c.nombre as curso_nombre, c.min_horas_semanales, " +
+                "CASE WHEN COUNT(d.profesor_id) > 0 THEN 1 ELSE 0 END AS tiene_disp " +
                 "FROM profesor p " +
                 "LEFT JOIN profesor_curso pc ON p.profesor_id = pc.profesor_id " +
                 "LEFT JOIN curso c ON pc.curso_id = c.curso_id " +
+                "LEFT JOIN disponibilidad d ON p.profesor_id = d.profesor_id " +
+                "GROUP BY p.profesor_id, p.nombre, p.apellido_paterno, p.apellido_materno, p.correo_electronico, p.telefono, c.curso_id, c.nombre, c.min_horas_semanales " +
                 "ORDER BY p.profesor_id";
 
         try(Connection connection = DatabaseConnection.getInstance().getConnection();
@@ -87,19 +96,23 @@ public class TeacherDAO {
             ResultSet rs = preparedStatement.executeQuery()){
 
             while (rs.next()){
-                int profesorId = rs.getInt(1);
+                int profesorId = rs.getInt("profesor_id");
 
                 Teacher profesor = profesorMap.get(profesorId);
                 if(profesor == null){
                     profesor = new Teacher(
                             profesorId,
-                            rs.getString("nombre"),   //tabien se puede usar en número de las columnas
+                            rs.getString("nombre"),
                             rs.getString("apellido_paterno"),
                             rs.getString("apellido_materno"),
                             rs.getString("correo_electronico"),
                             rs.getString("telefono"),
                             new ArrayList<>()
                     );
+
+                    // ASIGNAR EL VALOR DEL BOOLEANO AL MODELO DESDE LA CONSULTA
+                    profesor.setTieneDisponibilidad(rs.getBoolean("tiene_disp"));
+
                     profesorMap.put(profesorId, profesor);
                 }
 
@@ -110,12 +123,15 @@ public class TeacherDAO {
                             rs.getString("curso_nombre"),
                             rs.getInt("min_horas_semanales")
                     );
-                    profesor.getCursos().add(curso);
+                    // Solo agregar el curso si no está ya en la lista (previene duplicados por el JOIN múltiple)
+                    if (profesor.getCursos().stream().noneMatch(c -> c.getId() == cursoId)) {
+                        profesor.getCursos().add(curso);
+                    }
                 }
             }
 
         } catch (SQLException e){
-            System.err.println("Error en la consulta" + e.getMessage());
+            System.err.println("Error en la consulta: " + e.getMessage());
             e.printStackTrace();
         }
 
@@ -140,7 +156,7 @@ public class TeacherDAO {
 
     public boolean insertar(Teacher profesor){
         String query1 = "INSERT INTO profesor (nombre, apellido_paterno, apellido_materno, correo_electronico, telefono) " +
-                       "VALUES (?,?,?,?,?)";
+                "VALUES (?,?,?,?,?)";
 
         try(Connection connection = DatabaseConnection.getInstance().getConnection();
             PreparedStatement preparedStatement1 = connection.prepareStatement(query1, Statement.RETURN_GENERATED_KEYS)){
@@ -196,7 +212,6 @@ public class TeacherDAO {
 
     public int contarProfesores() {
         int total = 0;
-        // Cambiado de 'profesores' a 'profesor'
         String sql = "SELECT COUNT(*) FROM profesor";
         try (java.sql.Connection conn = DatabaseConnection.getInstance().getConnection();
              java.sql.PreparedStatement pstmt = conn.prepareStatement(sql);
@@ -208,7 +223,6 @@ public class TeacherDAO {
 
     public int contarProfesoresSinDisponibilidad() {
         int total = 0;
-        // Cuenta profesores que no existen en la tabla disponibilidad
         String sql = "SELECT COUNT(*) FROM profesor p LEFT JOIN disponibilidad d ON p.profesor_id = d.profesor_id WHERE d.profesor_id IS NULL";
         try (java.sql.Connection conn = DatabaseConnection.getInstance().getConnection();
              java.sql.PreparedStatement pstmt = conn.prepareStatement(sql);

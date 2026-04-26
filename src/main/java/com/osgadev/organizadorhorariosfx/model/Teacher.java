@@ -14,6 +14,11 @@ public class Teacher {
     private List<Course> cursos;
     private List<Availability> disponibilidades;
 
+    // ==========================================
+    // NUEVO ATRIBUTO PARA RENDIMIENTO
+    // ==========================================
+    private boolean tieneDisponibilidad;
+
     public Teacher(int id, String nombre, String apellidoPaterno, String apellidoMaterno, String correoElectronico, String telefono, List<Course> cursos) {
         this.id = id;
         this.nombre = nombre;
@@ -99,6 +104,17 @@ public class Teacher {
         this.disponibilidades = disponibilidades;
     }
 
+    // ==========================================
+    // GETTER Y SETTER DEL NUEVO ATRIBUTO
+    // ==========================================
+    public boolean isTieneDisponibilidad() {
+        return tieneDisponibilidad;
+    }
+
+    public void setTieneDisponibilidad(boolean tieneDisponibilidad) {
+        this.tieneDisponibilidad = tieneDisponibilidad;
+    }
+
     @Override
     public String toString() {
         return "Teacher{" +
@@ -110,6 +126,7 @@ public class Teacher {
                 ", telefono='" + telefono + '\'' +
                 ", cursos=" + cursos +
                 ", disponibilidades=" + disponibilidades +
+                ", tieneDisponibilidad=" + tieneDisponibilidad +
                 '}';
     }
 
