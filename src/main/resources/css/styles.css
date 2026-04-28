@@ -111,7 +111,6 @@
     -fx-background-color: #ffffff;
 }
 
-
 /* Estilos para la ventana de cursos */
 /* =========================================================
    TEXTAREA (Descripción)
@@ -182,7 +181,7 @@
 }
 
 /* =========================================================
-   RESTAURAR Y ESTILIZAR LA FLECHITA (ARROW)
+   RESTAURAR Y ESTILIZAR LA FLECHITA (ARROW) DEL COLOR PICKER
    ========================================================= */
 /* Restauramos el contenedor de la flecha */
 .color-picker .arrow-button {
@@ -193,7 +192,6 @@
 /* Le damos color a la flechita para que sea visible y elegante */
 .color-picker .arrow-button .arrow {
     -fx-background-color: #7f8c8d; /* Gris oscuro elegante */
-    /* La hacemos un poco más pequeña si lo deseas (opcional) */
     -fx-scale-x: 0.8;
     -fx-scale-y: 0.8;
 }
@@ -201,4 +199,177 @@
 /* Efecto hover solo en la flechita */
 .color-picker .arrow-button:hover .arrow {
     -fx-background-color: #3498db; /* Se pinta azul al pasar el mouse */
+}
+
+
+/* =========================================================
+   COMBOBOX MINIMALISTA (Estándar Global)
+   ========================================================= */
+/* 1. Contenedor principal de todos los ComboBox */
+.combo-box {
+    -fx-background-color: white;
+    -fx-border-color: #e0e0e0;
+    -fx-border-width: 1px;
+    -fx-border-radius: 6px;
+    -fx-background-radius: 6px;
+    -fx-padding: 0;
+    -fx-cursor: hand;
+}
+
+.combo-box:hover {
+    -fx-border-color: #bdc3c7;
+    -fx-background-color: #fcfcfc;
+}
+
+.combo-box:focused, .combo-box:showing {
+    -fx-border-color: #3498db;
+    -fx-background-color: white;
+}
+
+/* 2. El texto visible cuando está cerrado */
+.combo-box > .list-cell {
+    -fx-background-color: transparent;
+    -fx-text-fill: #2c3e50;
+    -fx-font-family: "Segoe UI", Helvetica, Arial, sans-serif;
+    -fx-font-size: 13px;
+    -fx-padding: 5 10 5 10;
+}
+
+/* 3. El cuadro gris del botón de la flecha */
+.combo-box > .arrow-button {
+    -fx-background-color: transparent;
+    -fx-border-width: 0;
+    -fx-padding: 0 10 0 5;
+}
+
+/* 4. La flechita */
+.combo-box > .arrow-button > .arrow {
+    -fx-background-color: #7f8c8d;
+    -fx-scale-x: 0.85;
+    -fx-scale-y: 0.85;
+}
+.combo-box:hover > .arrow-button > .arrow {
+    -fx-background-color: #3498db;
+}
+
+/* =========================================================
+   LISTA DESPLEGABLE DEL COMBOBOX (Popup)
+   ========================================================= */
+/* Fondo general de la lista al abrirse (Aplica a todos los popups de combobox) */
+.combo-box-popup .list-view {
+    -fx-background-color: white;
+    -fx-border-color: #e0e0e0;
+    -fx-border-radius: 4px;
+    -fx-background-radius: 4px;
+    -fx-effect: dropshadow(three-pass-box, rgba(0,0,0,0.1), 10, 0, 0, 4);
+    -fx-padding: 2px;
+}
+
+/* Celdas de la lista desplegable */
+.combo-box-popup .list-cell {
+    -fx-background-color: white;
+    -fx-text-fill: #2c3e50;
+    -fx-font-family: "Segoe UI", Helvetica, Arial, sans-serif;
+    -fx-font-size: 13px;
+    -fx-padding: 8 10 8 10;
+    -fx-cursor: hand;
+}
+
+/* Al pasar el mouse por las opciones */
+.combo-box-popup .list-cell:hover,
+.combo-box-popup .list-cell:filled:hover {
+    -fx-background-color: #f1f8ff; /* Azul clarito */
+    -fx-text-fill: #2c3e50;
+}
+
+/* Opción actualmente seleccionada */
+.combo-box-popup .list-cell:selected,
+.combo-box-popup .list-cell:filled:selected {
+    -fx-background-color: #e0f0ff;
+    -fx-font-weight: bold;
+}
+
+/* =========================================================
+   BOTONES (Estilo Base Global)
+   ========================================================= */
+.button {
+    -fx-font-family: "Segoe UI", Helvetica, Arial, sans-serif;
+    -fx-font-size: 13px;
+    -fx-font-weight: bold;
+    -fx-padding: 8 15 8 15;
+    -fx-border-radius: 4px;
+    -fx-background-radius: 4px;
+    -fx-cursor: hand;
+    /* Eliminar cualquier sombra o borde 3D de JavaFX Modena */
+    -fx-background-insets: 0;
+    -fx-effect: none;
+}
+
+/* =========================================================
+   BOTONES SEMÁNTICOS (Clases específicas)
+   ========================================================= */
+
+/* BOTÓN PRIMARIO (Guardar, Aceptar, Acción principal) - Azul */
+.btn-primary {
+    -fx-background-color: #3498db;
+    -fx-text-fill: white;
+}
+.btn-primary:hover {
+    -fx-background-color: #2980b9;
+}
+.btn-primary:pressed {
+    -fx-background-color: #1f618d;
+}
+
+/* BOTÓN DE PELIGRO (Eliminar, Borrar, Cancelar con advertencia) - Rojo */
+.btn-danger {
+    -fx-background-color: #e74c3c;
+    -fx-text-fill: white;
+}
+.btn-danger:hover {
+    -fx-background-color: #c0392b;
+}
+.btn-danger:pressed {
+    -fx-background-color: #922b21;
+}
+
+/* BOTÓN SECUNDARIO (Cancelar, Volver, Cerrar) - Gris / Neutro */
+.btn-secondary {
+    -fx-background-color: #f8f9fa;
+    -fx-text-fill: #2c3e50;
+    -fx-border-color: #bdc3c7;
+    -fx-border-width: 1px;
+}
+.btn-secondary:hover {
+    -fx-background-color: #ecf0f1;
+}
+.btn-secondary:pressed {
+    -fx-background-color: #bdc3c7;
+}
+
+/* BOTÓN DE ÉXITO (Nuevo, Agregar, Añadir) - Verde suave original */
+.btn-success {
+    -fx-background-color: #28a745;
+    -fx-text-fill: white;
+}
+.btn-success:hover {
+    -fx-background-color: #218838;
+}
+.btn-success:pressed {
+    -fx-background-color: #1e7e34;
+}
+
+/* BOTÓN OUTLINE (Links, Ajustes, Configuraciones secundarias) - Transparente con borde azul */
+.btn-outline-primary {
+    -fx-background-color: transparent;
+    -fx-border-color: #3498db;
+    -fx-border-width: 1px;
+    -fx-border-radius: 4px;
+    -fx-text-fill: #3498db;
+}
+.btn-outline-primary:hover {
+    -fx-background-color: rgba(52, 152, 219, 0.1); /* Fondo azul muy transparente */
+}
+.btn-outline-primary:pressed {
+    -fx-background-color: rgba(52, 152, 219, 0.2);
 }

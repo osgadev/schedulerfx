@@ -38,7 +38,8 @@
                     </children>
                 </VBox>
 
-                <Button maxWidth="1.7976931348623157E308" mnemonicParsing="false" onAction="#onNuevoProfesorClick" prefHeight="35.0" style="-fx-background-color: #28a745; -fx-text-fill: white; -fx-font-weight: bold; -fx-cursor: hand;" text="+ Nuevo Profesor" />
+                <!-- Botón Nuevo Profesor usando btn-success -->
+                <Button maxWidth="1.7976931348623157E308" mnemonicParsing="false" onAction="#onNuevoProfesorClick" prefHeight="35.0" styleClass="btn-success" text="+ Nuevo Profesor" />
 
                 <!-- Barra de búsqueda agregada -->
                 <TextField fx:id="txtBuscarProfesor" promptText="🔍 Buscar por nombre o apellido..." styleClass="search-field" />
@@ -47,7 +48,6 @@
                     <columns>
                         <TableColumn fx:id="colNumeroProfesor" maxWidth="40.0" minWidth="40.0" prefWidth="40.0" style="-fx-alignment: CENTER;" text="No." />
                         <TableColumn fx:id="colNombre" prefWidth="250.0" text="Nombre" />
-                        <!-- Columna ampliada a 70px y con texto 'Estado' -->
                         <TableColumn fx:id="colEstado" maxWidth="70.0" minWidth="70.0" prefWidth="70.0" style="-fx-alignment: CENTER;" text="Estado" />
                     </columns>
                     <columnResizePolicy>
@@ -90,7 +90,9 @@
                                     <font><Font name="System Bold" size="18.0" /></font>
                                 </Label>
                                 <Region HBox.hgrow="ALWAYS" />
-                                <Button fx:id="btnIrDisponibilidad" mnemonicParsing="false" onAction="#onIrDisponibilidadClick" style="-fx-background-color: transparent; -fx-border-color: #3498db; -fx-text-fill: #3498db; -fx-border-radius: 4; -fx-cursor: hand;" text="🗓️ Configurar Disponibilidad" visible="false" />
+
+                                <!-- Botón de Configurar Disponibilidad usando btn-outline-primary -->
+                                <Button fx:id="btnIrDisponibilidad" mnemonicParsing="false" onAction="#onIrDisponibilidadClick" styleClass="btn-outline-primary" text="🗓️ Configurar Disponibilidad" visible="false" />
                             </children>
                         </HBox>
 
@@ -148,7 +150,8 @@
                         <HBox spacing="10.0">
                             <children>
                                 <ComboBox fx:id="cmbCursos" prefWidth="250.0" promptText="Seleccionar curso..." HBox.hgrow="ALWAYS" />
-                                <Button mnemonicParsing="false" onAction="#onAgregarCursoClick" style="-fx-cursor: hand;" text="Agregar a la lista" />
+                                <!-- Botón secundario para agregar a la lista -->
+                                <Button mnemonicParsing="false" onAction="#onAgregarCursoClick" styleClass="btn-secondary" text="Agregar a la lista" />
                             </children>
                         </HBox>
 
@@ -166,10 +169,15 @@
 
                         <HBox alignment="CENTER_RIGHT" spacing="15.0">
                             <children>
-                                <Button fx:id="btnEliminarProfesor" mnemonicParsing="false" onAction="#onEliminarProfesorClick" prefHeight="35.0" style="-fx-background-color: #e74c3c; -fx-text-fill: white; -fx-cursor: hand;" text="Eliminar Profesor" visible="false" />
+                                <!-- Botón Eliminar usando btn-danger -->
+                                <Button fx:id="btnEliminarProfesor" mnemonicParsing="false" onAction="#onEliminarProfesorClick" prefHeight="35.0" styleClass="btn-danger" text="Eliminar Profesor" visible="false" />
                                 <Region HBox.hgrow="ALWAYS" />
-                                <Button mnemonicParsing="false" onAction="#onCancelarClick" prefHeight="35.0" prefWidth="100.0" style="-fx-cursor: hand;" text="Cancelar" />
-                                <Button mnemonicParsing="false" onAction="#onGuardarClick" prefHeight="35.0" prefWidth="130.0" style="-fx-background-color: #3498db; -fx-text-fill: white; -fx-font-weight: bold; -fx-cursor: hand;" text="Guardar Cambios" />
+
+                                <!-- Botón Cancelar usando btn-secondary -->
+                                <Button mnemonicParsing="false" onAction="#onCancelarClick" prefHeight="35.0" prefWidth="100.0" styleClass="btn-secondary" text="Cancelar" />
+
+                                <!-- Botón Guardar usando btn-primary -->
+                                <Button mnemonicParsing="false" onAction="#onGuardarClick" prefHeight="35.0" prefWidth="130.0" styleClass="btn-primary" text="Guardar Cambios" />
                             </children>
                         </HBox>
                     </children>

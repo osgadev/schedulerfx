@@ -12,7 +12,7 @@
 <?import javafx.scene.shape.Circle?>
 <?import javafx.scene.text.Font?>
 
-<VBox prefHeight="650.0" prefWidth="850.0" spacing="25.0" style="-fx-background-color: #f8f9fa;" xmlns="http://javafx.com/javafx/21" xmlns:fx="http://javafx.com/fxml/1" fx:controller="com.osgadev.organizadorhorariosfx.controller.HomeController">
+<VBox fx:id="rootVBox" prefHeight="650.0" prefWidth="850.0" spacing="25.0" style="-fx-background-color: #f8f9fa;" xmlns="http://javafx.com/javafx/21" xmlns:fx="http://javafx.com/fxml/1" fx:controller="com.osgadev.organizadorhorariosfx.controller.HomeController">
     <padding>
         <Insets bottom="30.0" left="40.0" right="40.0" top="30.0" />
     </padding>
@@ -32,8 +32,9 @@
             <Label text="Ciclo Global:" textFill="#2c3e50">
                 <font><Font name="System Bold" size="14.0" /></font>
             </Label>
-            <ComboBox fx:id="cmbAnio" prefWidth="100.0" promptText="Año" />
-            <ComboBox fx:id="cmbEtapa" prefWidth="100.0" promptText="Etapa" />
+            <!-- APLICANDO LA CLASE CSS filtro-combo AQUÍ -->
+            <ComboBox fx:id="cmbAnio" prefWidth="100.0" promptText="Año" styleClass="filtro-combo" />
+            <ComboBox fx:id="cmbEtapa" prefWidth="100.0" promptText="Etapa" styleClass="filtro-combo" />
         </HBox>
     </HBox>
 

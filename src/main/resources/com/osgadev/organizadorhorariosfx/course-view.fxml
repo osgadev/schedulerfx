@@ -40,7 +40,8 @@
                     </children>
                 </VBox>
 
-                <Button maxWidth="1.7976931348623157E308" mnemonicParsing="false" onAction="#onNuevoCursoClick" prefHeight="35.0" style="-fx-background-color: #28a745; -fx-text-fill: white; -fx-font-weight: bold; -fx-cursor: hand;" text="+ Nuevo Curso" />
+                <!-- Botón Nuevo Curso con la clase semántica btn-success -->
+                <Button maxWidth="1.7976931348623157E308" mnemonicParsing="false" onAction="#onNuevoCursoClick" prefHeight="35.0" styleClass="btn-success" text="+ Nuevo Curso" />
 
                 <!-- Barra de Búsqueda -->
                 <TextField fx:id="txtBuscarCurso" promptText="🔍 Buscar materia..." styleClass="search-field" />
@@ -142,10 +143,15 @@
                         <!-- Botones Finales de Guardar/Cancelar -->
                         <HBox alignment="CENTER_RIGHT" spacing="15.0">
                             <children>
-                                <Button fx:id="btnEliminarCurso" mnemonicParsing="false" onAction="#onEliminarCursoClick" prefHeight="35.0" style="-fx-background-color: #e74c3c; -fx-text-fill: white; -fx-cursor: hand;" text="Eliminar Curso" visible="false" />
+                                <!-- Botón Eliminar con clase btn-danger -->
+                                <Button fx:id="btnEliminarCurso" mnemonicParsing="false" onAction="#onEliminarCursoClick" prefHeight="35.0" styleClass="btn-danger" text="Eliminar Curso" visible="false" />
                                 <Region HBox.hgrow="ALWAYS" />
-                                <Button mnemonicParsing="false" onAction="#onCancelarClick" prefHeight="35.0" prefWidth="100.0" style="-fx-cursor: hand;" text="Cancelar" />
-                                <Button mnemonicParsing="false" onAction="#onGuardarClick" prefHeight="35.0" prefWidth="130.0" style="-fx-background-color: #3498db; -fx-text-fill: white; -fx-font-weight: bold; -fx-cursor: hand;" text="Guardar Cambios" />
+
+                                <!-- Botón Cancelar con clase btn-secondary -->
+                                <Button mnemonicParsing="false" onAction="#onCancelarClick" prefHeight="35.0" prefWidth="100.0" styleClass="btn-secondary" text="Cancelar" />
+
+                                <!-- Botón Guardar con clase btn-primary -->
+                                <Button mnemonicParsing="false" onAction="#onGuardarClick" prefHeight="35.0" prefWidth="130.0" styleClass="btn-primary" text="Guardar Cambios" />
                             </children>
                         </HBox>
                     </children>

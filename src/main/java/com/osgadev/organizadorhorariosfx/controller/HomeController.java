@@ -11,6 +11,7 @@ import javafx.scene.Node;
 import javafx.scene.chart.PieChart;
 import javafx.scene.control.ComboBox;
 import javafx.scene.control.Label;
+import javafx.scene.layout.VBox;
 import javafx.scene.paint.Color;
 
 import java.net.URL;
@@ -20,12 +21,16 @@ import java.util.ResourceBundle;
 public class HomeController implements Initializable {
 
     // ==========================================
+    // Contenedor Principal (Para inyectar CSS)
+    // ==========================================
+    @FXML private VBox rootVBox;
+
+    // ==========================================
     // ETIQUETAS FXML (Vista)
     // ==========================================
     @FXML private Label lblTotalProfesores;
     @FXML private Label lblProfesoresAlerta;
     @FXML private Label lblTotalCursos;
-
     @FXML private Label lblTotalGrupos;
     @FXML private Label lblEstadoAlumnos;
 
@@ -51,6 +56,15 @@ public class HomeController implements Initializable {
 
     @Override
     public void initialize(URL location, ResourceBundle resources) {
+
+        // --- CARGAR LA HOJA DE ESTILOS CSS ---
+        try {
+            String cssPath = getClass().getResource("/css/styles.css").toExternalForm();
+            rootVBox.getStylesheets().add(cssPath);
+        } catch (Exception e) {
+            System.err.println("No se pudo cargar el archivo CSS en el Dashboard.");
+        }
+
         // 1. Configurar ComboBoxes de Filtro de Ciclo
         int currentYear = LocalDate.now().getYear();
         cmbAnio.getItems().addAll(String.valueOf(currentYear - 1), String.valueOf(currentYear), String.valueOf(currentYear + 1));
@@ -132,39 +146,48 @@ public class HomeController implements Initializable {
             double horasPendientes = horasRequeridas - horasAsignadas;
             if (horasPendientes < 0) horasPendientes = 0; // Seguridad por si se asignan de más
 
+            // CORRECCIÓN MATEMÁTICA: Calculamos la fracción y la multiplicamos ANTES del casteo a int.
             double fraccion = horasAsignadas / horasRequeridas;
             if (fraccion > 1.0) fraccion = 1.0;
 
-            int porcentajeTexto = (int) (fraccion * 100);
+            int porcentajeTexto = (int) Math.round(fraccion * 100);
 
-            // 1. Configurar los datos del PieChart (Dos rebanadas)
+            // 1. Configurar los datos del PieChart
             PieChart.Data sliceAsignadas = new PieChart.Data("Asignadas", horasAsignadas);
             PieChart.Data slicePendientes = new PieChart.Data("Pendientes", horasPendientes);
 
             ObservableList<PieChart.Data> pieData = FXCollections.observableArrayList(sliceAsignadas, slicePendientes);
             pieHorarios.setData(pieData);
 
-            // 2. Colorear las rebanadas mediante código
+            // 2. Colorear las rebanadas dinámicamente según el porcentaje exacto (Práctica Profesional)
             Platform.runLater(() -> {
                 Node nodoAsignadas = sliceAsignadas.getNode();
                 Node nodoPendientes = slicePendientes.getNode();
 
                 if (nodoPendientes != null) {
-                    nodoPendientes.setStyle("-fx-pie-color: #ecf0f1;"); // Gris claro para lo pendiente
+                    nodoPendientes.setStyle("-fx-pie-color: #ecf0f1; -fx-border-width: 0;"); // Gris claro
                 }
 
-                if (nodoAsignadas != null) {
-                    if (porcentajeTexto == 100) {
-                        nodoAsignadas.setStyle("-fx-pie-color: #27ae60;"); // Verde
-                        lblEstadoHorario.setTextFill(Color.web("#27ae60"));
-                    } else if (porcentajeTexto > 0) {
-                        nodoAsignadas.setStyle("-fx-pie-color: #f39c12;"); // Naranja
-                        lblEstadoHorario.setTextFill(Color.web("#f39c12"));
-                    } else {
-                        nodoAsignadas.setStyle("-fx-pie-color: #e74c3c;"); // Rojo
-                        lblEstadoHorario.setTextFill(Color.web("#e74c3c"));
-                    }
+                String colorHex;
+                if (porcentajeTexto == 0) {
+                    colorHex = "#e74c3c"; // Rojo (0%)
+                } else if (porcentajeTexto < 50) {
+                    colorHex = "#e67e22"; // Naranja (1% - 49%)
+                } else if (porcentajeTexto < 85) {
+                    colorHex = "#f39c12"; // Amarillo oscuro (50% - 84%)
+                } else if (porcentajeTexto < 100) {
+                    colorHex = "#2ecc71"; // Verde Claro (85% - 99%)
+                } else {
+                    colorHex = "#27ae60"; // Verde Oscuro (100%)
                 }
+
+                // Aplicar el color a la rebanada si existe
+                if (nodoAsignadas != null) {
+                    nodoAsignadas.setStyle("-fx-pie-color: " + colorHex + "; -fx-border-width: 0;");
+                }
+
+                // Asegurar que el texto central también cambie
+                lblEstadoHorario.setTextFill(Color.web(colorHex));
             });
 
             // 3. Actualizar Textos
@@ -172,11 +195,11 @@ public class HomeController implements Initializable {
             lblDetalleHorario.setText(String.format("%.1f de %.1f hrs", horasAsignadas, horasRequeridas));
 
         } else {
-            // Si no hay horas requeridas
+            // Caso donde no hay horas requeridas (Catálogo o Grupos vacíos)
             pieHorarios.setData(FXCollections.observableArrayList(new PieChart.Data("Vacío", 1)));
             Platform.runLater(() -> {
-                if(pieHorarios.getData().size() > 0 && pieHorarios.getData().get(0).getNode() != null) {
-                    pieHorarios.getData().get(0).getNode().setStyle("-fx-pie-color: #bdc3c7;"); // Gris oscuro
+                if(!pieHorarios.getData().isEmpty() && pieHorarios.getData().get(0).getNode() != null) {
+                    pieHorarios.getData().get(0).getNode().setStyle("-fx-pie-color: #bdc3c7; -fx-border-width: 0;");
                 }
             });
             lblEstadoHorario.setText("0%");
