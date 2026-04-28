@@ -8,7 +8,29 @@ public class Course {
     private String nombre;
     private int minHorasSemanales;
 
-    public Course(int id, String nombre, int diasMinimosSemanales) {  //constructor que usamos para poder hacer updates
+    // NUEVOS ATRIBUTOS
+    private String descripcion;
+    private String colorHex;
+
+    // Constructor completo (Para Updates)
+    public Course(int id, String nombre, int minHorasSemanales, String descripcion, String colorHex) {
+        this.id = id;
+        this.nombre = nombre;
+        this.minHorasSemanales = minHorasSemanales;
+        this.descripcion = descripcion;
+        this.colorHex = colorHex;
+    }
+
+    // Constructor sin ID (Para Inserts)
+    public Course(String nombre, int minHorasSemanales, String descripcion, String colorHex) {
+        this.nombre = nombre;
+        this.minHorasSemanales = minHorasSemanales;
+        this.descripcion = descripcion;
+        this.colorHex = colorHex;
+    }
+
+    // Constructores originales (mantienen compatibilidad)
+    public Course(int id, String nombre, int diasMinimosSemanales) {
         this.id = id;
         this.nombre = nombre;
         this.minHorasSemanales = diasMinimosSemanales;
@@ -19,40 +41,25 @@ public class Course {
         this.minHorasSemanales = diasMinimosSemanales;
     }
 
-    public Course(){ //constructor que usamos para hacer los inserts, debido a que reutilizamos la vista update
-    }
+    public Course() {}
 
-    public int getId() {
-        return id;
-    }
+    // Getters y Setters originales
+    public int getId() { return id; }
+    public void setId(int id) { this.id = id; }
+    public String getNombre() { return nombre; }
+    public void setNombre(String nombre) { this.nombre = nombre; }
+    public int getMinHorasSemanales() { return minHorasSemanales; }
+    public void setMinHorasSemanales(int minHorasSemanales) { this.minHorasSemanales = minHorasSemanales; }
 
-    public void setId(int id) {
-        this.id = id;
-    }
-
-    public String getNombre() {
-        return nombre;
-    }
-
-    public void setNombre(String nombre) {
-        this.nombre = nombre;
-    }
-
-    public int getMinHorasSemanales() {
-        return minHorasSemanales;
-    }
-
-    public void setMinHorasSemanales(int minHorasSemanales) {
-        this.minHorasSemanales = minHorasSemanales;
-    }
+    // Nuevos Getters y Setters
+    public String getDescripcion() { return descripcion; }
+    public void setDescripcion(String descripcion) { this.descripcion = descripcion; }
+    public String getColorHex() { return colorHex; }
+    public void setColorHex(String colorHex) { this.colorHex = colorHex; }
 
     @Override
     public String toString() {
-        return "Course{" +
-                "id=" + id +
-                ", nombre='" + nombre + '\'' +
-                ", diasMinimosSemanales=" + minHorasSemanales +
-                '}';
+        return nombre; // Simplificado para que los ComboBox se vean limpios
     }
 
     @Override

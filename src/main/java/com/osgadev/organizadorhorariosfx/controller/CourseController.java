@@ -1,197 +1,273 @@
 package com.osgadev.organizadorhorariosfx.controller;
 
 import com.osgadev.organizadorhorariosfx.dao.CourseDAO;
-import com.osgadev.organizadorhorariosfx.OrganizadorApplication;
+import com.osgadev.organizadorhorariosfx.dao.TeacherDAO;
 import com.osgadev.organizadorhorariosfx.model.Course;
+import com.osgadev.organizadorhorariosfx.model.Teacher;
+
+import javafx.beans.property.ReadOnlyObjectWrapper;
 import javafx.beans.property.SimpleIntegerProperty;
 import javafx.beans.property.SimpleStringProperty;
 import javafx.collections.FXCollections;
 import javafx.collections.ObservableList;
+import javafx.collections.transformation.FilteredList;
+import javafx.collections.transformation.SortedList;
 import javafx.fxml.FXML;
-import javafx.fxml.FXMLLoader;
 import javafx.fxml.Initializable;
-import javafx.geometry.Pos;
-import javafx.scene.Parent;
-import javafx.scene.Scene;
 import javafx.scene.control.*;
 import javafx.scene.layout.HBox;
-import javafx.stage.Modality;
-import javafx.stage.Stage;
-import javafx.util.Callback;
+import javafx.scene.layout.VBox;
+import javafx.scene.paint.Color;
 
-import java.io.IOException;
 import java.net.URL;
 import java.util.List;
 import java.util.Optional;
 import java.util.ResourceBundle;
+import java.util.stream.Collectors;
 
 public class CourseController implements Initializable {
 
-    @FXML
-    private TableView<Course> tablaCursos;  //variable de la tabla
-    @FXML
-    private TableColumn<Course, Number> colNumeroCurso;  //variable de las columnas, con el tipo del objeto y el tipo de dato, usamos clases envoltorio por que trabajamos con objetos
-    @FXML
-    private TableColumn<Course, String> colNombre;
-    @FXML
-    private TableColumn<Course, Integer> colHoras;
-    @FXML
-    private TableColumn<Course, Void> colAcciones;
-    @FXML
-    private Button addNewCourseButton;
+    // ==========================================
+    // LADO IZQUIERDO (MASTER)
+    // ==========================================
+    @FXML private HBox rootHBox;
+    @FXML private TextField txtBuscarCurso;
 
-    private CourseDAO courseDAO = new CourseDAO();//declaramos e inicializamos el dao (es la clase que hace las consultas a la bd)
-    private ObservableList<Course> listaCursosFx;// decalramos la lista de cursos, aqui vaciaremos el resultset
+    @FXML private TableView<Course> tablaCursos;
+    @FXML private TableColumn<Course, Integer> colNumeroCurso;
+    @FXML private TableColumn<Course, String> colNombre;
+    @FXML private TableColumn<Course, Integer> colHoras;
 
+    // ==========================================
+    // LADO DERECHO (DETALLE Y ESTADO VACÍO)
+    // ==========================================
+    @FXML private VBox panelVacio;
+    @FXML private VBox panelFormulario;
+
+    @FXML private Label lblTituloDetalle;
+    @FXML private Button btnEliminarCurso;
+
+    @FXML private TextField txtNombre;
+    @FXML private Spinner<Integer> spnHoras;
+    @FXML private ColorPicker colorPicker;
+    @FXML private TextArea txtDescripcion;
+
+    // Tabla inversa de profesores
+    @FXML private TableView<Teacher> tablaProfesoresAsignados;
+    @FXML private TableColumn<Teacher, String> colNombreProfesorDetalle;
+
+    // ==========================================
+    // VARIABLES DE ESTADO Y DAOs
+    // ==========================================
+    private CourseDAO courseDAO = new CourseDAO();
+    private TeacherDAO teacherDAO = new TeacherDAO(); // Para la tabla inversa
+
+    private ObservableList<Course> listaCursosFx;
+    private ObservableList<Teacher> profesoresAsignadosFx = FXCollections.observableArrayList();
+
+    private Course cursoSeleccionado = null; // null significa "Modo Crear"
 
     @Override
-    public void initialize(URL url, ResourceBundle resourceBundle) {  //configurando celdas de la tabla, le decimos a java de donde obtener la informacion para la tabla
-        colNumeroCurso.setCellValueFactory(celda -> {
-            int indice = tablaCursos.getItems().indexOf(celda.getValue());
-            return new SimpleIntegerProperty(indice + 1);
-        });
-//        colId.setCellValueFactory(celda -> new SimpleIntegerProperty(celda.getValue().getId()).asObject()); //el metodo setCellValueFactory espera un callback, la interfaz callback tiene solo un metodo call, requiere un parametro de entrada (CellDataFeatures = celda) y regresa un observable value (valor del objeto que obtenermos con el metodo get, lo obtenemos del POJO)
-        colNombre.setCellValueFactory(celda -> new SimpleStringProperty(celda.getValue().getNombre()));   // leer la documentacion de la clase table column y callback
-        colHoras.setCellValueFactory(celda -> new SimpleIntegerProperty(celda.getValue().getMinHorasSemanales()).asObject());
-
-        agregarBotonesAccion();
-        cargarDatosEnTabla();
-    }
-
-    public void onAddNewCourseButtonClick(){
-        showCourseFormView(null); //para añadir un nuevo registro le pasamos null all metodo showCourseFormView
-    }
-
-    private void agregarBotonesAccion() {
-        Callback<TableColumn<Course, Void>, TableCell<Course, Void>> cellFactory = new Callback<>() {
-            @Override
-            public TableCell<Course, Void> call(final TableColumn<Course, Void> param) {
-
-                return new TableCell<>() {
-                    // 1. Instanciar los componentes visuales
-                    private final Button btnEditar = new Button("Editar");
-                    private final Button btnEliminar = new Button("Eliminar");
-                    private final HBox panelBotones = new HBox(10); // Espacio de 10px entre botones
-
-                    {
-                        // 2. Aplicar estilos básicos
-                        btnEditar.setStyle("-fx-background-color: #3498db; -fx-text-fill: white; -fx-cursor: hand;");
-                        btnEliminar.setStyle("-fx-background-color: #e74c3c; -fx-text-fill: white; -fx-cursor: hand;");
-
-                        // 3. Configurar el contenedor
-                        panelBotones.setAlignment(Pos.CENTER);
-                        panelBotones.getChildren().addAll(btnEditar, btnEliminar);
-
-                        // ======================================
-                        // ACCIÓN: ELIMINAR CURSO
-                        // ======================================
-                        btnEliminar.setOnAction(event -> {
-
-                            Course cursoSeleccionado = getTableView().getItems().get(getIndex());
-
-                            Alert confirmationAlert = new Alert(Alert.AlertType.CONFIRMATION);
-                            confirmationAlert.setTitle("Confirmar Eliminacion");
-                            confirmationAlert.setHeaderText("¿Estas seguro de eliminar este curso?");
-                            confirmationAlert.setContentText("Curso: " + cursoSeleccionado.getNombre() + "\nEsta accion no se puede deshacer.");
-
-                            Optional<ButtonType> resultado = confirmationAlert.showAndWait();
-
-                            if(resultado.isPresent() && resultado.get()==ButtonType.OK){
-                                boolean borradoExitoso = courseDAO.eliminar(cursoSeleccionado.getId());
-
-                                if (borradoExitoso) {
-                                    // Si se borró en BD, lo borramos de la lista observable para actualizar la vista
-                                    listaCursosFx.remove(cursoSeleccionado);
-
-                                    Alert succesAlert = new Alert(Alert.AlertType.INFORMATION);
-                                    succesAlert.setTitle("Exito");
-                                    succesAlert.setHeaderText(null);
-                                    succesAlert.setContentText("El curso se ha eliminado correctamente");
-                                    succesAlert.showAndWait();
-
-                                } else {
-                                    Alert errorAlert = new Alert(Alert.AlertType.ERROR);
-                                    errorAlert.setTitle("Error");
-                                    errorAlert.setHeaderText("No se pudo eliminar el curso");
-                                    errorAlert.setHeaderText("Ocurrió un error en la base de datos o el curso esta siendo usado por un profesor.");
-                                    errorAlert.showAndWait();
-                                }
-                            }
-
-
-                        });
-
-                        // ======================================
-                        // ACCIÓN: EDITAR CURSO (ABRIR POPUP)
-                        // ======================================
-                        btnEditar.setOnAction(event -> {
-                            Course cursoSeleccionado = getTableView().getItems().get(getIndex());
-                            showCourseFormView(cursoSeleccionado);
-//                            tablaCursos.refresh();
-                        });
-                    }
-
-                    // 4. Metodo que dibuja los botones en la tabla
-                    @Override
-                    protected void updateItem(Void item, boolean empty) {
-                        super.updateItem(item, empty);
-
-                        // Solo dibujamos los botones si la fila actual pertenece a un curso válido
-                        if (empty) {
-                            setGraphic(null);
-                        } else {
-                            setGraphic(panelBotones);
-                        }
-                    }
-                };
-            }
-        };
-
-        // 5. Asignar la fábrica a la columna correspondiente
-        colAcciones.setCellFactory(cellFactory);
-    }
-
-    public void showCourseFormView(Course cursoAEditar){ //esta vista nos ayuda a agregar un nuevo curso o editar uno ya existente
+    public void initialize(URL url, ResourceBundle resourceBundle) {
+        // Cargar hoja de estilos CSS
         try {
-            FXMLLoader loader = new FXMLLoader(OrganizadorApplication.class.getResource("course-form-view.fxml")); // cargarmos el FXML
-            Parent root = loader.load();
+            String cssPath = getClass().getResource("/css/styles.css").toExternalForm();
+            rootHBox.getStylesheets().add(cssPath);
+        } catch (Exception e) {
+            System.err.println("No se pudo cargar el archivo CSS.");
+        }
 
-            CourseFormController courseFormController = loader.getController();  //obtenemos el controlador de la ventana form
+        configurarTablaMaestra();
+        configurarTablaDetalle();
+        configurarSpinner();
+        cargarDatosMaestros();
 
-            Stage stage = new Stage();   //preparamos el stage
-            stage.setScene(new Scene(root));
-            stage.initModality(Modality.APPLICATION_MODAL); // APPLICATION_MODAL bloquea la ventana de atras
+        panelFormulario.setVisible(false);
+        panelVacio.setVisible(true);
 
-            if (cursoAEditar == null) {   // decidimos el modo en que se abre la ventana (CREAR O EDITAR)
-                // CREAR
-                stage.setTitle("Agregar Nuevo Curso");
-                courseFormController.cargarCursoNuevo();
-            } else {
-                // EDITAR
-                stage.setTitle("Editar Curso");
-                courseFormController.cargarCursoExistente(cursoAEditar);
+        // Listener: Detectar selección en la tabla
+        tablaCursos.getSelectionModel().selectedItemProperty().addListener((obs, oldSelection, newSelection) -> {
+            if (newSelection != null) {
+                cargarDetalleCurso(newSelection);
             }
+        });
+    }
 
-            //mostrar la ventana y pausar el código hasta que se cierre
-            stage.showAndWait();
+    // ==========================================
+    // MÉTODOS DE CONFIGURACIÓN
+    // ==========================================
+    private void configurarTablaMaestra() {
+        colNumeroCurso.setCellValueFactory(celda -> new ReadOnlyObjectWrapper<>(listaCursosFx.indexOf(celda.getValue()) + 1));
+        colNombre.setCellValueFactory(celda -> new SimpleStringProperty(celda.getValue().getNombre()));
+        colHoras.setCellValueFactory(celda -> new SimpleIntegerProperty(celda.getValue().getMinHorasSemanales()).asObject());
+    }
 
-            cargarDatosEnTabla(); // recargamos los datos desde MySQL para ver los cambios
-            tablaCursos.refresh();// aseguramos que la vista se repinte
+    private void configurarTablaDetalle() {
+        // Configuramos la tablita inversa que muestra a los profesores
+        colNombreProfesorDetalle.setCellValueFactory(celda -> new SimpleStringProperty(
+                celda.getValue().getNombre() + " " + celda.getValue().getApellidoPaterno()
+        ));
+        tablaProfesoresAsignados.setItems(profesoresAsignadosFx);
+    }
 
-        } catch (IOException e) {
-            System.err.println("Error al abrir el formulario de curso: " + e.getMessage());
-            e.printStackTrace();
+    private void configurarSpinner() {
+        // Spinner de 1 a 20 horas, con valor inicial 4
+        SpinnerValueFactory<Integer> valueFactory = new SpinnerValueFactory.IntegerSpinnerValueFactory(1, 20, 4);
+        spnHoras.setValueFactory(valueFactory);
+        spnHoras.setEditable(true);
+
+        // Truco de UX: Forzar al Spinner a guardar el valor escrito cuando el usuario hace clic fuera de él
+        spnHoras.focusedProperty().addListener((observable, oldValue, newValue) -> {
+            if (!newValue) { // Si perdió el foco
+                spnHoras.increment(0); // Esto obliga a procesar el texto escrito
+            }
+        });
+    }
+
+    private void cargarDatosMaestros() {
+        // Cargar cursos
+        listaCursosFx = FXCollections.observableArrayList(courseDAO.obtenerCursos());
+
+        FilteredList<Course> datosFiltrados = new FilteredList<>(listaCursosFx, p -> true);
+
+        txtBuscarCurso.textProperty().addListener((observable, oldValue, newValue) -> {
+            datosFiltrados.setPredicate(curso -> {
+                if (newValue == null || newValue.isEmpty()) return true;
+                return curso.getNombre().toLowerCase().contains(newValue.toLowerCase());
+            });
+        });
+
+        SortedList<Course> datosOrdenados = new SortedList<>(datosFiltrados);
+        datosOrdenados.comparatorProperty().bind(tablaCursos.comparatorProperty());
+        tablaCursos.setItems(datosOrdenados);
+    }
+
+    // ==========================================
+    // MÉTODOS DE ACCIÓN (INTERFAZ)
+    // ==========================================
+    @FXML
+    protected void onNuevoCursoClick() {
+        cursoSeleccionado = null;
+        tablaCursos.getSelectionModel().clearSelection();
+
+        lblTituloDetalle.setText("Nuevo Curso");
+        btnEliminarCurso.setVisible(false);
+
+        limpiarFormulario();
+
+        panelVacio.setVisible(false);
+        panelFormulario.setVisible(true);
+    }
+
+    private void cargarDetalleCurso(Course curso) {
+        cursoSeleccionado = curso;
+
+        lblTituloDetalle.setText("Editando: " + curso.getNombre());
+        btnEliminarCurso.setVisible(true);
+
+        // Llenar campos
+        txtNombre.setText(curso.getNombre());
+        spnHoras.getValueFactory().setValue(curso.getMinHorasSemanales());
+        txtDescripcion.setText(curso.getDescripcion() != null ? curso.getDescripcion() : "");
+
+        // Convertir de Hex a Objeto Color para el ColorPicker
+        if (curso.getColorHex() != null && !curso.getColorHex().isEmpty()) {
+            colorPicker.setValue(Color.web(curso.getColorHex()));
+        } else {
+            colorPicker.setValue(Color.WHITE);
+        }
+
+        // Llenar la tabla inversa: Buscar qué profesores dan este curso
+        // Usamos TeacherDAO y filtramos en memoria
+        profesoresAsignadosFx.clear();
+        List<Teacher> todosLosProfes = teacherDAO.obtenerProfesoresObservable();
+        List<Teacher> profesDeEsteCurso = todosLosProfes.stream()
+                .filter(profe -> profe.getCursos().stream().anyMatch(c -> c.getId() == curso.getId()))
+                .collect(Collectors.toList());
+        profesoresAsignadosFx.addAll(profesDeEsteCurso);
+
+        panelVacio.setVisible(false);
+        panelFormulario.setVisible(true);
+    }
+
+    @FXML
+    protected void onGuardarClick() {
+        // Validaciones básicas
+        if (txtNombre.getText().trim().isEmpty()) {
+            new Alert(Alert.AlertType.WARNING, "El nombre del curso es obligatorio.").showAndWait();
+            return;
+        }
+
+        // Extraer color en Hexadecimal
+        Color color = colorPicker.getValue();
+        String colorHex = String.format("#%02X%02X%02X",
+                (int) (color.getRed() * 255),
+                (int) (color.getGreen() * 255),
+                (int) (color.getBlue() * 255));
+
+        Course cursoAGuardar = new Course(
+                txtNombre.getText(),
+                spnHoras.getValue(),
+                txtDescripcion.getText(),
+                colorHex
+        );
+
+        if (cursoSeleccionado == null) {
+            // INSERT
+            // Asumo que tu courseDAO.insertar(curso) ha sido actualizado para guardar descripción y color
+            if (courseDAO.insertar(cursoAGuardar)) {
+                cargarDatosMaestros();
+                onCancelarClick();
+            }
+        } else {
+            // UPDATE
+            cursoAGuardar.setId(cursoSeleccionado.getId());
+            if (courseDAO.actualizar(cursoAGuardar)) {
+                cargarDatosMaestros();
+                onCancelarClick();
+            }
         }
     }
 
-    private void cargarDatosEnTabla() {
-        //forma explicita
-        List<Course> datosBD = courseDAO.obtenerCursos();  //metemos los datos que obtenemos de la lista que retorna el metodo del dao en una nuevaa lista
+    @FXML
+    protected void onEliminarCursoClick() {
+        if (cursoSeleccionado == null) return;
 
-        listaCursosFx = FXCollections.observableArrayList(datosBD);  //convertimos la lista de cursos en una lista observable (puede notificar cambios en la ui)
+        Alert alert = new Alert(Alert.AlertType.CONFIRMATION);
+        alert.setTitle("Confirmar Eliminación");
+        alert.setHeaderText("¿Eliminar curso: " + cursoSeleccionado.getNombre() + "?");
 
-        tablaCursos.setItems(listaCursosFx); //ahora la tabla esta observando nuestra lista de cursos, escuchara cualquier cambio
+        // ADVERTENCIA si hay profesores
+        if (!profesoresAsignadosFx.isEmpty()) {
+            alert.setContentText("ATENCIÓN: Hay " + profesoresAsignadosFx.size() + " profesor(es) asignados a este curso.\nSe eliminará la relación si continúas.");
+        }
 
+        Optional<ButtonType> result = alert.showAndWait();
+        if (result.isPresent() && result.get() == ButtonType.OK) {
+            if (courseDAO.eliminar(cursoSeleccionado.getId())) {
+                listaCursosFx.remove(cursoSeleccionado);
+                onCancelarClick();
+            } else {
+                new Alert(Alert.AlertType.ERROR, "Error al eliminar el curso.").showAndWait();
+            }
+        }
     }
 
+    @FXML
+    protected void onCancelarClick() {
+        tablaCursos.getSelectionModel().clearSelection();
+        cursoSeleccionado = null;
+        limpiarFormulario();
+
+        panelFormulario.setVisible(false);
+        panelVacio.setVisible(true);
+    }
+
+    private void limpiarFormulario() {
+        txtNombre.clear();
+        spnHoras.getValueFactory().setValue(4); // Default
+        txtDescripcion.clear();
+        colorPicker.setValue(Color.WHITE);
+        profesoresAsignadosFx.clear();
+    }
 }
