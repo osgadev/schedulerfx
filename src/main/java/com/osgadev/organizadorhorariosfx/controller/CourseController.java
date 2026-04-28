@@ -4,6 +4,7 @@ import com.osgadev.organizadorhorariosfx.dao.CourseDAO;
 import com.osgadev.organizadorhorariosfx.dao.TeacherDAO;
 import com.osgadev.organizadorhorariosfx.model.Course;
 import com.osgadev.organizadorhorariosfx.model.Teacher;
+import com.osgadev.organizadorhorariosfx.util.SessionGlobal;
 
 import javafx.beans.property.ReadOnlyObjectWrapper;
 import javafx.beans.property.SimpleIntegerProperty;
@@ -60,7 +61,7 @@ public class CourseController implements Initializable {
     // VARIABLES DE ESTADO Y DAOs
     // ==========================================
     private CourseDAO courseDAO = new CourseDAO();
-    private TeacherDAO teacherDAO = new TeacherDAO(); // Para la tabla inversa
+    private TeacherDAO teacherDAO = new TeacherDAO();
 
     private ObservableList<Course> listaCursosFx;
     private ObservableList<Teacher> profesoresAsignadosFx = FXCollections.observableArrayList();
@@ -69,7 +70,8 @@ public class CourseController implements Initializable {
 
     @Override
     public void initialize(URL url, ResourceBundle resourceBundle) {
-        // Cargar hoja de estilos CSS
+
+        // --- CARGAR LA HOJA DE ESTILOS CSS ---
         try {
             String cssPath = getClass().getResource("/css/styles.css").toExternalForm();
             rootHBox.getStylesheets().add(cssPath);
@@ -82,10 +84,11 @@ public class CourseController implements Initializable {
         configurarSpinner();
         cargarDatosMaestros();
 
+        // Asegurarnos de que inicie en Estado Vacío
         panelFormulario.setVisible(false);
         panelVacio.setVisible(true);
 
-        // Listener: Detectar selección en la tabla
+        // Listener: Detectar selección en la tabla maestra
         tablaCursos.getSelectionModel().selectedItemProperty().addListener((obs, oldSelection, newSelection) -> {
             if (newSelection != null) {
                 cargarDetalleCurso(newSelection);
@@ -97,39 +100,44 @@ public class CourseController implements Initializable {
     // MÉTODOS DE CONFIGURACIÓN
     // ==========================================
     private void configurarTablaMaestra() {
+        // Numeración automática basada en la lista observable original
         colNumeroCurso.setCellValueFactory(celda -> new ReadOnlyObjectWrapper<>(listaCursosFx.indexOf(celda.getValue()) + 1));
+
         colNombre.setCellValueFactory(celda -> new SimpleStringProperty(celda.getValue().getNombre()));
         colHoras.setCellValueFactory(celda -> new SimpleIntegerProperty(celda.getValue().getMinHorasSemanales()).asObject());
     }
 
     private void configurarTablaDetalle() {
-        // Configuramos la tablita inversa que muestra a los profesores
+        // Configurar la tabla de profesores inversos
         colNombreProfesorDetalle.setCellValueFactory(celda -> new SimpleStringProperty(
-                celda.getValue().getNombre() + " " + celda.getValue().getApellidoPaterno()
+                celda.getValue().getNombre() + " " +
+                        celda.getValue().getApellidoPaterno() + " " +
+                        (celda.getValue().getApellidoMaterno() != null ? celda.getValue().getApellidoMaterno() : "")
         ));
         tablaProfesoresAsignados.setItems(profesoresAsignadosFx);
     }
 
     private void configurarSpinner() {
-        // Spinner de 1 a 20 horas, con valor inicial 4
+        // Spinner de 1 a 20 horas, con valor inicial de 4
         SpinnerValueFactory<Integer> valueFactory = new SpinnerValueFactory.IntegerSpinnerValueFactory(1, 20, 4);
         spnHoras.setValueFactory(valueFactory);
         spnHoras.setEditable(true);
 
-        // Truco de UX: Forzar al Spinner a guardar el valor escrito cuando el usuario hace clic fuera de él
+        // Truco de UX: Forzar al Spinner a procesar el valor escrito cuando el usuario hace clic fuera de él
         spnHoras.focusedProperty().addListener((observable, oldValue, newValue) -> {
-            if (!newValue) { // Si perdió el foco
-                spnHoras.increment(0); // Esto obliga a procesar el texto escrito
+            if (!newValue) { // Si el spinner perdió el foco
+                spnHoras.increment(0);
             }
         });
     }
 
     private void cargarDatosMaestros() {
-        // Cargar cursos
+        // Cargar cursos desde BD
         listaCursosFx = FXCollections.observableArrayList(courseDAO.obtenerCursos());
 
         FilteredList<Course> datosFiltrados = new FilteredList<>(listaCursosFx, p -> true);
 
+        // Búsqueda en tiempo real
         txtBuscarCurso.textProperty().addListener((observable, oldValue, newValue) -> {
             datosFiltrados.setPredicate(curso -> {
                 if (newValue == null || newValue.isEmpty()) return true;
@@ -147,7 +155,7 @@ public class CourseController implements Initializable {
     // ==========================================
     @FXML
     protected void onNuevoCursoClick() {
-        cursoSeleccionado = null;
+        cursoSeleccionado = null; // Modo Creación
         tablaCursos.getSelectionModel().clearSelection();
 
         lblTituloDetalle.setText("Nuevo Curso");
@@ -155,37 +163,44 @@ public class CourseController implements Initializable {
 
         limpiarFormulario();
 
+        // Mostrar formulario, ocultar panel vacío
         panelVacio.setVisible(false);
         panelFormulario.setVisible(true);
     }
 
     private void cargarDetalleCurso(Course curso) {
-        cursoSeleccionado = curso;
+        cursoSeleccionado = curso; // Modo Edición
 
         lblTituloDetalle.setText("Editando: " + curso.getNombre());
         btnEliminarCurso.setVisible(true);
 
-        // Llenar campos
+        // Llenar campos del formulario
         txtNombre.setText(curso.getNombre());
         spnHoras.getValueFactory().setValue(curso.getMinHorasSemanales());
         txtDescripcion.setText(curso.getDescripcion() != null ? curso.getDescripcion() : "");
 
-        // Convertir de Hex a Objeto Color para el ColorPicker
+        // Convertir el Hexadecimal a un objeto Color de JavaFX
         if (curso.getColorHex() != null && !curso.getColorHex().isEmpty()) {
-            colorPicker.setValue(Color.web(curso.getColorHex()));
+            try {
+                colorPicker.setValue(Color.web(curso.getColorHex()));
+            } catch (Exception e) {
+                colorPicker.setValue(Color.WHITE); // Fallback en caso de que el Hex esté mal formado
+            }
         } else {
             colorPicker.setValue(Color.WHITE);
         }
 
-        // Llenar la tabla inversa: Buscar qué profesores dan este curso
-        // Usamos TeacherDAO y filtramos en memoria
+        // Cargar la tabla de profesores inversos
         profesoresAsignadosFx.clear();
         List<Teacher> todosLosProfes = teacherDAO.obtenerProfesoresObservable();
+
         List<Teacher> profesDeEsteCurso = todosLosProfes.stream()
                 .filter(profe -> profe.getCursos().stream().anyMatch(c -> c.getId() == curso.getId()))
                 .collect(Collectors.toList());
+
         profesoresAsignadosFx.addAll(profesDeEsteCurso);
 
+        // Mostrar formulario
         panelVacio.setVisible(false);
         panelFormulario.setVisible(true);
     }
@@ -198,8 +213,10 @@ public class CourseController implements Initializable {
             return;
         }
 
-        // Extraer color en Hexadecimal
+        // Extraer color y forzar a que nunca sea nulo
         Color color = colorPicker.getValue();
+        if (color == null) color = Color.WHITE;
+
         String colorHex = String.format("#%02X%02X%02X",
                 (int) (color.getRed() * 255),
                 (int) (color.getGreen() * 255),
@@ -214,17 +231,29 @@ public class CourseController implements Initializable {
 
         if (cursoSeleccionado == null) {
             // INSERT
-            // Asumo que tu courseDAO.insertar(curso) ha sido actualizado para guardar descripción y color
             if (courseDAO.insertar(cursoAGuardar)) {
-                cargarDatosMaestros();
+                cargarDatosMaestros(); // Recarga la lista desde BD para obtener el nuevo ID
                 onCancelarClick();
+            } else {
+                new Alert(Alert.AlertType.ERROR, "No se pudo guardar el curso. Revisa que el nombre no esté duplicado.").showAndWait();
             }
         } else {
             // UPDATE
             cursoAGuardar.setId(cursoSeleccionado.getId());
+
             if (courseDAO.actualizar(cursoAGuardar)) {
-                cargarDatosMaestros();
+                // Actualizar el objeto en memoria para la lista observable
+                cursoSeleccionado.setNombre(cursoAGuardar.getNombre());
+                cursoSeleccionado.setMinHorasSemanales(cursoAGuardar.getMinHorasSemanales());
+                cursoSeleccionado.setDescripcion(cursoAGuardar.getDescripcion());
+                cursoSeleccionado.setColorHex(cursoAGuardar.getColorHex());
+
+                // FORZAR A LA TABLA A REDIBUJARSE PARA REFLEJAR LOS CAMBIOS
+                tablaCursos.refresh();
+
                 onCancelarClick();
+            } else {
+                new Alert(Alert.AlertType.ERROR, "Error al actualizar el curso.").showAndWait();
             }
         }
     }
@@ -237,9 +266,8 @@ public class CourseController implements Initializable {
         alert.setTitle("Confirmar Eliminación");
         alert.setHeaderText("¿Eliminar curso: " + cursoSeleccionado.getNombre() + "?");
 
-        // ADVERTENCIA si hay profesores
         if (!profesoresAsignadosFx.isEmpty()) {
-            alert.setContentText("ATENCIÓN: Hay " + profesoresAsignadosFx.size() + " profesor(es) asignados a este curso.\nSe eliminará la relación si continúas.");
+            alert.setContentText("ATENCIÓN: Hay " + profesoresAsignadosFx.size() + " profesor(es) capacitado(s) para esta materia.\nSe eliminará la relación si continúas.");
         }
 
         Optional<ButtonType> result = alert.showAndWait();
@@ -248,7 +276,7 @@ public class CourseController implements Initializable {
                 listaCursosFx.remove(cursoSeleccionado);
                 onCancelarClick();
             } else {
-                new Alert(Alert.AlertType.ERROR, "Error al eliminar el curso.").showAndWait();
+                new Alert(Alert.AlertType.ERROR, "No se pudo eliminar el curso. Es posible que esté asignado a grupos existentes.").showAndWait();
             }
         }
     }
@@ -259,13 +287,14 @@ public class CourseController implements Initializable {
         cursoSeleccionado = null;
         limpiarFormulario();
 
+        // Ocultar formulario, mostrar panel vacío
         panelFormulario.setVisible(false);
         panelVacio.setVisible(true);
     }
 
     private void limpiarFormulario() {
         txtNombre.clear();
-        spnHoras.getValueFactory().setValue(4); // Default
+        spnHoras.getValueFactory().setValue(4);
         txtDescripcion.clear();
         colorPicker.setValue(Color.WHITE);
         profesoresAsignadosFx.clear();
