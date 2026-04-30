@@ -12,7 +12,7 @@ public class OrganizadorApplication extends Application {
     @Override
     public void start(Stage stage) throws IOException {
         FXMLLoader fxmlLoader = new FXMLLoader(OrganizadorApplication.class.getResource("main-view.fxml"));
-        Scene scene = new Scene(fxmlLoader.load(), 950, 600);
+        Scene scene = new Scene(fxmlLoader.load(), 1024, 700);
 //        stage.initStyle(StageStyle.UNDECORATED);
 //        stage.setTitle("Hello!");
         stage.setScene(scene);

@@ -1,5 +1,6 @@
 package com.osgadev.organizadorhorariosfx.controller;
 
+import com.osgadev.organizadorhorariosfx.dao.CourseDAO;
 import com.osgadev.organizadorhorariosfx.dao.StudentDAO;
 import com.osgadev.organizadorhorariosfx.dao.GroupDAO;
 import com.osgadev.organizadorhorariosfx.dao.TeacherDAO;
@@ -9,12 +10,16 @@ import com.osgadev.organizadorhorariosfx.model.Teacher;
 import com.osgadev.organizadorhorariosfx.model.Student;
 import com.osgadev.organizadorhorariosfx.service.GroupService;
 import com.osgadev.organizadorhorariosfx.util.ImportadorExcel;
+import com.osgadev.organizadorhorariosfx.util.SessionGlobal;
 
+import javafx.application.Platform;
+import javafx.beans.property.ReadOnlyObjectWrapper;
 import javafx.beans.property.SimpleIntegerProperty;
 import javafx.beans.property.SimpleStringProperty;
 import javafx.collections.FXCollections;
 import javafx.collections.ObservableList;
 import javafx.collections.transformation.FilteredList;
+import javafx.collections.transformation.SortedList;
 import javafx.fxml.FXML;
 import javafx.scene.control.*;
 import javafx.scene.layout.HBox;
@@ -22,366 +27,568 @@ import javafx.scene.layout.VBox;
 import javafx.stage.FileChooser;
 
 import java.io.File;
-import java.time.Year;
 import java.util.ArrayList;
+import java.util.Comparator;
 import java.util.List;
+import java.util.Map;
+import java.util.stream.Collectors;
 
 public class GroupController {
 
-    // --- Contenedores Superiores (Estados) ---
-    @FXML private HBox panelConsulta;
-    @FXML private HBox panelCreacion;
+    @FXML private HBox rootHBox;
 
-    // --- Inputs Estado Consulta ---
-    @FXML private ComboBox<String> cbAnioConsulta;
-    @FXML private ComboBox<String> cbEtapaConsulta;
-
-    // --- Inputs Estado Creación ---
-    @FXML private TextField txtTotalAlumnos;
-    @FXML private ComboBox<String> cbAnioCreacion;
-    @FXML private ComboBox<String> cbEtapaCreacion;
-    @FXML private Button btnGuardarBD;
-
-    // --- Contenedores Centrales ---
-    @FXML private TableView<Group> tablaGrupos;
-    @FXML private VBox vistaVaciaVBox;
-    @FXML private Label lblMensajeVacio;
-
-    // --- Controles de Navegación y Estadísticas ---
-    @FXML private Label lblCursoActual;
-    @FXML private Button btnAnterior;
-    @FXML private Button btnSiguiente;
+    @FXML private Label lblCicloGlobal;
     @FXML private Label lblTotalAlumnos;
     @FXML private Label lblTotalProfesores;
     @FXML private Label lblTotalCursos;
     @FXML private Label lblTotalGrupos;
+    @FXML private Button btnNuevoCiclo;
+    @FXML private Button btnEliminarCiclo;
+    @FXML private Button btnVerAlumnosGlobal;
 
-    // --- Columnas ---
+    @FXML private VBox panelVacio;
+    @FXML private VBox panelFormulario;
+    @FXML private VBox panelTabla;
+
+    @FXML private VBox cardManual;
+    @FXML private VBox cardExcel;
+    @FXML private RadioButton rbManual;
+    @FXML private RadioButton rbExcel;
+    @FXML private TextField txtTotalAlumnos;
+    @FXML private Button btnSubirExcel;
+    @FXML private Button btnVerExcelLocal;
+    private ToggleGroup toggleGroupModo;
+
+    // Componentes del Panel Lateral de Estado
+    @FXML private VBox panelAlertaManual;
+    @FXML private Button btnCargarExcelRegenerar;
+    @FXML private VBox boxAccionesRegenerar;
+
+    @FXML private TableView<Group> tablaGrupos;
     @FXML private TableColumn<Group, Integer> colNumeroGrupo;
     @FXML private TableColumn<Group, String> colProfesor;
     @FXML private TableColumn<Group, String> colIdGrupo;
     @FXML private TableColumn<Group, Integer> colAlumnos;
     @FXML private TableColumn<Group, String> colRango;
+    @FXML private TableColumn<Group, Void> colAcciones;
 
-    // --- Lógica de Negocio y Datos ---
-    private GroupService groupService = new GroupService();
-    private GroupDAO groupDAO = new GroupDAO();
-    private StudentDAO studentDAO = new StudentDAO();
-    private TeacherDAO teacherDAO = new TeacherDAO();
+    @FXML private Label lblCursoActual;
+    @FXML private Button btnAnterior;
+    @FXML private Button btnSiguiente;
+    @FXML private TextField txtBuscarGrupo;
+
+    @FXML private VBox panelDetalleAlumnos;
+    @FXML private Label lblTituloDetalle;
+    @FXML private Label lblSubtituloDetalle;
+    @FXML private VBox boxInfoProfesor;
+    @FXML private Label lblNombreProfDetalle;
+    @FXML private TextField txtBuscarAlumno;
+
+    @FXML private TableView<Student> tablaAlumnos;
+    @FXML private TableColumn<Student, Integer> colNoLista;
+    @FXML private TableColumn<Student, String> colMatricula;
+    @FXML private TableColumn<Student, String> colNombreAlumno;
+
+    private final GroupService groupService = new GroupService();
+    private final GroupDAO groupDAO = new GroupDAO();
+    private final StudentDAO studentDAO = new StudentDAO();
+    private final TeacherDAO teacherDAO = new TeacherDAO();
+    private final CourseDAO courseDAO = new CourseDAO(); // DAOs de catálogo
 
     private ObservableList<Group> listaBaseGrupos = FXCollections.observableArrayList();
     private FilteredList<Group> gruposFiltrados;
     private List<Course> cursosUnicos = new ArrayList<>();
     private int indiceCursoActual = 0;
 
-    // --- NUEVO: Memoria temporal para los alumnos importados ---
     private List<Student> alumnosImportados = null;
+
+    private ObservableList<Student> listaAlumnosActual = FXCollections.observableArrayList();
+    private FilteredList<Student> alumnosFiltrados;
 
     @FXML
     public void initialize() {
-        configurarColumnas();
-        llenarComboBoxes();
-
-        // El FilteredList se inicializa envuelto en la lista base
-        gruposFiltrados = new FilteredList<>(listaBaseGrupos, p -> true);
-        tablaGrupos.setItems(gruposFiltrados);
-
-        // Al abrir la ventana, iniciamos en Modo Consulta
-        activarModoConsulta();
-    }
-
-    // ==========================================
-    // CONFIGURACIÓN INICIAL
-    // ==========================================
-
-    private void configurarColumnas() {
-        colNumeroGrupo.setCellValueFactory(celda -> {
-            int indice = tablaGrupos.getItems().indexOf(celda.getValue());
-            return new SimpleIntegerProperty(indice + 1).asObject();
-        });
-
-        colIdGrupo.setCellValueFactory(celda -> new SimpleStringProperty(celda.getValue().getIdGrupo()));
-        colProfesor.setCellValueFactory(celda -> new SimpleStringProperty(celda.getValue().getNombreProfesor()));
-        colAlumnos.setCellValueFactory(celda -> new SimpleIntegerProperty(celda.getValue().getTamanioGrupo()).asObject());
-        colRango.setCellValueFactory(celda -> new SimpleStringProperty(celda.getValue().getRangoTexto()));
-    }
-
-    private void llenarComboBoxes() {
-        int anioActual = Year.now().getValue();
-        ObservableList<String> anios = FXCollections.observableArrayList();
-        for (int i = anioActual - 2; i < anioActual + 5; i++) {
-            anios.add(String.valueOf(i));
+        try {
+            String cssPath = getClass().getResource("/css/styles.css").toExternalForm();
+            rootHBox.getStylesheets().add(cssPath);
+        } catch (Exception e) {
+            System.err.println("Error al cargar styles.css");
         }
-        ObservableList<String> etapas = FXCollections.observableArrayList("1", "2", "3");
 
-        cbAnioConsulta.setItems(anios); cbEtapaConsulta.setItems(etapas);
-        cbAnioCreacion.setItems(anios); cbEtapaCreacion.setItems(etapas);
+        toggleGroupModo = new ToggleGroup();
+        rbManual.setToggleGroup(toggleGroupModo);
+        rbExcel.setToggleGroup(toggleGroupModo);
+        rbManual.setSelected(true);
 
-        cbAnioConsulta.getSelectionModel().select(String.valueOf(anioActual));
-        cbEtapaConsulta.getSelectionModel().selectFirst();
-        cbAnioCreacion.getSelectionModel().select(String.valueOf(anioActual));
-        cbEtapaCreacion.getSelectionModel().selectFirst();
+        configurarBuscadoresYOrdenamiento();
+        configurarColumnasGrupos();
+        configurarColumnasAlumnos();
+
+        cargarContextoGlobal();
     }
 
-    // ==========================================
-    // MANEJO DE ESTADOS (VISTAS)
-    // ==========================================
-
-    private void activarModoConsulta() {
-        panelConsulta.setVisible(true); panelConsulta.setManaged(true);
-        panelCreacion.setVisible(false); panelCreacion.setManaged(false);
-
-        listaBaseGrupos.clear();
-        mostrarVistaVacia("Selecciona un Año y Etapa para consultar.");
-        actualizarEstadisticas();
-    }
-
-    @FXML
-    private void onActivarModoCreacionClick() {
-        panelConsulta.setVisible(false); panelConsulta.setManaged(false);
-        panelCreacion.setVisible(true); panelCreacion.setManaged(true);
-        btnGuardarBD.setDisable(true);
-
-        // Resetear estado manual o de Excel al entrar al modo creación
-        alumnosImportados = null;
-        txtTotalAlumnos.setDisable(false);
-        txtTotalAlumnos.clear();
-
-        listaBaseGrupos.clear();
-        mostrarVistaVacia("Ingresa el número de alumnos o sube un Excel y calcula el borrador.");
-        actualizarEstadisticas();
-    }
-
-    @FXML
-    private void onCancelarCreacionClick() {
-        alumnosImportados = null;
-        txtTotalAlumnos.setDisable(false);
-        activarModoConsulta();
-    }
-
-    private void mostrarVistaVacia(String mensaje) {
-        vistaVaciaVBox.setVisible(true);
-        tablaGrupos.setVisible(false);
-        lblMensajeVacio.setText(mensaje);
-
-        btnAnterior.setDisable(true);
-        btnSiguiente.setDisable(true);
-        lblCursoActual.setText("Materia: -");
-    }
-
-    private void mostrarTabla() {
-        vistaVaciaVBox.setVisible(false);
-        tablaGrupos.setVisible(true);
-    }
-
-    // ==========================================
-    // ACCIONES PRINCIPALES
-    // ==========================================
-
-    @FXML
-    private void onBuscarBDClick() {
-        String anio = cbAnioConsulta.getValue();
-        String etapa = cbEtapaConsulta.getValue();
+    public void cargarContextoGlobal() {
+        String anio = SessionGlobal.getAnioActual();
+        String etapa = SessionGlobal.getEtapaActual();
+        lblCicloGlobal.setText("Año: " + anio + " | Etapa: " + etapa);
 
         List<Group> recuperados = groupDAO.obtenerPorAnioYEtapa(anio, etapa);
 
         if (recuperados.isEmpty()) {
-            mostrarVistaVacia("No se encontraron grupos para " + anio + " - Etapa " + etapa);
+            activarModoVacio();
         } else {
-            cargarDatosEnTabla(recuperados);
+            cargarDatosLista(recuperados);
+            activarModoTabla();
         }
     }
 
-    // --- NUEVO: Cargar lista desde Excel ---
-    @FXML
-    private void onCargarListaExcelClick() {
-        FileChooser fileChooser = new FileChooser();
-        fileChooser.setTitle("Seleccionar Lista de Alumnos");
-        fileChooser.getExtensionFilters().add(new FileChooser.ExtensionFilter("Archivos Excel (*.xlsx)", "*.xlsx"));
+    private void configurarBuscadoresYOrdenamiento() {
+        gruposFiltrados = new FilteredList<>(listaBaseGrupos, p -> true);
+        SortedList<Group> gruposOrdenados = new SortedList<>(gruposFiltrados);
+        gruposOrdenados.comparatorProperty().bind(tablaGrupos.comparatorProperty());
+        tablaGrupos.setItems(gruposOrdenados);
 
-        File archivo = fileChooser.showOpenDialog(tablaGrupos.getScene().getWindow());
+        txtBuscarGrupo.textProperty().addListener((obs, oldV, newV) -> {
+            actualizarFiltroMateria();
+        });
+
+        alumnosFiltrados = new FilteredList<>(listaAlumnosActual, p -> true);
+        SortedList<Student> alumnosOrdenados = new SortedList<>(alumnosFiltrados);
+        alumnosOrdenados.comparatorProperty().bind(tablaAlumnos.comparatorProperty());
+        tablaAlumnos.setItems(alumnosOrdenados);
+
+        txtBuscarAlumno.textProperty().addListener((obs, oldV, newV) -> {
+            alumnosFiltrados.setPredicate(alumno -> {
+                if (newV == null || newV.trim().isEmpty()) return true;
+                String filtro = newV.toLowerCase();
+                return alumno.getNombreCompleto().toLowerCase().contains(filtro) ||
+                        alumno.getMatricula().toLowerCase().contains(filtro);
+            });
+        });
+    }
+
+    private void configurarColumnasGrupos() {
+        colNumeroGrupo.setCellValueFactory(c -> new SimpleIntegerProperty(0).asObject());
+        colNumeroGrupo.setCellFactory(col -> new TableCell<Group, Integer>() {
+            @Override
+            public void updateIndex(int index) {
+                super.updateIndex(index);
+                if (isEmpty() || index < 0) {
+                    setText(null);
+                } else {
+                    setText(String.valueOf(index + 1));
+                }
+            }
+        });
+
+        colIdGrupo.setCellValueFactory(c -> new SimpleStringProperty(c.getValue().getIdGrupo()));
+        colProfesor.setCellValueFactory(c -> new SimpleStringProperty(c.getValue().getNombreProfesor()));
+        colAlumnos.setCellValueFactory(c -> new SimpleIntegerProperty(c.getValue().getTamanioGrupo()).asObject());
+
+        colRango.setCellValueFactory(c -> {
+            Group g = c.getValue();
+            int baseSize = g.getRangoFinal() - g.getRangoInicial() + 1;
+            int currentSize = g.getTamanioGrupo();
+            if (currentSize > baseSize) {
+                return new SimpleStringProperty(g.getRangoTexto() + " (+" + (currentSize - baseSize) + " extra)");
+            }
+            return new SimpleStringProperty(g.getRangoTexto());
+        });
+
+        colAcciones.setCellFactory(param -> new TableCell<>() {
+            private final Button btnVer = new Button("Ver Detalles");
+            {
+                btnVer.getStyleClass().add("btn-outline-primary");
+                btnVer.setStyle("-fx-padding: 3 8 3 8; -fx-font-size: 11px;");
+                btnVer.setOnAction(e -> mostrarAlumnosDeGrupo(getTableView().getItems().get(getIndex())));
+            }
+            @Override protected void updateItem(Void item, boolean empty) {
+                super.updateItem(item, empty);
+                setGraphic(empty ? null : btnVer);
+                if (!empty) {
+                    int total = studentDAO.contarAlumnos(SessionGlobal.getAnioActual(), SessionGlobal.getEtapaActual());
+                    btnVer.setDisable(total == 0);
+                }
+            }
+        });
+    }
+
+    private void configurarColumnasAlumnos() {
+        colNoLista.setCellValueFactory(c -> new ReadOnlyObjectWrapper<>(c.getValue().getNumeroLista()));
+        colMatricula.setCellValueFactory(c -> new SimpleStringProperty(c.getValue().getMatricula()));
+        colNombreAlumno.setCellValueFactory(c -> new SimpleStringProperty(c.getValue().getNombreCompleto()));
+    }
+
+    // ==========================================
+    // VISTAS Y NAVEGACIÓN
+    // ==========================================
+    private void mostrarEnPanelDetalle(List<Student> alumnos, String titulo, Group grupoInfo) {
+        lblTituloDetalle.setText(titulo);
+        lblSubtituloDetalle.setText("Mostrando: " + alumnos.size() + " estudiantes");
+        txtBuscarAlumno.clear();
+
+        if (grupoInfo != null) {
+            boxInfoProfesor.setVisible(true); boxInfoProfesor.setManaged(true);
+            lblNombreProfDetalle.setText(grupoInfo.getNombreProfesor());
+        } else {
+            boxInfoProfesor.setVisible(false); boxInfoProfesor.setManaged(false);
+        }
+
+        listaAlumnosActual.setAll(alumnos);
+        activarModoDetalleAlumnos();
+    }
+
+    private void mostrarAlumnosDeGrupo(Group grupo) {
+        String anio = SessionGlobal.getAnioActual();
+        String etapa = SessionGlobal.getEtapaActual();
+        Map<String, List<Student>> alumnosEnGrupos = studentDAO.obtenerAlumnosAgrupadosPorBD(anio, etapa);
+        List<Student> alumnosMostrar = alumnosEnGrupos.getOrDefault(grupo.getIdGrupo(), new ArrayList<>());
+        mostrarEnPanelDetalle(alumnosMostrar, "Alumnos - Grupo " + grupo.getIdGrupo() + " (" + grupo.getCurso().getNombre() + ")", grupo);
+    }
+
+    @FXML
+    private void onVerListaCompletaClick() {
+        if (alumnosImportados != null && !alumnosImportados.isEmpty() && listaBaseGrupos.isEmpty()) {
+            mostrarEnPanelDetalle(alumnosImportados, "Vista Previa: Memoria Excel", null);
+        } else {
+            String anio = SessionGlobal.getAnioActual();
+            String etapa = SessionGlobal.getEtapaActual();
+            List<Student> alumnosBD = studentDAO.obtenerPorAnioYEtapa(anio, etapa);
+            mostrarEnPanelDetalle(alumnosBD, "Lista de alumnos", null);
+        }
+    }
+
+    @FXML
+    private void onVolverDeDetalleClick() {
+        panelDetalleAlumnos.setVisible(false);
+        if (listaBaseGrupos.isEmpty() && (alumnosImportados == null || alumnosImportados.isEmpty())) {
+            activarModoVacio();
+        } else if (listaBaseGrupos.isEmpty()) {
+            panelFormulario.setVisible(true);
+        } else {
+            panelTabla.setVisible(true);
+        }
+    }
+
+    // ==========================================
+    // GENERACIÓN Y ELIMINACIÓN DE CICLOS (TODO O NADA)
+    // ==========================================
+    @FXML
+    private void onGenerarYGuardarClick() {
+        try {
+            String anio = SessionGlobal.getAnioActual();
+            String etapa = SessionGlobal.getEtapaActual();
+            int alumnos = 0;
+
+            if (rbManual.isSelected()) alumnos = Integer.parseInt(txtTotalAlumnos.getText());
+            else if (rbExcel.isSelected()) {
+                if (alumnosImportados == null || alumnosImportados.isEmpty()) {
+                    mostrarAlerta("Error", "Carga un archivo Excel primero.", Alert.AlertType.WARNING);
+                    return;
+                }
+                alumnos = alumnosImportados.size();
+            }
+
+            if (alumnos <= 0) throw new NumberFormatException();
+
+            Alert confirm = new Alert(Alert.AlertType.CONFIRMATION);
+            confirm.setTitle("Confirmar");
+            confirm.setHeaderText("¿Generar la estructura de grupos para este ciclo?");
+            if (confirm.showAndWait().orElse(ButtonType.CANCEL) != ButtonType.OK) return;
+
+            List<Teacher> profes = teacherDAO.obtenerProfesoresObservable();
+            List<Group> gruposGenerados = groupService.generarGrupos(alumnos, profes, anio, etapa);
+
+            if (gruposGenerados.isEmpty()) {
+                mostrarAlerta("Error", "Catálogo de profesores incompleto.", Alert.AlertType.WARNING);
+                return;
+            }
+
+            groupDAO.guardarGruposMasivo(new ArrayList<>(gruposGenerados), anio, etapa);
+
+            if (alumnosImportados != null && !alumnosImportados.isEmpty()) {
+                for (Student al : alumnosImportados) {
+                    al.getGruposAsignados().clear();
+                    for (Group g : gruposGenerados) {
+                        if (al.getNumeroLista() >= g.getRangoInicial() && al.getNumeroLista() <= g.getRangoFinal()) {
+                            al.agregarGrupo(g);
+                        }
+                    }
+                }
+                studentDAO.guardarAlumnosYRelaciones(alumnosImportados, anio, etapa);
+            }
+
+            limpiarFormularioCreacion();
+            mostrarAlerta("Éxito", "Estructura Base generada correctamente.", Alert.AlertType.INFORMATION);
+            cargarContextoGlobal();
+
+        } catch (NumberFormatException e) {
+            mostrarAlerta("Error", "Número inválido.", Alert.AlertType.ERROR);
+        }
+    }
+
+    @FXML
+    private void onEliminarCicloClick() {
+        if (new Alert(Alert.AlertType.CONFIRMATION, "CUIDADO: ¿Eliminar TODO EL CICLO (Alumnos y Grupos)?\nEsta acción es irreversible.").showAndWait().orElse(ButtonType.CANCEL) == ButtonType.OK) {
+            String a = SessionGlobal.getAnioActual(), e = SessionGlobal.getEtapaActual();
+            studentDAO.eliminarAlumnosYRelacionesMasivo(a, e);
+            groupDAO.eliminarPorAnioYEtapa(a, e);
+            limpiarFormularioCreacion();
+            cargarContextoGlobal();
+        }
+    }
+
+    // ==========================================
+    // LÓGICA DE REGENERACIÓN (TARJETA ESTADO)
+    // ==========================================
+
+    @FXML
+    private void onCargarExcelBannerClick() {
+        FileChooser fc = new FileChooser();
+        fc.getExtensionFilters().add(new FileChooser.ExtensionFilter("Excel", "*.xlsx"));
+        File archivo = fc.showOpenDialog(rootHBox.getScene().getWindow());
 
         if (archivo != null) {
             try {
                 alumnosImportados = ImportadorExcel.leerListaAlumnos(archivo);
-
                 if (alumnosImportados.isEmpty()) {
-                    mostrarAlerta("Archivo Vacío", "No se encontraron alumnos válidos en el archivo Excel.", Alert.AlertType.WARNING);
-                } else {
-                    txtTotalAlumnos.setText(String.valueOf(alumnosImportados.size()));
-                    txtTotalAlumnos.setDisable(true); // Bloquear input para evitar inconsistencias
-                    mostrarAlerta("Éxito", "Se detectaron y cargaron " + alumnosImportados.size() + " alumnos desde el Excel.", Alert.AlertType.INFORMATION);
+                    mostrarAlerta("Error", "El archivo Excel está vacío o no es válido.", Alert.AlertType.WARNING);
+                    return;
                 }
+
+                for (int i = 0; i < alumnosImportados.size(); i++) alumnosImportados.get(i).setNumeroLista(i + 1);
+
+                btnCargarExcelRegenerar.setText("✅ Memoria Cargada");
+                btnCargarExcelRegenerar.setDisable(true); // Bloquear botón principal
+                boxAccionesRegenerar.setVisible(true);
+                boxAccionesRegenerar.setManaged(true);
             } catch (Exception e) {
-                e.printStackTrace();
-                mostrarAlerta("Error de Lectura", "No se pudo leer el archivo: " + e.getMessage(), Alert.AlertType.ERROR);
+                mostrarAlerta("Error", "Ocurrió un error al leer el Excel.", Alert.AlertType.ERROR);
             }
         }
     }
 
-    private void mostrarAlerta(String titulo, String contenido, Alert.AlertType tipo) {
-        Alert alerta = new Alert(tipo);
-        alerta.setTitle(titulo);
-        alerta.setHeaderText(null);
-        alerta.setContentText(contenido);
-        alerta.showAndWait();
+    @FXML
+    private void onVerListaBannerClick() {
+        if (alumnosImportados != null && !alumnosImportados.isEmpty()) {
+            mostrarEnPanelDetalle(alumnosImportados, "Vista Previa: Memoria Excel", null);
+        }
     }
 
     @FXML
-    private void onGenerarBorradorClick() {
-        try {
-            String anio = cbAnioCreacion.getValue();
-            String etapa = cbEtapaCreacion.getEditor().getText().trim();
+    private void onGenerarBannerClick() {
+        if (alumnosImportados == null || alumnosImportados.isEmpty()) return;
 
-            if(groupDAO.existenGruposParaCiclo(anio, etapa)){
-                Alert alerta = new Alert(Alert.AlertType.WARNING);
-                alerta.setTitle("Etapa duplicada");
-                alerta.setHeaderText("Ya existen grupos para " + anio + " - Etapa " + etapa);
-                alerta.setContentText("No puedes generar nuevos grupos para un ciclo que ya tiene grupos guardados. " +
-                        "Por favor elimina los grupos actuales desde el panel de consulta primero");
-                alerta.showAndWait();
-                return;
-            }
+        Alert confirm = new Alert(Alert.AlertType.CONFIRMATION);
+        confirm.setTitle("Regenerar Ciclo");
+        confirm.setHeaderText("Se regenerarán los grupos basándose en los " + alumnosImportados.size() + " alumnos del Excel.");
+        confirm.setContentText("Esto reemplazará la estructura actual. ¿Deseas continuar?");
 
-            int alumnos = Integer.parseInt(txtTotalAlumnos.getText());
-            if (alumnos <= 0) throw new NumberFormatException();
+        if (confirm.showAndWait().orElse(ButtonType.CANCEL) == ButtonType.OK) {
+            String anio = SessionGlobal.getAnioActual();
+            String etapa = SessionGlobal.getEtapaActual();
 
             List<Teacher> profes = teacherDAO.obtenerProfesoresObservable();
-            List<Group> borrador = groupService.generarGrupos(alumnos, profes, anio, etapa);
+            List<Group> gruposGenerados = groupService.generarGrupos(alumnosImportados.size(), profes, anio, etapa);
 
-            if (borrador.isEmpty()) {
-                mostrarVistaVacia("No hay profesores asignados a cursos.");
+            if (gruposGenerados.isEmpty()) {
+                mostrarAlerta("Error", "Catálogo de profesores incompleto.", Alert.AlertType.WARNING);
                 return;
             }
 
-            cargarDatosEnTabla(borrador);
-            btnGuardarBD.setDisable(false);
+            groupDAO.eliminarPorAnioYEtapa(anio, etapa);
+            groupDAO.guardarGruposMasivo(new ArrayList<>(gruposGenerados), anio, etapa);
 
-        } catch (NumberFormatException e) {
-            mostrarAlerta("Error", "Ingresa un número válido de alumnos o sube un Excel.", Alert.AlertType.ERROR);
-        }
-    }
-
-    @FXML
-    private void onGuardarEnBDClick() {
-        String anio = cbAnioCreacion.getValue();
-        String etapa = cbEtapaCreacion.getValue();
-
-        // 1. Guardar primero los grupos
-        groupDAO.guardarGruposMasivo(new ArrayList<>(listaBaseGrupos), anio, etapa);
-
-        // 2. Asociar los alumnos a los grupos en memoria y guardarlos
-        if (alumnosImportados != null && !alumnosImportados.isEmpty()) {
-            for (int i = 0; i < alumnosImportados.size(); i++) {
-                int numeroLista = i + 1; // El primer alumno del Excel es el número 1
-                Student al = alumnosImportados.get(i);
-                al.setNumeroLista(numeroLista);
-                al.getGruposAsignados().clear(); // Limpiar por si el usuario le dio click 2 veces
-
-                // Asignarle TODAS las materias que le toquen según su número
-                for (Group g : listaBaseGrupos) {
-                    if (numeroLista >= g.getRangoInicial() && numeroLista <= g.getRangoFinal()) {
+            for (Student al : alumnosImportados) {
+                al.getGruposAsignados().clear();
+                for (Group g : gruposGenerados) {
+                    if (al.getNumeroLista() >= g.getRangoInicial() && al.getNumeroLista() <= g.getRangoFinal()) {
                         al.agregarGrupo(g);
                     }
                 }
             }
-            // Mandarlos a la BD (El dao guardará al alumno y sus relaciones M:M)
-            StudentDAO studentDAO = new StudentDAO();
             studentDAO.guardarAlumnosYRelaciones(alumnosImportados, anio, etapa);
+
+            mostrarAlerta("Éxito", "La estructura se ha regenerado correctamente con la lista de alumnos.", Alert.AlertType.INFORMATION);
+            limpiarFormularioCreacion();
+            cargarContextoGlobal();
         }
-
-        System.out.println("Grupos y Alumnos (Relacionales) guardados exitosamente en BD.");
-
-        activarModoConsulta();
-        cbAnioConsulta.setValue(anio);
-        cbEtapaConsulta.setValue(etapa);
-        onBuscarBDClick();
-    }
-
-    @FXML
-    private void onEliminarGruposClick() {
-        String anio = cbAnioConsulta.getValue();
-        String etapa = cbEtapaConsulta.getValue();
-
-        groupDAO.eliminarPorAnioYEtapa(anio, etapa);
-        activarModoConsulta();
     }
 
     // ==========================================
-    // NAVEGACIÓN Y FILTRADO DE TABLA
+    // CARGA DE ARCHIVOS Y COMPORTAMIENTO UI
     // ==========================================
 
-    private void cargarDatosEnTabla(List<Group> datos) {
-        listaBaseGrupos.setAll(datos);
-
-        cursosUnicos.clear();
-        for (Group g : listaBaseGrupos) {
-            if (!cursosUnicos.contains(g.getCurso())) {
-                cursosUnicos.add(g.getCurso());
-            }
+    private void limpiarFormularioCreacion() {
+        alumnosImportados = null;
+        txtTotalAlumnos.clear();
+        btnSubirExcel.setText("📁 Seleccionar Archivo");
+        btnVerExcelLocal.setVisible(false);
+        btnVerExcelLocal.setManaged(false);
+        rbManual.setSelected(true);
+        txtTotalAlumnos.setDisable(false);
+        btnSubirExcel.setDisable(true);
+        // Reset Banner Estado
+        if (btnCargarExcelRegenerar != null) {
+            btnCargarExcelRegenerar.setText("📁 Cargar Archivo Excel");
+            btnCargarExcelRegenerar.setDisable(false);
         }
-
-        indiceCursoActual = 0;
-        mostrarTabla();
-        actualizarFiltroMateria();
-        actualizarEstadisticas();
-    }
-
-    @FXML
-    private void onAnteriorClick() {
-        if (indiceCursoActual > 0) {
-            indiceCursoActual--;
-            actualizarFiltroMateria();
+        if (boxAccionesRegenerar != null) {
+            boxAccionesRegenerar.setVisible(false);
+            boxAccionesRegenerar.setManaged(false);
         }
     }
 
     @FXML
-    private void onSiguienteClick() {
-        if (indiceCursoActual < cursosUnicos.size() - 1) {
-            indiceCursoActual++;
-            actualizarFiltroMateria();
+    private void onNuevoCicloClick() {
+        limpiarFormularioCreacion();
+        activarModoFormulario();
+    }
+
+    @FXML
+    private void onCancelarCreacionClick() {
+        limpiarFormularioCreacion();
+        cargarContextoGlobal();
+    }
+
+    @FXML private void onSeleccionarCardManual() { rbManual.setSelected(true); txtTotalAlumnos.setDisable(false); btnSubirExcel.setDisable(true); }
+    @FXML private void onSeleccionarCardExcel() { rbExcel.setSelected(true); txtTotalAlumnos.setDisable(true); txtTotalAlumnos.clear(); btnSubirExcel.setDisable(false); }
+
+    @FXML
+    private void onCargarListaExcelClick() {
+        FileChooser fc = new FileChooser();
+        fc.getExtensionFilters().add(new FileChooser.ExtensionFilter("Excel", "*.xlsx"));
+        File archivo = fc.showOpenDialog(rootHBox.getScene().getWindow());
+
+        if (archivo != null) {
+            try {
+                alumnosImportados = ImportadorExcel.leerListaAlumnos(archivo);
+                if (alumnosImportados.isEmpty()) return;
+                for (int i = 0; i < alumnosImportados.size(); i++) alumnosImportados.get(i).setNumeroLista(i + 1);
+
+                btnSubirExcel.setText("✅ Archivo Cargado");
+                btnVerExcelLocal.setVisible(true);
+                btnVerExcelLocal.setManaged(true);
+            } catch (Exception e) {}
         }
     }
+
+    // ==========================================
+    // REFRESCADO Y FILTRADO VISUAL
+    // ==========================================
+    @FXML private void onAnteriorClick() { if (indiceCursoActual > 0) { indiceCursoActual--; actualizarFiltroMateria(); } }
+    @FXML private void onSiguienteClick() { if (indiceCursoActual < cursosUnicos.size() - 1) { indiceCursoActual++; actualizarFiltroMateria(); } }
 
     private void actualizarFiltroMateria() {
         if (cursosUnicos.isEmpty()) return;
+        Course c = cursosUnicos.get(indiceCursoActual);
 
-        Course cursoActual = cursosUnicos.get(indiceCursoActual);
-
-        lblCursoActual.setText("Materia: " + cursoActual.getNombre() +
-                " (" + (indiceCursoActual + 1) + "/" + cursosUnicos.size() + ")");
+        lblCursoActual.setText(c.getNombre() + " (" + (indiceCursoActual + 1) + "/" + cursosUnicos.size() + ")");
 
         btnAnterior.setDisable(indiceCursoActual == 0);
         btnSiguiente.setDisable(indiceCursoActual == cursosUnicos.size() - 1);
 
-        gruposFiltrados.setPredicate(grupo -> grupo.getCurso().getId() == cursoActual.getId());
+        String textoBuscar = txtBuscarGrupo.getText() != null ? txtBuscarGrupo.getText().toLowerCase() : "";
+
+        gruposFiltrados.setPredicate(g -> {
+            if (g.getCurso().getId() != c.getId()) return false;
+            if (textoBuscar.isEmpty()) return true;
+            return g.getNombreProfesor().toLowerCase().contains(textoBuscar) ||
+                    g.getIdGrupo().toLowerCase().contains(textoBuscar);
+        });
+        tablaGrupos.refresh();
+    }
+
+    private void cargarDatosLista(List<Group> datos) {
+        listaBaseGrupos.setAll(datos);
+        cursosUnicos = listaBaseGrupos.stream()
+                .map(Group::getCurso)
+                .distinct()
+                .sorted(Comparator.comparingInt(Course::getId))
+                .collect(Collectors.toList());
+
+        indiceCursoActual = 0; txtBuscarGrupo.clear(); actualizarFiltroMateria(); actualizarEstadisticas();
     }
 
     private void actualizarEstadisticas() {
-        if (listaBaseGrupos.isEmpty()) {
-            lblTotalAlumnos.setText("0");
-            lblTotalProfesores.setText("0");
-            lblTotalCursos.setText("0");
-            lblTotalGrupos.setText("0");
-            return;
+        // Valores dinámicos del ciclo actual (Alumnos y Grupos)
+        int tAlumnos = 0;
+        if (!listaBaseGrupos.isEmpty() && !cursosUnicos.isEmpty()) {
+            tAlumnos = listaBaseGrupos.stream()
+                    .filter(g -> g.getCurso().getId() == cursosUnicos.get(0).getId())
+                    .mapToInt(Group::getTamanioGrupo).sum();
+        } else if (alumnosImportados != null) {
+            tAlumnos = alumnosImportados.size();
+        } else {
+            tAlumnos = studentDAO.contarAlumnos(SessionGlobal.getAnioActual(), SessionGlobal.getEtapaActual());
         }
 
-        int totalAlumnos = 0;
-        List<Integer> idsProfesoresUnicos = new ArrayList<>();
-
-        for (Group g : listaBaseGrupos) {
-            if (g.getCurso().getId() == cursosUnicos.get(0).getId()) {
-                totalAlumnos += g.getTamanioGrupo();
-            }
-
-            if (!idsProfesoresUnicos.contains(g.getProfesor().getId())) {
-                idsProfesoresUnicos.add(g.getProfesor().getId());
-            }
-        }
-
-        lblTotalAlumnos.setText(String.valueOf(totalAlumnos));
-        lblTotalProfesores.setText(String.valueOf(idsProfesoresUnicos.size()));
-        lblTotalCursos.setText(String.valueOf(cursosUnicos.size()));
+        lblTotalAlumnos.setText(String.valueOf(tAlumnos));
         lblTotalGrupos.setText(String.valueOf(listaBaseGrupos.size()));
+
+        // Valores estáticos del catálogo maestro (Profesores y Materias siempre se muestran correctos usando la BD)
+        try {
+            lblTotalProfesores.setText(String.valueOf(teacherDAO.obtenerProfesoresObservable().size()));
+            // Aquí usamos el método optimizado del CourseDAO
+            lblTotalCursos.setText(String.valueOf(courseDAO.contarCursos()));
+        } catch (Exception e) {
+            System.err.println("No se pudieron cargar métricas estáticas del catálogo.");
+        }
+    }
+
+    private void activarModoVacio() {
+        panelVacio.setVisible(true); panelFormulario.setVisible(false); panelTabla.setVisible(false); panelDetalleAlumnos.setVisible(false);
+        btnNuevoCiclo.setVisible(true); btnEliminarCiclo.setVisible(false);
+        btnVerAlumnosGlobal.setVisible(false); btnVerAlumnosGlobal.setManaged(false);
+        if(panelAlertaManual != null) { panelAlertaManual.setVisible(false); panelAlertaManual.setManaged(false); }
+
+        listaBaseGrupos.clear();
+        cursosUnicos.clear(); // Limpiamos caché interno
+        actualizarEstadisticas();
+    }
+
+    private void activarModoFormulario() {
+        panelVacio.setVisible(false); panelFormulario.setVisible(true); panelTabla.setVisible(false); panelDetalleAlumnos.setVisible(false);
+        btnNuevoCiclo.setVisible(false); btnEliminarCiclo.setVisible(false);
+        btnVerAlumnosGlobal.setVisible(false); btnVerAlumnosGlobal.setManaged(false);
+        if(panelAlertaManual != null) { panelAlertaManual.setVisible(false); panelAlertaManual.setManaged(false); }
+
+        txtTotalAlumnos.clear();
+        listaBaseGrupos.clear();
+        cursosUnicos.clear();
+        actualizarEstadisticas();
+    }
+
+    private void activarModoTabla() {
+        panelVacio.setVisible(false); panelFormulario.setVisible(false); panelTabla.setVisible(true); panelDetalleAlumnos.setVisible(false);
+        btnNuevoCiclo.setVisible(false); btnEliminarCiclo.setVisible(true);
+
+        int totalAlumnos = studentDAO.contarAlumnos(SessionGlobal.getAnioActual(), SessionGlobal.getEtapaActual());
+
+        if (totalAlumnos == 0) {
+            panelAlertaManual.setVisible(true);
+            panelAlertaManual.setManaged(true);
+            btnCargarExcelRegenerar.setText("📁 Cargar Archivo Excel");
+            btnCargarExcelRegenerar.setDisable(false);
+            boxAccionesRegenerar.setVisible(false);
+            boxAccionesRegenerar.setManaged(false);
+
+            btnVerAlumnosGlobal.setVisible(false);
+            btnVerAlumnosGlobal.setManaged(false);
+        } else {
+            panelAlertaManual.setVisible(false);
+            panelAlertaManual.setManaged(false);
+
+            btnVerAlumnosGlobal.setVisible(true);
+            btnVerAlumnosGlobal.setManaged(true);
+            btnVerAlumnosGlobal.setDisable(false);
+        }
+    }
+
+    private void activarModoDetalleAlumnos() {
+        panelVacio.setVisible(false); panelFormulario.setVisible(false); panelTabla.setVisible(false); panelDetalleAlumnos.setVisible(true);
+    }
+
+    private void mostrarAlerta(String titulo, String contenido, Alert.AlertType tipo) {
+        Alert alerta = new Alert(tipo); alerta.setTitle(titulo); alerta.setHeaderText(null); alerta.setContentText(contenido); alerta.showAndWait();
     }
 }
