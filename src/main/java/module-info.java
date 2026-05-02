@@ -16,6 +16,7 @@ module com.osgadev.organizadorhorariosfx {
     requires org.chocosolver.solver;
     requires org.apache.poi.poi;
     requires org.apache.poi.ooxml;
+    requires atlantafx.base;
 
     opens com.osgadev.organizadorhorariosfx to javafx.fxml;
     exports com.osgadev.organizadorhorariosfx;

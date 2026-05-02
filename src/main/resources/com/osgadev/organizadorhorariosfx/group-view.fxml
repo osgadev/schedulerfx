@@ -18,15 +18,143 @@
 <?import javafx.scene.shape.SVGPath?>
 <?import javafx.scene.text.Font?>
 
-<HBox fx:id="rootHBox" spacing="15.0" style="-fx-background-color: #f4f4f4;" xmlns="http://javafx.com/javafx/21" xmlns:fx="http://javafx.com/fxml/1" fx:controller="com.osgadev.organizadorhorariosfx.controller.GroupController">
+<HBox fx:id="rootHBox" spacing="15.0" style="-fx-background-color: #f4f4f4;" xmlns="http://javafx.com/javafx/25" xmlns:fx="http://javafx.com/fxml/1" fx:controller="com.osgadev.organizadorhorariosfx.controller.GroupController">
    <padding>
       <Insets bottom="15.0" left="15.0" right="15.0" top="15.0" />
    </padding>
 
    <!-- ============================================== -->
+   <!-- LADO DERECHO: ÁREA DE TRABAJO DINÁMICA         -->
+   <!-- ============================================== -->
+   <StackPane HBox.hgrow="ALWAYS">
+
+      <!-- ESTADO 1: VACÍO -->
+      <VBox fx:id="panelVacio" alignment="CENTER" spacing="15.0" style="-fx-background-color: white; -fx-background-radius: 8; -fx-effect: dropshadow(three-pass-box, rgba(0,0,0,0.1), 10, 0, 0, 0);">
+         <Label text="📅" textFill="#bdc3c7">
+            <font><Font size="54.0" /></font>
+         </Label>
+         <Label text="No hay grupos para este ciclo" textFill="#34495e">
+            <font><Font name="System Bold" size="18.0" /></font>
+         </Label>
+         <Label text="Haz clic en '+ Configurar Nuevo Ciclo' para comenzar." textFill="#7f8c8d">
+            <font><Font size="13.0" /></font>
+         </Label>
+      </VBox>
+
+      <!-- ESTADO 2: FORMULARIO WIZARD -->
+      <VBox fx:id="panelFormulario" spacing="15.0" style="-fx-background-color: white; -fx-background-radius: 8; -fx-effect: dropshadow(three-pass-box, rgba(0,0,0,0.1), 10, 0, 0, 0);" visible="false">
+         <padding><Insets bottom="20.0" left="20.0" right="20.0" top="20.0" /></padding>
+
+         <Label text="Configurar Población Estudiantil" textFill="#2c3e50">
+            <font><Font name="System Bold" size="18.0" /></font>
+         </Label>
+         <Label text="Selecciona cómo deseas definir la cantidad de alumnos para la estructura original del ciclo." textFill="#7f8c8d" />
+         <Separator />
+
+         <HBox spacing="15.0">
+            <!-- Tarjeta 1: Modo Manual -->
+            <VBox fx:id="cardManual" alignment="CENTER_LEFT" onMouseClicked="#onSeleccionarCardManual" prefWidth="220.0" spacing="10.0" style="-fx-border-color: #3498db; -fx-border-width: 2; -fx-border-radius: 8; -fx-padding: 12; -fx-background-color: #ebf5fb; -fx-background-radius: 8; -fx-cursor: hand;">
+               <RadioButton fx:id="rbManual" mnemonicParsing="false" text="Ingreso Manual" textFill="#2c3e50">
+                  <font><Font name="System Bold" size="13.0" /></font>
+               </RadioButton>
+               <Label text="Funcionamiento básico. Solo define la cantidad de alumnos." textFill="#7f8c8d" wrapText="true" />
+               <TextField fx:id="txtTotalAlumnos" promptText="Ej. 500" />
+            </VBox>
+
+            <!-- Tarjeta 2: Modo Excel -->
+            <VBox fx:id="cardExcel" alignment="CENTER_LEFT" onMouseClicked="#onSeleccionarCardExcel" prefWidth="220.0" spacing="10.0" style="-fx-border-color: #bdc3c7; -fx-border-width: 1; -fx-border-radius: 8; -fx-padding: 12; -fx-background-color: white; -fx-background-radius: 8; -fx-cursor: hand;">
+               <RadioButton fx:id="rbExcel" mnemonicParsing="false" text="Cargar Excel" textFill="#2c3e50">
+                  <font><Font name="System Bold" size="13.0" /></font>
+               </RadioButton>
+               <Label text="Usa todas las características. Sube tu lista original." textFill="#7f8c8d" wrapText="true" />
+               <Button fx:id="btnSubirExcel" disable="true" mnemonicParsing="false" onAction="#onCargarListaExcelClick" styleClass="btn-outline-primary" text="📁 Seleccionar Archivo" />
+               <Button fx:id="btnVerExcelLocal" managed="false" mnemonicParsing="false" onAction="#onVerListaCompletaClick" style="-fx-background-color: transparent; -fx-text-fill: #3498db; -fx-cursor: hand; -fx-underline: true;" text="👁 Ver datos cargados" visible="false" />
+            </VBox>
+         </HBox>
+
+         <Region VBox.vgrow="ALWAYS" />
+         <HBox alignment="CENTER_RIGHT" spacing="15.0">
+            <Button mnemonicParsing="false" onAction="#onCancelarCreacionClick" prefHeight="32.0" prefWidth="90.0" styleClass="btn-secondary" text="Cancelar" />
+            <Button mnemonicParsing="false" onAction="#onGenerarYGuardarClick" prefHeight="32.0" styleClass="btn-primary" text="Generar Estructura de Grupos" />
+         </HBox>
+      </VBox>
+
+      <!-- ESTADO 3: TABLA DE GRUPOS (CONSULTA) - AHORA TOTALMENTE LIMPIA -->
+      <VBox fx:id="panelTabla" spacing="15.0" style="-fx-background-color: white; -fx-background-radius: 8; -fx-effect: dropshadow(three-pass-box, rgba(0,0,0,0.1), 10, 0, 0, 0);" visible="false">
+         <padding><Insets bottom="15.0" left="15.0" right="15.0" top="15.0" /></padding>
+
+         <HBox alignment="CENTER_LEFT" spacing="10.0" style="-fx-background-color: #f8f9fa; -fx-padding: 8; -fx-background-radius: 6; -fx-border-color: #e0e0e0; -fx-border-radius: 6;">
+            <Button fx:id="btnAnterior" mnemonicParsing="false" onAction="#onAnteriorClick" styleClass="btn-secondary" text="◀" />
+            <Region HBox.hgrow="ALWAYS" />
+
+            <Label fx:id="lblCursoActual" text="-" textFill="#2c3e50">
+               <font><Font name="System Bold" size="14.0" /></font>
+            </Label>
+
+            <Region HBox.hgrow="ALWAYS" />
+            <TextField fx:id="txtBuscarGrupo" prefWidth="200.0" promptText="🔍 Buscar..." styleClass="search-field" />
+            <Button fx:id="btnSiguiente" mnemonicParsing="false" onAction="#onSiguienteClick" styleClass="btn-secondary" text="▶" />
+         </HBox>
+
+         <TableView fx:id="tablaGrupos" VBox.vgrow="ALWAYS">
+            <columns>
+               <TableColumn fx:id="colNumeroGrupo" prefWidth="35.0" style="-fx-alignment: CENTER;" text="No." />
+               <TableColumn fx:id="colProfesor" prefWidth="180.0" text="Profesor" />
+               <TableColumn fx:id="colIdGrupo" prefWidth="80.0" style="-fx-alignment: CENTER;" text="ID Grupo" />
+               <TableColumn fx:id="colAlumnos" prefWidth="70.0" style="-fx-alignment: CENTER;" text="Tamaño" />
+               <TableColumn fx:id="colRango" prefWidth="100.0" style="-fx-alignment: CENTER;" text="Rango Lista" />
+               <TableColumn fx:id="colAcciones" prefWidth="90.0" style="-fx-alignment: CENTER;" text="Acciones" />
+            </columns>
+            <columnResizePolicy>
+               <TableView fx:constant="CONSTRAINED_RESIZE_POLICY" />
+            </columnResizePolicy>
+         </TableView>
+      </VBox>
+
+      <!-- ESTADO 4: DETALLE DE ALUMNOS (SOLO LECTURA) -->
+      <VBox fx:id="panelDetalleAlumnos" spacing="15.0" style="-fx-background-color: white; -fx-background-radius: 8; -fx-effect: dropshadow(three-pass-box, rgba(0,0,0,0.1), 10, 0, 0, 0);" visible="false">
+         <padding><Insets bottom="15.0" left="15.0" right="15.0" top="15.0" /></padding>
+
+         <HBox alignment="CENTER_LEFT" spacing="15.0">
+            <Button mnemonicParsing="false" onAction="#onVolverDeDetalleClick" styleClass="btn-secondary" text="← Volver" />
+            <VBox>
+               <Label fx:id="lblTituloDetalle" text="Detalle de Alumnos" textFill="#2c3e50">
+                  <font><Font name="System Bold" size="18.0" /></font>
+               </Label>
+               <Label fx:id="lblSubtituloDetalle" text="Total: 0" textFill="#7f8c8d" />
+            </VBox>
+            <Region HBox.hgrow="ALWAYS" />
+         </HBox>
+
+         <!-- Tarjeta de Info del Profesor -->
+         <VBox fx:id="boxInfoProfesor" managed="false" spacing="5.0" style="-fx-background-color: #f1f8e9; -fx-padding: 8; -fx-border-color: #c5e1a5; -fx-border-radius: 6; -fx-background-radius: 6;" visible="false">
+            <Label text="👨‍🏫 Profesor Asignado:" textFill="#33691e"><font><Font name="System Bold" size="13.0" /></font></Label>
+            <Label fx:id="lblNombreProfDetalle" text="Nombre: -" textFill="#558b2f" />
+         </VBox>
+
+         <HBox alignment="CENTER_LEFT" spacing="15.0">
+            <TextField fx:id="txtBuscarAlumno" prefWidth="300.0" promptText="🔍 Buscar matrícula o nombre..." styleClass="search-field" />
+            <Region HBox.hgrow="ALWAYS" />
+         </HBox>
+
+         <TableView fx:id="tablaAlumnos" VBox.vgrow="ALWAYS">
+            <columns>
+               <TableColumn fx:id="colNoLista" prefWidth="60.0" style="-fx-alignment: CENTER;" text="No. Lista" />
+               <TableColumn fx:id="colMatricula" prefWidth="100.0" text="Matrícula" />
+               <TableColumn fx:id="colNombreAlumno" prefWidth="350.0" text="Nombre Completo" />
+            </columns>
+            <columnResizePolicy>
+               <TableView fx:constant="CONSTRAINED_RESIZE_POLICY" />
+            </columnResizePolicy>
+         </TableView>
+      </VBox>
+
+   </StackPane>
+
+   <!-- ============================================== -->
    <!-- LADO IZQUIERDO: PANEL DE CONTROL Y RESUMEN     -->
    <!-- ============================================== -->
-   <VBox prefWidth="280.0" minWidth="260.0" maxWidth="300.0" spacing="15.0" HBox.hgrow="NEVER">
+   <VBox maxWidth="300.0" minWidth="260.0" prefWidth="280.0" spacing="15.0" HBox.hgrow="NEVER">
 
       <VBox spacing="2.0">
          <Label text="Gestión de Grupos">
@@ -91,10 +219,10 @@
       <!-- SECCIÓN DINÁMICA DE ESTADO DEL DIRECTORIO (OCUPA EL MISMO ESPACIO) -->
 
       <!-- ESTADO 1: OK (Botón Normal) -->
-      <Button fx:id="btnVerAlumnosGlobal" visible="false" managed="false" maxWidth="1.7976931348623157E308" mnemonicParsing="false" onAction="#onVerListaCompletaClick" prefHeight="32.0" styleClass="btn-outline-primary" text="👁 Ver lista de alumnos" />
+      <Button fx:id="btnVerAlumnosGlobal" managed="false" maxWidth="1.7976931348623157E308" mnemonicParsing="false" onAction="#onVerListaCompletaClick" prefHeight="32.0" styleClass="btn-outline-primary" text="👁 Ver lista de alumnos" visible="false" />
 
       <!-- ESTADO 2: FALTANTE (Tarjeta de Info en Panel Lateral) -->
-      <VBox fx:id="panelAlertaManual" spacing="10.0" style="-fx-background-color: white; -fx-padding: 15; -fx-border-color: #d5d8dc; -fx-border-radius: 8; -fx-background-radius: 8; -fx-effect: dropshadow(two-pass-box, rgba(0,0,0,0.05), 5, 0, 0, 2);" visible="false" managed="false">
+      <VBox fx:id="panelAlertaManual" managed="false" spacing="10.0" style="-fx-background-color: white; -fx-padding: 15; -fx-border-color: #d5d8dc; -fx-border-radius: 8; -fx-background-radius: 8; -fx-effect: dropshadow(two-pass-box, rgba(0,0,0,0.05), 5, 0, 0, 2);" visible="false">
 
          <HBox alignment="CENTER_LEFT" spacing="8.0">
             <!-- Icono SVG de Información limpio -->
@@ -110,10 +238,10 @@
 
          <Button fx:id="btnCargarExcelRegenerar" maxWidth="1.7976931348623157E308" mnemonicParsing="false" onAction="#onCargarExcelBannerClick" styleClass="btn-outline-primary" text="📁 Cargar Archivo Excel" />
 
-         <VBox fx:id="boxAccionesRegenerar" spacing="10.0" visible="false" managed="false">
+         <VBox fx:id="boxAccionesRegenerar" managed="false" spacing="10.0" visible="false">
             <Separator />
-            <Button mnemonicParsing="false" onAction="#onVerListaBannerClick" maxWidth="1.7976931348623157E308" styleClass="btn-secondary" text="👁 Revisar lista cargada" />
-            <Button mnemonicParsing="false" onAction="#onGenerarBannerClick" maxWidth="1.7976931348623157E308" styleClass="btn-primary" text="🔄 Regenerar Grupos" />
+            <Button maxWidth="1.7976931348623157E308" mnemonicParsing="false" onAction="#onVerListaBannerClick" styleClass="btn-secondary" text="👁 Revisar lista cargada" />
+            <Button maxWidth="1.7976931348623157E308" mnemonicParsing="false" onAction="#onGenerarBannerClick" styleClass="btn-primary" text="🔄 Regenerar Grupos" />
          </VBox>
       </VBox>
 
@@ -122,132 +250,4 @@
       <!-- Botón Único de Eliminación -->
       <Button fx:id="btnEliminarCiclo" maxWidth="1.7976931348623157E308" mnemonicParsing="false" onAction="#onEliminarCicloClick" prefHeight="32.0" styleClass="btn-danger" text="🗑 Eliminar Todo el Ciclo" visible="false" />
    </VBox>
-
-   <!-- ============================================== -->
-   <!-- LADO DERECHO: ÁREA DE TRABAJO DINÁMICA         -->
-   <!-- ============================================== -->
-   <StackPane HBox.hgrow="ALWAYS">
-
-      <!-- ESTADO 1: VACÍO -->
-      <VBox fx:id="panelVacio" alignment="CENTER" spacing="15.0" style="-fx-background-color: white; -fx-background-radius: 8; -fx-effect: dropshadow(three-pass-box, rgba(0,0,0,0.1), 10, 0, 0, 0);">
-         <Label text="📅" textFill="#bdc3c7">
-            <font><Font size="54.0" /></font>
-         </Label>
-         <Label text="No hay grupos para este ciclo" textFill="#34495e">
-            <font><Font name="System Bold" size="18.0" /></font>
-         </Label>
-         <Label text="Haz clic en '+ Configurar Nuevo Ciclo' para comenzar." textFill="#7f8c8d">
-            <font><Font size="13.0" /></font>
-         </Label>
-      </VBox>
-
-      <!-- ESTADO 2: FORMULARIO WIZARD -->
-      <VBox fx:id="panelFormulario" spacing="15.0" style="-fx-background-color: white; -fx-background-radius: 8; -fx-effect: dropshadow(three-pass-box, rgba(0,0,0,0.1), 10, 0, 0, 0);" visible="false">
-         <padding><Insets bottom="20.0" left="20.0" right="20.0" top="20.0" /></padding>
-
-         <Label text="Configurar Población Estudiantil" textFill="#2c3e50">
-            <font><Font name="System Bold" size="18.0" /></font>
-         </Label>
-         <Label text="Selecciona cómo deseas definir la cantidad de alumnos para la estructura original del ciclo." textFill="#7f8c8d" />
-         <Separator />
-
-         <HBox spacing="15.0">
-            <!-- Tarjeta 1: Modo Manual -->
-            <VBox fx:id="cardManual" alignment="CENTER_LEFT" onMouseClicked="#onSeleccionarCardManual" prefWidth="220.0" spacing="10.0" style="-fx-border-color: #3498db; -fx-border-width: 2; -fx-border-radius: 8; -fx-padding: 12; -fx-background-color: #ebf5fb; -fx-background-radius: 8; -fx-cursor: hand;">
-               <RadioButton fx:id="rbManual" mnemonicParsing="false" text="Ingreso Manual" textFill="#2c3e50">
-                  <font><Font name="System Bold" size="13.0" /></font>
-               </RadioButton>
-               <Label text="Funcionamiento básico. Solo define la cantidad de alumnos." textFill="#7f8c8d" wrapText="true" />
-               <TextField fx:id="txtTotalAlumnos" promptText="Ej. 500" />
-            </VBox>
-
-            <!-- Tarjeta 2: Modo Excel -->
-            <VBox fx:id="cardExcel" alignment="CENTER_LEFT" onMouseClicked="#onSeleccionarCardExcel" prefWidth="220.0" spacing="10.0" style="-fx-border-color: #bdc3c7; -fx-border-width: 1; -fx-border-radius: 8; -fx-padding: 12; -fx-background-color: white; -fx-background-radius: 8; -fx-cursor: hand;">
-               <RadioButton fx:id="rbExcel" mnemonicParsing="false" text="Cargar Excel" textFill="#2c3e50">
-                  <font><Font name="System Bold" size="13.0" /></font>
-               </RadioButton>
-               <Label text="Usa todas las características. Sube tu lista original." textFill="#7f8c8d" wrapText="true" />
-               <Button fx:id="btnSubirExcel" disable="true" mnemonicParsing="false" onAction="#onCargarListaExcelClick" styleClass="btn-outline-primary" text="📁 Seleccionar Archivo" />
-               <Button fx:id="btnVerExcelLocal" visible="false" managed="false" mnemonicParsing="false" onAction="#onVerListaCompletaClick" style="-fx-background-color: transparent; -fx-text-fill: #3498db; -fx-cursor: hand; -fx-underline: true;" text="👁 Ver datos cargados" />
-            </VBox>
-         </HBox>
-
-         <Region VBox.vgrow="ALWAYS" />
-         <HBox alignment="CENTER_RIGHT" spacing="15.0">
-            <Button mnemonicParsing="false" onAction="#onCancelarCreacionClick" prefHeight="32.0" prefWidth="90.0" styleClass="btn-secondary" text="Cancelar" />
-            <Button mnemonicParsing="false" onAction="#onGenerarYGuardarClick" prefHeight="32.0" styleClass="btn-primary" text="Generar Estructura de Grupos" />
-         </HBox>
-      </VBox>
-
-      <!-- ESTADO 3: TABLA DE GRUPOS (CONSULTA) - AHORA TOTALMENTE LIMPIA -->
-      <VBox fx:id="panelTabla" spacing="15.0" style="-fx-background-color: white; -fx-background-radius: 8; -fx-effect: dropshadow(three-pass-box, rgba(0,0,0,0.1), 10, 0, 0, 0);" visible="false">
-         <padding><Insets bottom="15.0" left="15.0" right="15.0" top="15.0" /></padding>
-
-         <HBox alignment="CENTER_LEFT" spacing="10.0" style="-fx-background-color: #f8f9fa; -fx-padding: 8; -fx-background-radius: 6; -fx-border-color: #e0e0e0; -fx-border-radius: 6;">
-            <Button fx:id="btnAnterior" mnemonicParsing="false" onAction="#onAnteriorClick" styleClass="btn-secondary" text="◀" />
-            <Region HBox.hgrow="ALWAYS" />
-
-            <Label fx:id="lblCursoActual" text="-" textFill="#2c3e50">
-               <font><Font name="System Bold" size="14.0" /></font>
-            </Label>
-
-            <Region HBox.hgrow="ALWAYS" />
-            <TextField fx:id="txtBuscarGrupo" prefWidth="200.0" promptText="🔍 Buscar..." styleClass="search-field" />
-            <Button fx:id="btnSiguiente" mnemonicParsing="false" onAction="#onSiguienteClick" styleClass="btn-secondary" text="▶" />
-         </HBox>
-
-         <TableView fx:id="tablaGrupos" VBox.vgrow="ALWAYS">
-            <columns>
-               <TableColumn fx:id="colNumeroGrupo" prefWidth="35.0" style="-fx-alignment: CENTER;" text="No." />
-               <TableColumn fx:id="colProfesor" prefWidth="180.0" text="Profesor" />
-               <TableColumn fx:id="colIdGrupo" prefWidth="80.0" style="-fx-alignment: CENTER;" text="ID Grupo" />
-               <TableColumn fx:id="colAlumnos" prefWidth="70.0" style="-fx-alignment: CENTER;" text="Tamaño" />
-               <TableColumn fx:id="colRango" prefWidth="100.0" style="-fx-alignment: CENTER;" text="Rango Lista" />
-               <TableColumn fx:id="colAcciones" prefWidth="90.0" style="-fx-alignment: CENTER;" text="Acciones" />
-            </columns>
-            <columnResizePolicy>
-               <TableView fx:constant="CONSTRAINED_RESIZE_POLICY" />
-            </columnResizePolicy>
-         </TableView>
-      </VBox>
-
-      <!-- ESTADO 4: DETALLE DE ALUMNOS (SOLO LECTURA) -->
-      <VBox fx:id="panelDetalleAlumnos" spacing="15.0" style="-fx-background-color: white; -fx-background-radius: 8; -fx-effect: dropshadow(three-pass-box, rgba(0,0,0,0.1), 10, 0, 0, 0);" visible="false">
-         <padding><Insets bottom="15.0" left="15.0" right="15.0" top="15.0" /></padding>
-
-         <HBox alignment="CENTER_LEFT" spacing="15.0">
-            <Button mnemonicParsing="false" onAction="#onVolverDeDetalleClick" styleClass="btn-secondary" text="← Volver" />
-            <VBox>
-               <Label fx:id="lblTituloDetalle" text="Detalle de Alumnos" textFill="#2c3e50">
-                  <font><Font name="System Bold" size="18.0" /></font>
-               </Label>
-               <Label fx:id="lblSubtituloDetalle" text="Total: 0" textFill="#7f8c8d" />
-            </VBox>
-            <Region HBox.hgrow="ALWAYS" />
-         </HBox>
-
-         <!-- Tarjeta de Info del Profesor -->
-         <VBox fx:id="boxInfoProfesor" spacing="5.0" style="-fx-background-color: #f1f8e9; -fx-padding: 8; -fx-border-color: #c5e1a5; -fx-border-radius: 6; -fx-background-radius: 6;" visible="false" managed="false">
-            <Label text="👨‍🏫 Profesor Asignado:" textFill="#33691e"><font><Font name="System Bold" size="13.0" /></font></Label>
-            <Label fx:id="lblNombreProfDetalle" text="Nombre: -" textFill="#558b2f" />
-         </VBox>
-
-         <HBox alignment="CENTER_LEFT" spacing="15.0">
-            <TextField fx:id="txtBuscarAlumno" prefWidth="300.0" promptText="🔍 Buscar matrícula o nombre..." styleClass="search-field" />
-            <Region HBox.hgrow="ALWAYS" />
-         </HBox>
-
-         <TableView fx:id="tablaAlumnos" VBox.vgrow="ALWAYS">
-            <columns>
-               <TableColumn fx:id="colNoLista" prefWidth="60.0" style="-fx-alignment: CENTER;" text="No. Lista" />
-               <TableColumn fx:id="colMatricula" prefWidth="100.0" text="Matrícula" />
-               <TableColumn fx:id="colNombreAlumno" prefWidth="350.0" text="Nombre Completo" />
-            </columns>
-            <columnResizePolicy>
-               <TableView fx:constant="CONSTRAINED_RESIZE_POLICY" />
-            </columnResizePolicy>
-         </TableView>
-      </VBox>
-
-   </StackPane>
 </HBox>

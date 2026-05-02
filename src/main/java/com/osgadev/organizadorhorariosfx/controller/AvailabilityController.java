@@ -1,22 +1,28 @@
 package com.osgadev.organizadorhorariosfx.controller;
 
 import com.osgadev.organizadorhorariosfx.dao.AvailabilityDAO;
-import com.osgadev.organizadorhorariosfx.dao.CourseDAO;
 import com.osgadev.organizadorhorariosfx.dao.TeacherDAO;
 import com.osgadev.organizadorhorariosfx.model.Availability;
 import com.osgadev.organizadorhorariosfx.model.Course;
 import com.osgadev.organizadorhorariosfx.model.Teacher;
 import com.osgadev.organizadorhorariosfx.util.SessionGlobal;
 
+import javafx.application.Platform;
 import javafx.fxml.FXML;
 import javafx.fxml.Initializable;
 import javafx.geometry.Insets;
+import javafx.geometry.Pos;
+import javafx.scene.Cursor;
 import javafx.scene.control.*;
+import javafx.scene.input.MouseButton;
 import javafx.scene.input.MouseEvent;
+import javafx.scene.layout.FlowPane;
 import javafx.scene.layout.GridPane;
 import javafx.scene.layout.Pane;
 import javafx.scene.layout.RowConstraints;
+import javafx.scene.layout.StackPane;
 import javafx.scene.layout.VBox;
+import javafx.util.Duration;
 import javafx.util.StringConverter;
 
 import java.net.URL;
@@ -27,181 +33,280 @@ import java.util.ResourceBundle;
 public class AvailabilityController implements Initializable {
 
     @FXML private ComboBox<Teacher> cmbProfesor;
-    @FXML private ComboBox<Course> cmbCursoSugerido;
     @FXML private Label lblEstadoBD;
-
-    // CheckBoxes de los días enlazados desde el FXML
-    @FXML private CheckBox chkLunes;
-    @FXML private CheckBox chkMartes;
-    @FXML private CheckBox chkMiercoles;
-    @FXML private CheckBox chkJueves;
-    @FXML private CheckBox chkViernes;
-    @FXML private CheckBox chkSabado;
-    @FXML private CheckBox chkDomingo;
-
-    @FXML private ComboBox<String> cmbHoraInicio;
-    @FXML private ComboBox<String> cmbMinutoInicio;
-    @FXML private ComboBox<String> cmbHoraFin;
-    @FXML private ComboBox<String> cmbMinutoFin;
-
-    @FXML private Button btnAgregar;
-    @FXML private Button btnCambiarCurso;
-    @FXML private Button btnBorrar;
-    @FXML private Button btnGuardar;
-    @FXML private Button btnEliminarTodo;
+    @FXML private VBox panelControles;
+    @FXML private FlowPane paletaCursos;
+    @FXML private Button btnGuardar, btnEliminarTodo;
     @FXML private GridPane gridCalendario;
+    @FXML private ScrollPane scrollCalendario;
 
-    private CheckBox[] checkDias; // Arreglo para iterar fácilmente los días
     private List<BloqueTiempo> listaBloques = new ArrayList<>();
+
+    // VARIABLES PARA LA SELECCIÓN MÚLTIPLE
     private List<BloqueTiempo> bloquesSeleccionados = new ArrayList<>();
+    private BloqueTiempo bloqueArrastrado = null;
+
+    // SNAPSHOTS PARA EL ARRASTRE EN GRUPO
+    private class BloqueSnapshot {
+        BloqueTiempo bloque;
+        int colDia, slotInicio, slotFin;
+        public BloqueSnapshot(BloqueTiempo b) {
+            this.bloque = b;
+            this.colDia = b.colDia;
+            this.slotInicio = b.slotInicioSemanal;
+            this.slotFin = b.slotFinSemanal;
+        }
+    }
+    private List<BloqueSnapshot> dragSnapshots = new ArrayList<>();
+    private BloqueSnapshot arrastradoSnapshot = null;
 
     private TeacherDAO teacherDAO = new TeacherDAO();
     private AvailabilityDAO availabilityDAO = new AvailabilityDAO();
-    private CourseDAO courseDAO = new CourseDAO();
 
-    private final int HORA_INICIO_VISUAL = 7;
-    private final int HORA_FIN_VISUAL = 22;
+    private final int HORA_INICIO_VISUAL = 0;
+    private final int HORA_FIN_VISUAL = 24;
     private final int FILAS_VISUALES = (HORA_FIN_VISUAL - HORA_INICIO_VISUAL) * 4;
 
-    // Clase interna para manejar la lógica de cada bloque de tiempo
+    private boolean isDragging = false;
+    private boolean isResizing = false;
+    private double startMouseY = 0;
+    private int initialStartSlot = 0;
+    private int initialEndSlot = 0;
+    private int dragOffsetSlots = 0;
+
     private class BloqueTiempo {
         int colDia, slotInicioSemanal, slotFinSemanal;
         Course cursoSugerido;
-        Pane uiNode;
+        StackPane uiNode;
+        VBox contentNode;
         boolean superpuesto = false;
 
-        public BloqueTiempo(int colDia, int slotInicioSemanal, int slotFinSemanal, Course cursoSugerido, Pane uiNode) {
+        public BloqueTiempo(int colDia, int slotInicioSemanal, int slotFinSemanal, Course cursoSugerido, StackPane uiNode, VBox contentNode) {
             this.colDia = colDia;
             this.slotInicioSemanal = slotInicioSemanal;
             this.slotFinSemanal = slotFinSemanal;
             this.cursoSugerido = cursoSugerido;
             this.uiNode = uiNode;
+            this.contentNode = contentNode;
         }
 
         public boolean seSuperpone(BloqueTiempo otro) {
-            return (this.slotInicioSemanal < otro.slotFinSemanal && this.slotFinSemanal > otro.slotInicioSemanal);
+            return (this.slotInicioSemanal < otro.slotFinSemanal && this.slotFinSemanal > otro.slotInicioSemanal)
+                    && this.colDia == otro.colDia;
         }
     }
 
     @Override
     public void initialize(URL url, ResourceBundle rb) {
-        // Agrupar los CheckBoxes para facilitar la lectura
-        checkDias = new CheckBox[]{chkLunes, chkMartes, chkMiercoles, chkJueves, chkViernes, chkSabado, chkDomingo};
-
-        configurarComboBoxes();
+        aplicarDisenoEmpresarial();
         configurarCuadricula();
-        cargarCursos();
         cargarProfesores();
 
-        // Asignación de acciones a los botones
-        btnAgregar.setOnAction(e -> agregarBloqueDesdeUI());
-        btnBorrar.setOnAction(e -> borrarBloquesSeleccionados());
         btnGuardar.setOnAction(e -> guardarEnBD());
         btnEliminarTodo.setOnAction(e -> eliminarTodaDisponibilidad());
-        btnCambiarCurso.setOnAction(e -> cambiarCursoDeSeleccionados());
 
-        deshabilitarControles(true);
+        // Enfoque por defecto si aún no se selecciona ningún profesor al abrir la pantalla
+        enfocarHora(8);
 
-        // ========================================================
-        // INTERCEPTAR NAVEGACIÓN CONTEXTUAL (DEEP LINKING)
-        // ========================================================
         Integer idPendiente = SessionGlobal.getProfesorNavegacion();
         if (idPendiente != null) {
             seleccionarProfesorEnComboPorId(idPendiente);
-            // Limpiamos la sesión para no interferir con futuras navegaciones normales
             SessionGlobal.limpiarProfesorNavegacion();
         }
     }
 
-    // ========================================================
-    // MÉTODOS PARA SELECCIÓN DE PROFESORES
-    // ========================================================
+    private void enfocarHora(int horaObjetivo) {
+        Platform.runLater(() -> {
+            double alturaFila = 14.0;
+            int filasPorHora = 4;
 
-    /**
-     * Busca un profesor por ID en el ComboBox y lo selecciona visualmente,
-     * luego procesa su carga en la UI automáticamente.
-     */
+            double targetY = (horaObjetivo - HORA_INICIO_VISUAL) * filasPorHora * alturaFila;
+
+            double alturaTotalGrid = gridCalendario.getBoundsInLocal().getHeight();
+            double alturaVisible = scrollCalendario.getViewportBounds().getHeight();
+
+            if (alturaTotalGrid > alturaVisible) {
+                double maxScrollPosible = alturaTotalGrid - alturaVisible;
+                double proporcionCalculada = targetY / maxScrollPosible;
+
+                scrollCalendario.setVvalue(Math.max(0.0, Math.min(proporcionCalculada, 1.0)));
+            }
+        });
+    }
+
+    private void aplicarDisenoEmpresarial() {
+        panelControles.setSpacing(15);
+
+        paletaCursos.setHgap(8);
+        paletaCursos.setVgap(8);
+        paletaCursos.setAlignment(Pos.CENTER_LEFT);
+
+        btnGuardar.setText("Guardar Calendario");
+        btnGuardar.setStyle("-fx-font-weight: bold; -fx-cursor: hand; -fx-padding: 8 16;");
+        btnGuardar.setMaxWidth(Double.MAX_VALUE);
+
+        btnEliminarTodo.setText("Limpiar Todo");
+        btnEliminarTodo.setStyle("-fx-font-weight: bold; -fx-cursor: hand; -fx-padding: 8 16;");
+        btnEliminarTodo.setMaxWidth(Double.MAX_VALUE);
+
+        lblEstadoBD.setStyle("-fx-font-size: 13px; -fx-font-weight: bold; -fx-padding: 5 0;");
+    }
+
+    private void configurarCuadricula() {
+        gridCalendario.getChildren().clear();
+
+        for (int i = 0; i < FILAS_VISUALES; i++) {
+            RowConstraints rc = new RowConstraints();
+            rc.setMinHeight(14.0); rc.setPrefHeight(14.0);
+            gridCalendario.getRowConstraints().add(rc);
+        }
+
+        int indexFila = 0;
+        for (int i = HORA_INICIO_VISUAL; i < HORA_FIN_VISUAL; i++) {
+            Pane sepHora = new Pane(); sepHora.setStyle("-fx-border-color: -color-border-default; -fx-border-width: 1 0 0 0;");
+            gridCalendario.add(sepHora, 1, indexFila, 7, 1);
+
+            Pane sepMedia = new Pane(); sepMedia.setStyle("-fx-border-color: -color-border-subtle; -fx-border-style: dashed; -fx-border-width: 1 0 0 0;");
+            gridCalendario.add(sepMedia, 1, indexFila + 2, 7, 1);
+
+            Label lbl = new Label(String.format("%02d:00", i));
+            lbl.getStyleClass().addAll("text-muted", "text-small");
+            GridPane.setMargin(lbl, new Insets(0, 5, 0, 0));
+            GridPane.setHalignment(lbl, javafx.geometry.HPos.RIGHT);
+            gridCalendario.add(lbl, 0, indexFila);
+
+            indexFila += 4;
+        }
+
+        for (int col = 1; col <= 7; col++) {
+            Pane sepVertical = new Pane();
+            sepVertical.setStyle("-fx-border-color: -color-border-subtle; -fx-border-width: 0 1 0 0;");
+            gridCalendario.add(sepVertical, col, 0, 1, FILAS_VISUALES);
+
+            for (int row = 0; row < FILAS_VISUALES; row++) {
+                Pane celdaInvisible = new Pane();
+                final int finalCol = col;
+                final int finalRow = row;
+
+                celdaInvisible.setOnMouseClicked(e -> {
+                    if (e.getClickCount() == 1) {
+                        bloquesSeleccionados.clear();
+                        actualizarEstadoGlobal();
+                    } else if (e.getClickCount() == 2) {
+                        if (cmbProfesor.getValue() != null && !isDragging && !isResizing) {
+                            crearBloquePredeterminado(finalCol, finalRow);
+                        }
+                    }
+                });
+
+                celdaInvisible.setOnMouseDragEntered(e -> {
+                    if (bloqueArrastrado != null && isDragging && arrastradoSnapshot != null) {
+                        int targetRow = finalRow - dragOffsetSlots;
+                        if(targetRow < 0) targetRow = 0;
+                        moverSeleccionADestino(finalCol, targetRow);
+                    }
+                });
+
+                gridCalendario.add(celdaInvisible, col, row);
+            }
+        }
+    }
+
+    private void crearBloquePredeterminado(int colDia, int filaInicio) {
+        int h1 = HORA_INICIO_VISUAL + (filaInicio / 4);
+        int m1 = (filaInicio % 4) * 15;
+
+        int h2 = h1 + 1;
+        int m2 = m1;
+        if(h2 >= HORA_FIN_VISUAL) { h2 = 24; m2 = 0; }
+
+        int slotInicio = ((colDia - 1) * 48) + (h1 * 2) + (m1 / 30);
+        int slotFin = ((colDia - 1) * 48) + (h2 * 2) + (m2 / 30);
+
+        BloqueTiempo temp = new BloqueTiempo(colDia, slotInicio, slotFin, null, null, null);
+        for (BloqueTiempo b : listaBloques) {
+            if (b.seSuperpone(temp)) return;
+        }
+
+        BloqueTiempo nuevo = crearYPosicionarNodo(colDia, slotInicio, slotFin, null, h1, m1, h2, m2);
+
+        bloquesSeleccionados.clear();
+        bloquesSeleccionados.add(nuevo);
+        actualizarEstadoGlobal();
+    }
+
     private void seleccionarProfesorEnComboPorId(int idBuscado) {
         for (Teacher t : cmbProfesor.getItems()) {
             if (t != null && t.getId() == idBuscado) {
-                // 1. Seleccionamos visualmente al profesor
                 cmbProfesor.getSelectionModel().select(t);
-
-                // 2. Disparamos manualmente la lógica de carga de BD
                 procesarSeleccionProfesor(t);
                 break;
             }
         }
     }
 
-    /**
-     * Método centralizado para manejar lo que ocurre cuando se selecciona un profesor,
-     * ya sea por clic manual del usuario o por redirección desde otra vista.
-     */
     private void procesarSeleccionProfesor(Teacher profe) {
         if (profe != null) {
-            deshabilitarControles(false);
-            cargarDesdeBD(profe); // Aquí es donde se dibujan las tarjetas en el calendario
+            panelControles.setDisable(false);
+            cargarPaletaCursos(profe);
+            cargarDesdeBD(profe);
+            bloquesSeleccionados.clear();
+            bloqueArrastrado = null;
+            actualizarEstadoGlobal();
+            lblEstadoBD.setText("Profesor seleccionado. Listo para asignar bloques.");
         }
     }
 
-    // ========================================================
-    // LÓGICA DE DATOS Y COMPONENTES
-    // ========================================================
+    private void cargarPaletaCursos(Teacher profe) {
+        paletaCursos.getChildren().clear();
 
-    private void cargarProfesores() {
-        cmbProfesor.getItems().addAll(teacherDAO.obtenerProfesoresObservable());
+        Button btnComodin = new Button("Comodín");
+        btnComodin.getStyleClass().addAll("button", "outlined");
+        btnComodin.setStyle("-fx-cursor: hand; -fx-padding: 6 12; -fx-font-size: 12px;");
+        btnComodin.setOnAction(e -> aplicarCursoSeleccionado(null));
+        paletaCursos.getChildren().add(btnComodin);
 
-        cmbProfesor.setConverter(new StringConverter<Teacher>() {
-            @Override
-            public String toString(Teacher t) { return t == null ? "" : t.getNombre() + " " + t.getApellidoPaterno(); }
-            @Override
-            public Teacher fromString(String s) { return null; }
-        });
-
-        // Cuando el usuario hace clic manualmente en el ComboBox
-        cmbProfesor.setOnAction(e -> {
-            Teacher profe = cmbProfesor.getValue();
-            procesarSeleccionProfesor(profe);
-        });
+        if (profe.getCursos() != null) {
+            for (Course c : profe.getCursos()) {
+                Button btnCurso = new Button(c.getNombre());
+                btnCurso.getStyleClass().addAll("button", "accent");
+                btnCurso.setStyle("-fx-cursor: hand; -fx-padding: 6 12; -fx-font-size: 12px;");
+                btnCurso.setOnAction(e -> aplicarCursoSeleccionado(c));
+                paletaCursos.getChildren().add(btnCurso);
+            }
+        }
     }
 
-    private void cargarCursos() {
-        Course comodin = new Course();
-        comodin.setId(-1);
-        comodin.setNombre("-- Comodín (Cualquier curso) --");
+    private void aplicarCursoSeleccionado(Course c) {
+        if (bloquesSeleccionados.isEmpty()) {
+            lblEstadoBD.setText("Selecciona al menos un bloque primero.");
+            lblEstadoBD.getStyleClass().setAll("label", "warning");
+            return;
+        }
 
-        cmbCursoSugerido.getItems().add(comodin);
-        cmbCursoSugerido.getItems().addAll(courseDAO.obtenerCursos());
+        for (BloqueTiempo b : bloquesSeleccionados) {
+            b.cursoSugerido = c;
+            actualizarContenidoVisualBloque(b);
+        }
 
-        cmbCursoSugerido.setConverter(new StringConverter<Course>() {
-            @Override
-            public String toString(Course c) { return c == null ? "" : c.getNombre(); }
-            @Override
-            public Course fromString(String s) { return null; }
-        });
-
-        cmbCursoSugerido.getSelectionModel().selectFirst();
-    }
-
-    private void deshabilitarControles(boolean deshabilitar) {
-        btnAgregar.setDisable(deshabilitar);
-        btnGuardar.setDisable(deshabilitar);
-        btnEliminarTodo.setDisable(deshabilitar);
-        btnBorrar.setDisable(true);
-        btnCambiarCurso.setDisable(true);
+        actualizarEstadoGlobal();
+        lblEstadoBD.setText("Curso aplicado a " + bloquesSeleccionados.size() + " bloque(s).");
+        lblEstadoBD.getStyleClass().setAll("label", "success");
     }
 
     private void cargarDesdeBD(Teacher profe) {
-        limpiarCuadricula();
+        limpiarCuadriculaBloques();
         List<Availability> guardados = availabilityDAO.getByTeacher(profe);
 
         if (guardados.isEmpty()) {
-            lblEstadoBD.setText("Sin datos guardados");
-            lblEstadoBD.setStyle("-fx-text-fill: orange; -fx-font-weight: bold;");
+            lblEstadoBD.setText("Lienzo en blanco. Comienza a crear bloques.");
+            lblEstadoBD.getStyleClass().setAll("label", "text-muted");
+            enfocarHora(8); // Si no hay nada, enfoca las 8 AM por defecto
         } else {
-            lblEstadoBD.setText("Mostrando " + guardados.size() + " bloques");
-            lblEstadoBD.setStyle("-fx-text-fill: green; -fx-font-weight: bold;");
+            lblEstadoBD.setText("Mostrando " + guardados.size() + " bloques registrados.");
+            lblEstadoBD.getStyleClass().setAll("label", "success");
+
+            int primeraHora = 24; // Empezamos con la hora máxima posible
 
             for (Availability dbBlock : guardados) {
                 int colDia = dbBlock.getColumnaDia();
@@ -210,11 +315,19 @@ public class AvailabilityController implements Initializable {
                 int hFin = dbBlock.getHoraFin();
                 int mFin = dbBlock.getMinutoFin();
 
+                // Evaluamos si este bloque inicia antes que los anteriores
+                if (hInicio < primeraHora) {
+                    primeraHora = hInicio;
+                }
+
                 if (hInicio >= HORA_INICIO_VISUAL && hFin <= HORA_FIN_VISUAL) {
                     crearYPosicionarNodo(colDia, dbBlock.getStartSlot(), dbBlock.getEndSlot(), dbBlock.getCursoSugerido(), hInicio, mInicio, hFin, mFin);
                 }
             }
             actualizarEstadoSuperposiciones();
+
+            // Enfoca automáticamente la primera hora encontrada en los registros del profesor
+            enfocarHora(primeraHora);
         }
     }
 
@@ -228,179 +341,291 @@ public class AvailabilityController implements Initializable {
         }
 
         availabilityDAO.saveAll(profe, nuevosBloques);
-        lblEstadoBD.setText("Guardado exitosamente");
-        lblEstadoBD.setStyle("-fx-text-fill: green; -fx-font-weight: bold;");
+        lblEstadoBD.setText("¡Calendario guardado exitosamente!");
+        lblEstadoBD.getStyleClass().setAll("label", "success");
+
+        bloquesSeleccionados.clear();
+        bloqueArrastrado = null;
+        actualizarEstadoGlobal();
     }
 
     private void eliminarTodaDisponibilidad() {
         Teacher profe = cmbProfesor.getValue();
         if (profe == null) return;
-
         availabilityDAO.deleteAllByTeacher(profe);
-        limpiarCuadricula();
-        lblEstadoBD.setText("Disponibilidad eliminada");
-        lblEstadoBD.setStyle("-fx-text-fill: red; -fx-font-weight: bold;");
+        limpiarCuadriculaBloques();
+        lblEstadoBD.setText("Calendario limpiado por completo.");
+        lblEstadoBD.getStyleClass().setAll("label", "danger");
     }
 
-    private void limpiarCuadricula() {
-        for (BloqueTiempo b : listaBloques) {
-            gridCalendario.getChildren().remove(b.uiNode);
-        }
+    private void limpiarCuadriculaBloques() {
+        for (BloqueTiempo b : listaBloques) gridCalendario.getChildren().remove(b.uiNode);
         listaBloques.clear();
         bloquesSeleccionados.clear();
-        btnBorrar.setDisable(true);
-        btnCambiarCurso.setDisable(true);
+        bloqueArrastrado = null;
+        actualizarEstadoGlobal();
     }
 
-    private void configurarComboBoxes() {
-        for (int i = HORA_INICIO_VISUAL; i <= HORA_FIN_VISUAL; i++) {
-            String hora = String.format("%02d", i);
-            cmbHoraInicio.getItems().add(hora);
-            cmbHoraFin.getItems().add(hora);
-        }
-        String[] minutos = {"00", "30"};
-        cmbMinutoInicio.getItems().addAll(minutos);
-        cmbMinutoFin.getItems().addAll(minutos);
-        cmbMinutoInicio.getSelectionModel().selectFirst();
-        cmbMinutoFin.getSelectionModel().selectFirst();
+    private BloqueTiempo crearYPosicionarNodo(int colDia, int slotInicio, int slotFin, Course curso, int h1, int m1, int h2, int m2) {
+        int filaInicio = ((h1 - HORA_INICIO_VISUAL) * 4) + (m1 / 15);
+        int filaFin = ((h2 - HORA_INICIO_VISUAL) * 4) + (m2 / 15);
+
+        StackPane rootNode = new StackPane();
+        rootNode.setPadding(new Insets(2));
+        GridPane.setMargin(rootNode, new Insets(1, 2, 1, 2));
+
+        VBox contentNode = new VBox();
+        contentNode.setAlignment(Pos.TOP_LEFT);
+
+        rootNode.getChildren().add(contentNode);
+
+        BloqueTiempo bloque = new BloqueTiempo(colDia, slotInicio, slotFin, curso, rootNode, contentNode);
+
+        actualizarContenidoVisualBloque(bloque);
+        configurarInteractividadDragResize(bloque);
+
+        listaBloques.add(bloque);
+        gridCalendario.add(rootNode, colDia, filaInicio);
+        GridPane.setRowSpan(rootNode, filaFin - filaInicio);
+
+        return bloque;
     }
 
-    private void configurarCuadricula() {
-        for (int i = 0; i < FILAS_VISUALES; i++) {
-            RowConstraints rc = new RowConstraints();
-            rc.setMinHeight(20.0); rc.setPrefHeight(20.0);
-            gridCalendario.getRowConstraints().add(rc);
-        }
-        for (int col = 1; col < 8; col++) {
-            Pane sep = new Pane(); sep.setStyle("-fx-border-color: #e0e0e0; -fx-border-width: 0 0 0 1;");
-            gridCalendario.add(sep, col, 0, 1, FILAS_VISUALES);
-        }
-        int indexFila = 0;
-        for (int i = HORA_INICIO_VISUAL; i < HORA_FIN_VISUAL; i++) {
-            Pane sep = new Pane(); sep.setStyle("-fx-border-color: #cccccc; -fx-border-width: 1 0 0 0;");
-            gridCalendario.add(sep, 0, indexFila, 8, 1);
-            Label lbl = new Label(String.format("%02d:00", i));
-            lbl.setStyle("-fx-font-size: 11px; -fx-text-fill: gray; -fx-padding: 2;");
-            gridCalendario.add(lbl, 0, indexFila);
-            indexFila += 4; // 4 slots de 15 mins por hora
-        }
+    private void configurarInteractividadDragResize(BloqueTiempo bloque) {
+        StackPane nodo = bloque.uiNode;
+
+        nodo.setOnMouseMoved(e -> {
+            double y = e.getY();
+            double height = nodo.getHeight();
+            if (y > height - 10) {
+                nodo.setCursor(Cursor.V_RESIZE);
+            } else {
+                nodo.setCursor(Cursor.HAND);
+            }
+        });
+
+        nodo.setOnMousePressed(e -> {
+            bloqueArrastrado = bloque;
+
+            if (e.isControlDown()) {
+                if (bloquesSeleccionados.contains(bloque)) {
+                    bloquesSeleccionados.remove(bloque);
+                } else {
+                    bloquesSeleccionados.add(bloque);
+                }
+            } else {
+                if (!bloquesSeleccionados.contains(bloque)) {
+                    bloquesSeleccionados.clear();
+                    bloquesSeleccionados.add(bloque);
+                }
+            }
+            actualizarEstadoGlobal();
+
+            startMouseY = e.getScreenY();
+            initialStartSlot = bloque.slotInicioSemanal;
+            initialEndSlot = bloque.slotFinSemanal;
+            dragOffsetSlots = (int) (e.getY() / 14.0);
+
+            if (nodo.getCursor() == Cursor.V_RESIZE) {
+                isResizing = true;
+                isDragging = false;
+            } else {
+                isResizing = false;
+                isDragging = false;
+                e.setDragDetect(true);
+            }
+            e.consume();
+        });
+
+        nodo.setOnDragDetected(e -> {
+            if (!isResizing) {
+                isDragging = true;
+
+                dragSnapshots.clear();
+                for (BloqueTiempo b : bloquesSeleccionados) {
+                    dragSnapshots.add(new BloqueSnapshot(b));
+                    b.uiNode.setMouseTransparent(true);
+                    if (b == bloque) {
+                        arrastradoSnapshot = new BloqueSnapshot(b);
+                    }
+                }
+
+                nodo.startFullDrag();
+            }
+            e.consume();
+        });
+
+        nodo.setOnMouseDragged(e -> {
+            if (isResizing) {
+                double deltaY = e.getScreenY() - startMouseY;
+                int slotsAAnadir = (int) (deltaY / 28.0);
+                int nuevoEndSlot = initialEndSlot + slotsAAnadir;
+
+                if (nuevoEndSlot - bloque.slotInicioSemanal < 2) {
+                    nuevoEndSlot = bloque.slotInicioSemanal + 2;
+                }
+
+                if (nuevoEndSlot % 48 == 0 && nuevoEndSlot > initialEndSlot) {
+                    nuevoEndSlot = bloque.slotInicioSemanal + (48 - (bloque.slotInicioSemanal % 48));
+                }
+
+                if (nuevoEndSlot != bloque.slotFinSemanal) {
+                    BloqueTiempo temp = new BloqueTiempo(bloque.colDia, bloque.slotInicioSemanal, nuevoEndSlot, null, null, null);
+                    boolean overlaps = false;
+                    for (BloqueTiempo b : listaBloques) {
+                        if (b != bloque && b.seSuperpone(temp)) {
+                            overlaps = true;
+                            break;
+                        }
+                    }
+
+                    if (!overlaps) {
+                        actualizarLimitesBloque(bloque, bloque.colDia, bloque.slotInicioSemanal, nuevoEndSlot);
+                        actualizarEstadoSuperposiciones();
+                    }
+                }
+            }
+            e.consume();
+        });
+
+        nodo.setOnMouseReleased(e -> {
+            for (BloqueTiempo b : bloquesSeleccionados) {
+                b.uiNode.setMouseTransparent(false);
+            }
+            nodo.setMouseTransparent(false);
+
+            if (isDragging || isResizing) {
+                isDragging = false;
+                isResizing = false;
+                bloqueArrastrado = null;
+                arrastradoSnapshot = null;
+                dragSnapshots.clear();
+                nodo.setCursor(Cursor.HAND);
+                actualizarEstadoSuperposiciones();
+            } else if (e.getButton() == MouseButton.PRIMARY) {
+                if (!e.isControlDown()) {
+                    bloquesSeleccionados.clear();
+                    bloquesSeleccionados.add(bloque);
+                    actualizarEstadoGlobal();
+                }
+            }
+            e.consume();
+        });
+
+        ContextMenu menu = new ContextMenu();
+        MenuItem itemBorrar = new MenuItem("🗑 Eliminar Bloque(s)");
+        itemBorrar.setOnAction(e -> {
+            if (bloquesSeleccionados.contains(bloque)) {
+                for (BloqueTiempo b : new ArrayList<>(bloquesSeleccionados)) {
+                    gridCalendario.getChildren().remove(b.uiNode);
+                    listaBloques.remove(b);
+                }
+                bloquesSeleccionados.clear();
+            } else {
+                gridCalendario.getChildren().remove(bloque.uiNode);
+                listaBloques.remove(bloque);
+            }
+            actualizarEstadoGlobal();
+        });
+        menu.getItems().add(itemBorrar);
+
+        nodo.setOnContextMenuRequested(e -> {
+            if (!bloquesSeleccionados.contains(bloque)) {
+                bloquesSeleccionados.clear();
+                bloquesSeleccionados.add(bloque);
+            }
+            actualizarEstadoGlobal();
+            menu.show(nodo, e.getScreenX(), e.getScreenY());
+        });
     }
 
-    // =====================================================================
-    // CREACIÓN MASIVA Y ACTUALIZACIÓN VISUAL
-    // =====================================================================
-    private void agregarBloqueDesdeUI() {
-        if (cmbHoraInicio.getValue() == null || cmbHoraFin.getValue() == null) return;
+    private void moverSeleccionADestino(int targetColDia, int targetFilaInicio) {
+        int h1 = HORA_INICIO_VISUAL + (targetFilaInicio / 4);
+        int m1 = (targetFilaInicio % 4) * 15;
 
-        int hInicio = Integer.parseInt(cmbHoraInicio.getValue());
-        int mInicio = Integer.parseInt(cmbMinutoInicio.getValue());
-        int hFin = Integer.parseInt(cmbHoraFin.getValue());
-        int mFin = Integer.parseInt(cmbMinutoFin.getValue());
+        int nuevoSlotInicioArrastrado = ((targetColDia - 1) * 48) + (h1 * 2) + (m1 / 30);
+        int deltaAbsoluto = nuevoSlotInicioArrastrado - arrastradoSnapshot.slotInicio;
 
-        Course cursoElegido = cmbCursoSugerido.getValue();
-        if (cursoElegido != null && cursoElegido.getId() == -1) cursoElegido = null;
+        for (BloqueSnapshot snap : dragSnapshots) {
+            int nuevoInicio = snap.slotInicio + deltaAbsoluto;
+            int nuevoFin = snap.slotFin + deltaAbsoluto;
 
-        if (hInicio < HORA_INICIO_VISUAL || hFin > HORA_FIN_VISUAL) return;
+            if (nuevoInicio < 0) return;
 
-        boolean agregoAlMenosUno = false;
+            int nuevaCol = (nuevoInicio / 48) + 1;
+            int nuevaColFin = ((nuevoFin - 1) / 48) + 1;
 
-        // Iterar sobre los CheckBoxes para crear un bloque en cada día seleccionado
-        for (int i = 0; i < checkDias.length; i++) {
-            if (checkDias[i].isSelected()) {
-                int slotInicio = (i * 48) + (hInicio * 2) + (mInicio / 30);
-                int slotFin = (i * 48) + (hFin * 2) + (mFin / 30);
+            if (nuevaCol < 1 || nuevaCol > 7 || nuevaColFin != nuevaCol) return;
 
-                if (slotFin > slotInicio) {
-                    crearYPosicionarNodo(i + 1, slotInicio, slotFin, cursoElegido, hInicio, mInicio, hFin, mFin);
-                    agregoAlMenosUno = true;
+            BloqueTiempo temp = new BloqueTiempo(nuevaCol, nuevoInicio, nuevoFin, null, null, null);
+            for (BloqueTiempo b : listaBloques) {
+                if (!bloquesSeleccionados.contains(b) && b.seSuperpone(temp)) {
+                    return;
                 }
             }
         }
 
-        if (agregoAlMenosUno) {
-            actualizarEstadoSuperposiciones();
+        for (BloqueSnapshot snap : dragSnapshots) {
+            int nuevoInicio = snap.slotInicio + deltaAbsoluto;
+            int nuevoFin = snap.slotFin + deltaAbsoluto;
+            int nuevaCol = (nuevoInicio / 48) + 1;
+
+            actualizarLimitesBloque(snap.bloque, nuevaCol, nuevoInicio, nuevoFin);
         }
     }
 
-    private void crearYPosicionarNodo(int colDia, int slotInicio, int slotFin, Course curso, int h1, int m1, int h2, int m2) {
+    private void actualizarLimitesBloque(BloqueTiempo bloque, int colDia, int slotInicio, int slotFin) {
+        bloque.colDia = colDia;
+        bloque.slotInicioSemanal = slotInicio;
+        bloque.slotFinSemanal = slotFin;
+
+        int h1 = (slotInicio % 48) / 2;
+        int m1 = ((slotInicio % 48) % 2) * 30;
+        int h2 = (slotFin % 48) / 2;
+        int m2 = ((slotFin % 48) % 2) * 30;
+        if (slotFin % 48 == 0) { h2 = 24; m2 = 0; }
+
         int filaInicio = ((h1 - HORA_INICIO_VISUAL) * 4) + (m1 / 15);
         int filaFin = ((h2 - HORA_INICIO_VISUAL) * 4) + (m2 / 15);
 
-        VBox nodo = new VBox();
-        nodo.setPadding(new Insets(2));
-
-        BloqueTiempo bloque = new BloqueTiempo(colDia, slotInicio, slotFin, curso, nodo);
+        GridPane.setColumnIndex(bloque.uiNode, colDia);
+        GridPane.setRowIndex(bloque.uiNode, filaInicio);
+        GridPane.setRowSpan(bloque.uiNode, filaFin - filaInicio);
 
         actualizarContenidoVisualBloque(bloque);
-
-        // SOPORTE PARA MULTI-SELECCIÓN CON CTRL O SHIFT
-        nodo.setOnMouseClicked((MouseEvent e) -> seleccionarBloque(bloque, e));
-
-        listaBloques.add(bloque);
-        gridCalendario.add(nodo, colDia, filaInicio);
-        GridPane.setRowSpan(nodo, filaFin - filaInicio);
     }
 
     private void actualizarContenidoVisualBloque(BloqueTiempo b) {
-        b.uiNode.getChildren().clear();
+        b.contentNode.getChildren().clear();
 
         int h1 = (b.slotInicioSemanal % 48) / 2;
         int m1 = ((b.slotInicioSemanal % 48) % 2) * 30;
         int h2 = (b.slotFinSemanal % 48) / 2;
         int m2 = ((b.slotFinSemanal % 48) % 2) * 30;
+        if (b.slotFinSemanal % 48 == 0) { h2 = 24; m2 = 0; }
 
-        Label textoHora = new Label(String.format("%02d:%02d - %02d:%02d", h1, m1, h2, m2));
-        textoHora.setStyle("-fx-font-size: 10px; -fx-font-weight: bold;");
-        b.uiNode.getChildren().add(textoHora);
+        String horaTexto = String.format("%02d:%02d - %02d:%02d", h1, m1, h2, m2);
+        String cursoNombre = (b.cursoSugerido != null) ? b.cursoSugerido.getNombre() : "Comodín";
 
-        if (b.cursoSugerido != null) {
-            Label textoCurso = new Label(b.cursoSugerido.getNombre());
-            textoCurso.setStyle("-fx-font-size: 9px; -fx-text-fill: #333333;");
-            textoCurso.setWrapText(true);
-            b.uiNode.getChildren().add(textoCurso);
-        }
+        Tooltip infoTooltip = new Tooltip("Hora: " + horaTexto + "\nCurso: " + cursoNombre);
+        infoTooltip.setShowDelay(Duration.millis(300));
+        Tooltip.install(b.uiNode, infoTooltip);
+
+        Label textoHora = new Label(horaTexto);
+        textoHora.setWrapText(true);
+        textoHora.getStyleClass().addAll("text-bold", "text-small");
+        b.contentNode.getChildren().add(textoHora);
+
+        Label textoCurso = new Label(cursoNombre);
+        textoCurso.setWrapText(true);
+        textoCurso.getStyleClass().add("text-small");
+        if(b.cursoSugerido == null) textoCurso.setStyle("-fx-font-style: italic;");
+
+        b.contentNode.getChildren().add(textoCurso);
     }
 
-    private void cambiarCursoDeSeleccionados() {
-        Course cursoElegido = cmbCursoSugerido.getValue();
-        if (cursoElegido != null && cursoElegido.getId() == -1) cursoElegido = null;
-
-        for (BloqueTiempo b : bloquesSeleccionados) {
-            b.cursoSugerido = cursoElegido;
-            actualizarContenidoVisualBloque(b);
-        }
-        for (BloqueTiempo b : listaBloques) actualizarColorBloque(b);
-    }
-
-    private void seleccionarBloque(BloqueTiempo bloque, MouseEvent e) {
-        if (e.isControlDown() || e.isShiftDown()) {
-            if (bloquesSeleccionados.contains(bloque)) {
-                bloquesSeleccionados.remove(bloque); // Deseleccionar si ya estaba seleccionado
-            } else {
-                bloquesSeleccionados.add(bloque);
-            }
-        } else {
-            bloquesSeleccionados.clear();
-            bloquesSeleccionados.add(bloque);
-        }
-
-        btnBorrar.setDisable(bloquesSeleccionados.isEmpty());
-        btnCambiarCurso.setDisable(bloquesSeleccionados.isEmpty());
-
-        for (BloqueTiempo b : listaBloques) actualizarColorBloque(b);
-    }
-
-    private void borrarBloquesSeleccionados() {
-        if (!bloquesSeleccionados.isEmpty()) {
-            for (BloqueTiempo b : bloquesSeleccionados) {
-                gridCalendario.getChildren().remove(b.uiNode);
-                listaBloques.remove(b);
-            }
-            bloquesSeleccionados.clear();
-            btnBorrar.setDisable(true);
-            btnCambiarCurso.setDisable(true);
-            actualizarEstadoSuperposiciones();
-        }
+    private void actualizarEstadoGlobal() {
+        actualizarEstadoSuperposiciones();
     }
 
     private void actualizarEstadoSuperposiciones() {
@@ -417,28 +642,65 @@ public class AvailabilityController implements Initializable {
             }
         }
         for (BloqueTiempo b : listaBloques) actualizarColorBloque(b);
+
         btnGuardar.setDisable(hayError || cmbProfesor.getValue() == null);
+        if (hayError) {
+            lblEstadoBD.setText("Error: Horarios superpuestos.");
+            lblEstadoBD.getStyleClass().setAll("label", "danger");
+        }
     }
 
     private void actualizarColorBloque(BloqueTiempo b) {
         boolean seleccionado = bloquesSeleccionados.contains(b);
-        String bgColor = (b.cursoSugerido == null) ? "#99ff99" : "#add8e6"; // Verde (comodín) o Azul (curso específico)
-        String borderColor = (b.cursoSugerido == null) ? "green" : "blue";
-        int borderWidth = 1;
+
+        String bgColor = (b.cursoSugerido == null) ? "-color-success-subtle" : "-color-accent-subtle";
+        String borderColor = (b.cursoSugerido == null) ? "-color-success-emphasis" : "-color-accent-emphasis";
 
         if (b.superpuesto) {
-            bgColor = "#ff9999"; // Rojo si chocan horarios
-            borderColor = "red";
+            bgColor = "-color-danger-subtle";
+            borderColor = "-color-danger-emphasis";
         }
+
+        int borderWidth = 1;
+        String extraEffect = "";
 
         if (seleccionado) {
-            borderColor = "#9C27B0"; // Borde morado para marcar selección
-            borderWidth = 3;
+            borderColor = "-color-fg-default";
+            borderWidth = 2;
+            extraEffect = "-fx-effect: dropshadow(three-pass-box, rgba(0,0,0,0.4), 8, 0, 0, 0);";
         }
 
-        b.uiNode.setStyle("-fx-background-color: " + bgColor +
-                "; -fx-border-color: " + borderColor +
-                "; -fx-border-width: " + borderWidth + "px;" +
-                " -fx-border-radius: 3; -fx-cursor: hand;");
+        b.uiNode.setStyle(
+                "-fx-background-color: " + bgColor + ";" +
+                        "-fx-border-color: " + borderColor + ";" +
+                        "-fx-border-width: " + borderWidth + "px;" +
+                        "-fx-border-radius: 4px;" +
+                        "-fx-background-radius: 4px;" +
+                        extraEffect
+        );
+
+        if (!b.contentNode.getChildren().isEmpty()) {
+            Label lblHora = (Label) b.contentNode.getChildren().get(0);
+            String textColor = (b.superpuesto) ? "-color-danger-fg" : ((b.cursoSugerido == null) ? "-color-success-fg" : "-color-accent-fg");
+            lblHora.setStyle("-fx-text-fill: " + textColor + ";");
+
+            if (b.contentNode.getChildren().size() > 1) {
+                Label lblCurso = (Label) b.contentNode.getChildren().get(1);
+                if (b.cursoSugerido == null) {
+                    lblCurso.setStyle("-fx-text-fill: " + textColor + "; -fx-font-style: italic;");
+                } else {
+                    lblCurso.setStyle("-fx-text-fill: " + textColor + ";");
+                }
+            }
+        }
+    }
+
+    private void cargarProfesores() {
+        cmbProfesor.getItems().addAll(teacherDAO.obtenerProfesoresObservable());
+        cmbProfesor.setConverter(new StringConverter<Teacher>() {
+            @Override public String toString(Teacher t) { return t == null ? "" : t.getNombre() + " " + t.getApellidoPaterno(); }
+            @Override public Teacher fromString(String s) { return null; }
+        });
+        cmbProfesor.setOnAction(e -> procesarSeleccionProfesor(cmbProfesor.getValue()));
     }
 }

@@ -19,45 +19,11 @@
 <?import javafx.scene.layout.VBox?>
 <?import javafx.scene.text.Font?>
 
-<HBox fx:id="rootHBox" prefHeight="650.0" prefWidth="1000.0" spacing="20.0" style="-fx-background-color: #f4f4f4;" xmlns="http://javafx.com/javafx/21" xmlns:fx="http://javafx.com/fxml/1" fx:controller="com.osgadev.organizadorhorariosfx.controller.CourseController">
+<HBox fx:id="rootHBox" prefHeight="650.0" prefWidth="1000.0" spacing="20.0" style="-fx-background-color: #f4f4f4;" xmlns="http://javafx.com/javafx/25" xmlns:fx="http://javafx.com/fxml/1" fx:controller="com.osgadev.organizadorhorariosfx.controller.CourseController">
     <padding>
         <Insets bottom="20.0" left="20.0" right="20.0" top="20.0" />
     </padding>
     <children>
-        <!-- ============================================== -->
-        <!-- LADO IZQUIERDO: LISTA (MASTER)                 -->
-        <!-- ============================================== -->
-        <VBox prefWidth="380.0" spacing="15.0" HBox.hgrow="NEVER">
-            <children>
-                <VBox spacing="5.0">
-                    <children>
-                        <Label text="Gestión de Cursos">
-                            <font><Font name="System Bold" size="22.0" /></font>
-                        </Label>
-                        <Label text="Catálogo de materias disponibles" textFill="#666666">
-                            <font><Font size="13.0" /></font>
-                        </Label>
-                    </children>
-                </VBox>
-
-                <!-- Botón Nuevo Curso con la clase semántica btn-success -->
-                <Button maxWidth="1.7976931348623157E308" mnemonicParsing="false" onAction="#onNuevoCursoClick" prefHeight="35.0" styleClass="btn-success" text="+ Nuevo Curso" />
-
-                <!-- Barra de Búsqueda -->
-                <TextField fx:id="txtBuscarCurso" promptText="🔍 Buscar materia..." styleClass="search-field" />
-
-                <TableView fx:id="tablaCursos" VBox.vgrow="ALWAYS">
-                    <columns>
-                        <TableColumn fx:id="colNumeroCurso" maxWidth="40.0" minWidth="40.0" prefWidth="40.0" style="-fx-alignment: CENTER;" text="No." />
-                        <TableColumn fx:id="colNombre" prefWidth="250.0" text="Nombre de la Materia" />
-                        <TableColumn fx:id="colHoras" maxWidth="60.0" minWidth="60.0" prefWidth="60.0" style="-fx-alignment: CENTER;" text="Hrs." />
-                    </columns>
-                    <columnResizePolicy>
-                        <TableView fx:constant="CONSTRAINED_RESIZE_POLICY" />
-                    </columnResizePolicy>
-                </TableView>
-            </children>
-        </VBox>
 
         <!-- ============================================== -->
         <!-- LADO DERECHO: CONTENEDOR DINÁMICO              -->
@@ -158,5 +124,39 @@
                 </VBox>
             </children>
         </StackPane>
+        <!-- ============================================== -->
+        <!-- LADO IZQUIERDO: LISTA (MASTER)                 -->
+        <!-- ============================================== -->
+        <VBox prefWidth="380.0" spacing="15.0" HBox.hgrow="NEVER">
+            <children>
+                <VBox spacing="5.0">
+                    <children>
+                        <Label text="Gestión de Cursos">
+                            <font><Font name="System Bold" size="22.0" /></font>
+                        </Label>
+                        <Label text="Catálogo de materias disponibles" textFill="#666666">
+                            <font><Font size="13.0" /></font>
+                        </Label>
+                    </children>
+                </VBox>
+
+                <!-- Botón Nuevo Curso con la clase semántica btn-success -->
+                <Button maxWidth="1.7976931348623157E308" mnemonicParsing="false" onAction="#onNuevoCursoClick" prefHeight="35.0" styleClass="btn-success" text="+ Nuevo Curso" />
+
+                <!-- Barra de Búsqueda -->
+                <TextField fx:id="txtBuscarCurso" promptText="🔍 Buscar materia..." styleClass="search-field" />
+
+                <TableView fx:id="tablaCursos" VBox.vgrow="ALWAYS">
+                    <columns>
+                        <TableColumn fx:id="colNumeroCurso" maxWidth="40.0" minWidth="40.0" prefWidth="40.0" style="-fx-alignment: CENTER;" text="No." />
+                        <TableColumn fx:id="colNombre" prefWidth="250.0" text="Nombre de la Materia" />
+                        <TableColumn fx:id="colHoras" maxWidth="60.0" minWidth="60.0" prefWidth="60.0" style="-fx-alignment: CENTER;" text="Hrs." />
+                    </columns>
+                    <columnResizePolicy>
+                        <TableView fx:constant="CONSTRAINED_RESIZE_POLICY" />
+                    </columnResizePolicy>
+                </TableView>
+            </children>
+        </VBox>
     </children>
 </HBox>
