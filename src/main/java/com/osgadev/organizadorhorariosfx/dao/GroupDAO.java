@@ -15,7 +15,6 @@ import java.util.List;
 public class GroupDAO {
 
     public void guardarGruposMasivo(List<Group> grupos, String anio, String etapa) {
-        // CORREGIDO: El orden de las columnas en el SQL ahora coincide exactamente con los setString/setInt
         String sql = "INSERT INTO grupo (grupo_id, curso_id, profesor_id, tamanio_grupo, rango_inicial, rango_final, anio, etapa) " +
                 "VALUES (?, ?, ?, ?, ?, ?, ?, ?)";
 
@@ -29,12 +28,8 @@ public class GroupDAO {
                     preparedStatement.setInt(2, grupo.getCurso().getId());
                     preparedStatement.setInt(3, grupo.getProfesor().getId());
                     preparedStatement.setInt(4, grupo.getTamanioGrupo());
-
-                    // CORREGIDO: Rangos en posición 5 y 6
                     preparedStatement.setInt(5, grupo.getRangoInicial());
                     preparedStatement.setInt(6, grupo.getRangoFinal());
-
-                    // CORREGIDO: Año y etapa en posición 7 y 8
                     preparedStatement.setString(7, anio);
                     preparedStatement.setString(8, etapa);
 
@@ -55,9 +50,10 @@ public class GroupDAO {
     public List<Group> obtenerPorAnioYEtapa(String anio, String etapa) {
         List<Group> lista = new ArrayList<>();
 
-        // CORRECCIÓN: Agregado el alias AS course_horas y los campos correo_electronico y telefono del profesor
+        // CORRECCIÓN: Agregado 'c.color_hex' y 'c.descripcion'
         String sql = "SELECT g.grupo_id, g.tamanio_grupo, g.rango_inicial, g.rango_final, " +
                 "c.curso_id AS course_id, c.nombre AS course_nombre, c.min_horas_semanales AS course_horas, " +
+                "c.color_hex AS course_color, c.descripcion AS course_descripcion, " +
                 "t.profesor_id AS teacher_id, t.nombre AS teacher_nombre, t.apellido_paterno, t.apellido_materno, " +
                 "t.correo_electronico, t.telefono " +
                 "FROM grupo g " +
@@ -77,15 +73,16 @@ public class GroupDAO {
                 Course curso = new Course();
                 curso.setId(rs.getInt("course_id"));
                 curso.setNombre(rs.getString("course_nombre"));
-                // CORRECCIÓN: Leer el alias course_horas
                 curso.setMinHorasSemanales(rs.getInt("course_horas"));
+                // NUEVO: Asignar los valores extraídos a la instancia del curso
+                curso.setColorHex(rs.getString("course_color"));
+                curso.setDescripcion(rs.getString("course_descripcion"));
 
                 Teacher teacher = new Teacher();
                 teacher.setId(rs.getInt("teacher_id"));
                 teacher.setNombre(rs.getString("teacher_nombre"));
                 teacher.setApellidoPaterno(rs.getString("apellido_paterno"));
                 teacher.setApellidoMaterno(rs.getString("apellido_materno"));
-                // AÑADIDO: Leer y asignar correo y teléfono
                 teacher.setCorreoElectronico(rs.getString("correo_electronico"));
                 teacher.setTelefono(rs.getString("telefono"));
 
@@ -106,8 +103,6 @@ public class GroupDAO {
         return lista;
     }
 
-
-    // AÑADIDO: Metodo necesario para que el botón "Eliminar Grupos" de tu vista funcione
     public void eliminarPorAnioYEtapa(String anio, String etapa) {
         String sql = "DELETE FROM grupo WHERE anio = ? AND etapa = ?";
 
@@ -127,7 +122,6 @@ public class GroupDAO {
     }
 
     public boolean existenGruposParaCiclo(String anio, String etapa) {
-        // Usamos un query ultra ligero: si encuentra al menos 1 fila, devuelve '1'
         String sql = "SELECT 1 FROM grupo WHERE anio = ? AND etapa = ? LIMIT 1";
 
         try (Connection conn = DatabaseConnection.getInstance().getConnection();
@@ -137,36 +131,27 @@ public class GroupDAO {
             pstmt.setString(2, etapa);
 
             try (ResultSet rs = pstmt.executeQuery()) {
-                // Si rs.next() es true, significa que encontró al menos un registro
                 return rs.next();
             }
 
         } catch (SQLException e) {
             System.out.println("Error al comprobar existencia de grupos: " + e.getMessage());
-            return false; // Por seguridad, en caso de error de BD asumimos que no hay
+            return false;
         }
     }
 
-    /**
-     * Obtiene un grupo específico por su ID, incluyendo todos los datos de su Curso y Profesor asociados.
-     * Utilizado principalmente por ScheduleDAO para reconstruir el horario visual.
-     *
-     * @param idGrupo El ID del grupo (ej. "G-001").
-     * @return El objeto Group completamente instanciado, o null si no se encuentra.
-     */
     public Group obtenerPorId(String idGrupo) {
         Group grupo = null;
 
-        // Consulta con INNER JOIN para traer los datos del grupo, del curso y del profesor
+        // CORRECCIÓN: Agregado 'c.color_hex' y 'c.descripcion' a la consulta por ID
         String sql = "SELECT g.grupo_id, g.tamanio_grupo, g.rango_inicial, g.rango_final, " +
-                "c.curso_id, c.nombre AS nombre_curso, c.min_horas_semanales, " +
+                "c.curso_id, c.nombre AS nombre_curso, c.min_horas_semanales, c.color_hex, c.descripcion, " +
                 "p.profesor_id, p.nombre AS nombre_profesor, p.apellido_paterno, p.apellido_materno, p.correo_electronico, p.telefono " +
                 "FROM grupo g " +
                 "INNER JOIN curso c ON g.curso_id = c.curso_id " +
                 "INNER JOIN profesor p ON g.profesor_id = p.profesor_id " +
                 "WHERE g.grupo_id = ?";
 
-        // TODO: Asegúrate de usar tu propia clase de conexión (ej. DatabaseConnection.getConnection())
         try (java.sql.Connection conn = DatabaseConnection.getInstance().getConnection();
              java.sql.PreparedStatement pstmt = conn.prepareStatement(sql)) {
 
@@ -174,13 +159,14 @@ public class GroupDAO {
 
             try (java.sql.ResultSet rs = pstmt.executeQuery()) {
                 if (rs.next()) {
-                    // 1. Reconstruir el objeto Course (Usamos setters para evitar errores de constructor)
                     Course curso = new Course();
                     curso.setId(rs.getInt("curso_id"));
                     curso.setNombre(rs.getString("nombre_curso"));
                     curso.setMinHorasSemanales(rs.getInt("min_horas_semanales"));
+                    // NUEVO: Asignar color y descripción
+                    curso.setColorHex(rs.getString("color_hex"));
+                    curso.setDescripcion(rs.getString("descripcion"));
 
-                    // 2. Reconstruir el objeto Teacher (Pasamos un ArrayList vacío para sus cursos)
                     Teacher profesor = new Teacher(
                             rs.getInt("profesor_id"),
                             rs.getString("nombre_profesor"),
@@ -188,10 +174,9 @@ public class GroupDAO {
                             rs.getString("apellido_materno"),
                             rs.getString("correo_electronico"),
                             rs.getString("telefono"),
-                            new java.util.ArrayList<>() // Lista vacía
+                            new java.util.ArrayList<>()
                     );
 
-                    // 3. Reconstruir el objeto Group usando tu constructor exacto
                     grupo = new Group(
                             rs.getString("grupo_id"),
                             curso,
@@ -212,7 +197,6 @@ public class GroupDAO {
 
     public int contarGrupos(String anio, String etapa) {
         int total = 0;
-        // Cambiado de 'grupos' a 'grupo'
         String sql = "SELECT COUNT(*) FROM grupo WHERE anio = ? AND etapa = ?";
         try (java.sql.Connection conn = DatabaseConnection.getInstance().getConnection();
              java.sql.PreparedStatement pstmt = conn.prepareStatement(sql)) {
@@ -227,7 +211,6 @@ public class GroupDAO {
 
     public double calcularHorasTotalesRequeridas(String anio, String etapa) {
         double totalHoras = 0;
-        // Hacemos JOIN con 'curso' para sumar las horas_semanales de cada grupo de ese ciclo
         String sql = "SELECT SUM(c.min_horas_semanales) FROM grupo g " +
                 "JOIN curso c ON g.curso_id = c.curso_id " +
                 "WHERE g.anio = ? AND g.etapa = ?";

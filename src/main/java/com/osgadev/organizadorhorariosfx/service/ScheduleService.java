@@ -318,4 +318,63 @@ public class ScheduleService {
         }
         return plantillas;
     }
+
+    // =====================================================================
+    // LÓGICA DE ASIGNACIÓN MANUAL (DRAG & DROP)
+    // =====================================================================
+
+    public enum ValidacionManual {
+        OK("Suelte para asignar..."),
+        FUERA_DE_HORARIO("⚠️ Fuera de horario"),
+        CHOQUE_MATERIAS("⚠️ Choque de materias"),
+        MAX_UNO_POR_DIA("⚠️ 1 bloque por día máximo");
+
+        private final String mensaje;
+
+        ValidacionManual(String mensaje) {
+            this.mensaje = mensaje;
+        }
+
+        public String getMensaje() {
+            return mensaje;
+        }
+    }
+
+    // Centralizamos la fórmula matemática aquí
+    public int calcularSlotSemanal(int columnaDia, int filaVisual, int horaInicioDia) {
+        int hInicioReal = horaInicioDia + ((filaVisual - 1) / 2);
+        int mInicioReal = ((filaVisual - 1) % 2) * 30;
+        int slotDelDia = (hInicioReal * 2) + ((filaVisual - 1) % 2);
+        return ((columnaDia - 1) * BLOQUES_POR_DIA) + slotDelDia;
+    }
+
+    // Reglas de negocio puras
+    public ValidacionManual validarPosicionManual(Group grupo, int columnaDia, int filaVisual,
+                                                  int spanFilasVisuales, int numFilasTiempo,
+                                                  List<AssignedSession> horarioActual,
+                                                  OccupationMap occupationMap, int horaInicioDia) {
+
+        // 1. Validar que no se salga del horario visual (filas hacia abajo)
+        if ((filaVisual - 1) + spanFilasVisuales > numFilasTiempo) {
+            return ValidacionManual.FUERA_DE_HORARIO;
+        }
+
+        // 2. Validar Choques (Profesor o Alumnos ocupados)
+        int slotSemanalBase = calcularSlotSemanal(columnaDia, filaVisual, horaInicioDia);
+        for (int i = 0; i < spanFilasVisuales; i++) {
+            if (occupationMap.profesorOcupadoEnSlot(grupo.getProfesor().getId(), slotSemanalBase + i) ||
+                    occupationMap.rangoOcupadoEnSlot(grupo.getRangoInicial(), grupo.getRangoFinal(), slotSemanalBase + i)) {
+                return ValidacionManual.CHOQUE_MATERIAS;
+            }
+        }
+
+        // 3. Validar Máximo 1 sesión por día para el mismo grupo
+        for (AssignedSession s : horarioActual) {
+            if (s.getGrupo().getIdGrupo().equals(grupo.getIdGrupo()) && s.getColumnaDia() == columnaDia) {
+                return ValidacionManual.MAX_UNO_POR_DIA;
+            }
+        }
+
+        return ValidacionManual.OK;
+    }
 }

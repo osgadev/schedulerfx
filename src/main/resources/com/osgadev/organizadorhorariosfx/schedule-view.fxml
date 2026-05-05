@@ -15,7 +15,7 @@
 <?import javafx.scene.layout.VBox?>
 <?import javafx.scene.text.Font?>
 
-<BorderPane prefHeight="650.0" prefWidth="1300.0" xmlns="http://javafx.com/javafx/21" xmlns:fx="http://javafx.com/fxml/1" fx:controller="com.osgadev.organizadorhorariosfx.controller.ScheduleController">
+<BorderPane prefHeight="700.0" prefWidth="1200.0" xmlns="http://javafx.com/javafx/21" xmlns:fx="http://javafx.com/fxml/1" fx:controller="com.osgadev.organizadorhorariosfx.controller.ScheduleController">
 
     <!-- ZONA SUPERIOR: CONTEXTO (AÑO Y ETAPA) -->
     <top>
@@ -37,50 +37,54 @@
 
     <!-- NUEVA ZONA IZQUIERDA: ALMACÉN MANUAL -->
     <left>
-        <VBox prefWidth="250.0" spacing="10.0" style="-fx-border-color: lightgray; -fx-border-width: 0 1 0 0; -fx-background-color: #f8f9fa;" BorderPane.alignment="CENTER">
-            <padding>
-                <Insets bottom="15.0" left="15.0" right="15.0" top="15.0" />
-            </padding>
-            <children>
-                <Label style="-fx-font-weight: bold;" text="Anclaje Manual">
-                    <font><Font size="14.0" /></font>
-                </Label>
-
-                <!-- NUEVO: Selector de Profesor -->
-                <Label style="-fx-font-size: 12px; -fx-font-weight: bold;" text="1. Seleccionar Profesor:" />
-                <ComboBox fx:id="cmbProfesorManual" prefWidth="220.0" promptText="Elegir profesor..." />
-
-                <Separator />
-
-                <Label style="-fx-font-size: 12px; -fx-font-weight: bold;" text="2. Grupos Pendientes:" />
-                <Label style="-fx-text-fill: gray; -fx-font-size: 11px;" text="Selecciona la materia para generar los bloques." wrapText="true" />
-
-                <!-- Lista de materias (Ahora se filtrará por profesor) -->
-                <ListView fx:id="listGruposPendientes" VBox.vgrow="ALWAYS" />
-
-                <!-- Generador de bloques (Fábrica) -->
-                <VBox spacing="8.0" style="-fx-background-color: white; -fx-border-color: lightgray; -fx-border-radius: 5; -fx-background-radius: 5; -fx-padding: 10;">
+        <!-- Envolvemos el VBox en un ScrollPane y forzamos su ancho mínimo -->
+        <ScrollPane fitToWidth="true" hbarPolicy="NEVER" minWidth="260.0" prefWidth="260.0" style="-fx-background-color: transparent;" BorderPane.alignment="CENTER">
+            <content>
+                <VBox spacing="10.0" style="-fx-border-color: lightgray; -fx-border-width: 0 1 0 0; -fx-background-color: #f8f9fa;">
+                    <padding>
+                        <Insets bottom="15.0" left="15.0" right="15.0" top="15.0" />
+                    </padding>
                     <children>
-                        <Label style="-fx-font-weight: bold; -fx-font-size: 12px;" text="3. Generador de Bloques" />
-                        <Label fx:id="lblMateriaSeleccionada" style="-fx-text-fill: #1565C0; -fx-font-weight: bold;" text="Selecciona una materia" wrapText="true" />
-                        <Label fx:id="lblHorasRestantes" style="-fx-text-fill: #e65100; -fx-font-weight: bold;" text="---" />
+                        <Label style="-fx-font-weight: bold;" text="Anclaje Manual">
+                            <font><Font size="14.0" /></font>
+                        </Label>
 
-                        <HBox fx:id="cajaBloquesGeneradores" alignment="CENTER" spacing="8.0">
-                            <VBox.margin><Insets top="5.0" /></VBox.margin>
-                        </HBox>
+                        <Label style="-fx-font-size: 12px; -fx-font-weight: bold;" text="1. Seleccionar Profesor:" />
+                        <ComboBox fx:id="cmbProfesorManual" maxWidth="1.7976931348623157E308" promptText="Elegir profesor..." />
+
+                        <Separator />
+
+                        <Label style="-fx-font-size: 12px; -fx-font-weight: bold;" text="2. Grupos Pendientes:" />
+                        <Label style="-fx-text-fill: gray; -fx-font-size: 11px;" text="Selecciona la materia para generar los bloques." wrapText="true" />
+
+                        <!-- Le damos una altura preferida a la lista para que no colapse -->
+                        <ListView fx:id="listGruposPendientes" prefHeight="250.0" VBox.vgrow="ALWAYS" />
+
+                        <!-- Generador de bloques (Fábrica) -->
+                        <VBox spacing="8.0" style="-fx-background-color: white; -fx-border-color: lightgray; -fx-border-radius: 5; -fx-background-radius: 5; -fx-padding: 10;">
+                            <children>
+                                <Label style="-fx-font-weight: bold; -fx-font-size: 12px;" text="3. Generador de Bloques" />
+                                <Label fx:id="lblMateriaSeleccionada" style="-fx-text-fill: #1565C0; -fx-font-weight: bold;" text="Selecciona una materia" wrapText="true" />
+                                <Label fx:id="lblHorasRestantes" style="-fx-text-fill: #e65100; -fx-font-weight: bold;" text="---" />
+
+                                <HBox fx:id="cajaBloquesGeneradores" alignment="CENTER" spacing="8.0">
+                                    <VBox.margin><Insets top="5.0" /></VBox.margin>
+                                </HBox>
+                            </children>
+                        </VBox>
                     </children>
                 </VBox>
-            </children>
-        </VBox>
+            </content>
+        </ScrollPane>
     </left>
 
     <!-- ZONA CENTRAL: TABLERO -->
     <center>
-        <StackPane prefHeight="150.0" prefWidth="200.0" BorderPane.alignment="CENTER">
+        <StackPane BorderPane.alignment="CENTER">
             <children>
-                <VBox fx:id="fase1Vacia" alignment="CENTER" prefHeight="200.0" prefWidth="100.0" spacing="10.0">
+                <VBox fx:id="fase1Vacia" alignment="CENTER" spacing="10.0">
                     <children>
-                        <Label style="-fx-text-fill: gray;" text="Aún no se ha generado ningún horario para este ciclo.&#10;Puedes acomodar bloques manualmente desde el panel izquierdo,&#10;o presionar 'Generar Horarios' para usar la IA." textAlignment="CENTER">
+                        <Label style="-fx-text-fill: gray;" text="Aún no se ha generado ningún horario para este ciclo.&#10;Puedes acomodar bloques manualmente desde el panel izquierdo,&#10;o presionar 'Autocompletar (IA)' para usar la Inteligencia Artificial." textAlignment="CENTER">
                             <font>
                                 <Font size="14.0" />
                             </font>
@@ -88,12 +92,14 @@
                     </children>
                 </VBox>
                 <!-- Scroll y Cuadrícula del Calendario -->
-                <ScrollPane fx:id="scrollCalendario" fitToWidth="true" style="-fx-background-color: transparent;" VBox.vgrow="ALWAYS">
-                    <GridPane fx:id="gridCalendario" style="-fx-background-color: white;">
-                        <padding>
-                            <Insets bottom="5.0" left="5.0" right="5.0" top="5.0" />
-                        </padding>
-                    </GridPane>
+                <ScrollPane fx:id="scrollCalendario" fitToHeight="true" fitToWidth="true" style="-fx-background-color: transparent;">
+                    <content>
+                        <GridPane fx:id="gridCalendario" style="-fx-background-color: white;">
+                            <padding>
+                                <Insets bottom="5.0" left="5.0" right="5.0" top="5.0" />
+                            </padding>
+                        </GridPane>
+                    </content>
                 </ScrollPane>
             </children>
         </StackPane>
@@ -101,41 +107,56 @@
 
     <!-- ZONA DERECHA: ACCIONES Y FILTROS -->
     <right>
-        <VBox prefHeight="600.0" prefWidth="220.0" spacing="15.0" style="-fx-border-color: lightgray; -fx-border-width: 0 1 0 0;" BorderPane.alignment="CENTER">
-            <padding>
-                <Insets bottom="15.0" left="15.0" right="15.0" top="15.0" />
-            </padding>
-            <children>
-                <!-- ZONA DE ACCIONES DE BASE DE DATOS -->
-                <Label style="-fx-font-weight: bold;" text="Motor IA y BD">
-                    <font><Font size="14.0" /></font>
-                </Label>
-                <Button fx:id="btnGenerar" disable="true" mnemonicParsing="false" onAction="#generarHorario" prefWidth="200.0" style="-fx-base: #4CAF50; -fx-text-fill: white; -fx-font-weight: bold;" text="Autocompletar (IA)" />
-                <Button fx:id="btnGuardarBD" disable="true" mnemonicParsing="false" onAction="#guardarEnBD" prefWidth="200.0" text="💾 Guardar en BD" />
-                <Button fx:id="btnBorrarBD" disable="true" mnemonicParsing="false" onAction="#borrarDeBD" prefWidth="200.0" style="-fx-base: #f44336; -fx-text-fill: white;" text="🗑 Borrar Horario" />
+        <!-- Envolvemos el panel derecho en un ScrollPane y fijamos su ancho -->
+        <ScrollPane fitToWidth="true" hbarPolicy="NEVER" minWidth="240.0" prefWidth="240.0" style="-fx-background-color: transparent;" BorderPane.alignment="CENTER">
+            <content>
+                <VBox spacing="15.0" style="-fx-border-color: lightgray; -fx-border-width: 0 1 0 0;">
+                    <padding>
+                        <Insets bottom="15.0" left="15.0" right="15.0" top="15.0" />
+                    </padding>
+                    <children>
+                        <!-- ZONA DE ACCIONES DE BASE DE DATOS Y EXPORTACIÓN -->
+                        <Label style="-fx-font-weight: bold;" text="Motor IA y BD">
+                            <font><Font size="14.0" /></font>
+                        </Label>
+                        <Button fx:id="btnGenerar" disable="true" maxWidth="1.7976931348623157E308" mnemonicParsing="false" onAction="#generarHorario" style="-fx-base: #4CAF50; -fx-text-fill: white; -fx-font-weight: bold;" text="Autocompletar (IA)" />
 
-                <Separator prefWidth="200.0" />
+                        <Button fx:id="btnExportarExcel" maxWidth="1.7976931348623157E308" mnemonicParsing="false" onAction="#exportarAExcel" style="-fx-base: #4CAF50; -fx-text-fill: white; -fx-font-weight: bold;" text="Exportar a Excel" />
+                        <Button fx:id="btnPausar" disable="true" maxWidth="1.7976931348623157E308" mnemonicParsing="false" onAction="#togglePausaIA" style="-fx-base: #FF9800; -fx-text-fill: white; -fx-font-weight: bold;" text="Pausar IA" />
+                        <Button fx:id="btnSiguientePaso" disable="true" maxWidth="1.7976931348623157E308" mnemonicParsing="false" onAction="#siguientePasoIA" style="-fx-base: #2196F3; -fx-text-fill: white; -fx-font-weight: bold;" text="Siguiente Paso" />
+                        <Button fx:id="btnToggleSugerencias" maxWidth="1.7976931348623157E308" mnemonicParsing="false" onAction="#toggleSugerencias" style="-fx-base: #9C27B0; -fx-text-fill: white; -fx-font-weight: bold;" text="Ocultar Sugerencias" />
 
-                <!-- ZONA DE FILTROS VISUALES -->
-                <Label style="-fx-font-weight: bold;" text="Filtros Visuales">
-                    <font><Font size="14.0" /></font>
-                </Label>
-                <Label text="Filtrar por Curso:" />
-                <ComboBox fx:id="cmbFiltroCurso" prefWidth="200.0" />
-                <Label text="Filtrar por Profesor:" />
-                <ComboBox fx:id="cmbFiltroProfesor" prefWidth="200.0" />
-                <Button fx:id="btnLimpiarFiltros" contentDisplay="CENTER" mnemonicParsing="false" prefHeight="25.0" prefWidth="200.0" text="Limpiar Filtros" />
+                        <Label fx:id="lblEstadoIA" style="-fx-font-size: 13px; -fx-font-weight: bold; -fx-text-fill: #1565C0;" text="Estado de la IA..." wrapText="true" />
 
-                <Separator prefWidth="200.0" />
+                        <Separator />
 
-                <!-- ZONA DE PERSONALIZACIÓN DE TARJETAS -->
-                <Label text="Mostrar en bloques:" />
-                <CheckBox fx:id="chkRangoAlumnos" selected="true" style="-fx-font-weight: bold;" text="Rango de students" />
-                <CheckBox fx:id="chkProfesor" selected="true" text="Profesor" />
-                <CheckBox fx:id="chkIdGrupo" text="ID de Grupo" />
-                <CheckBox fx:id="chkNombreCurso" selected="true" text="Nombre del Curso" />
+                        <Button fx:id="btnGuardarBD" disable="true" maxWidth="1.7976931348623157E308" mnemonicParsing="false" onAction="#guardarEnBD" text="💾 Guardar en BD" />
+                        <Button fx:id="btnBorrarBD" disable="true" maxWidth="1.7976931348623157E308" mnemonicParsing="false" onAction="#borrarDeBD" style="-fx-base: #f44336; -fx-text-fill: white;" text="🗑 Borrar Horario" />
 
-            </children>
-        </VBox>
+                        <Separator />
+
+                        <!-- ZONA DE FILTROS VISUALES -->
+                        <Label style="-fx-font-weight: bold;" text="Filtros Visuales">
+                            <font><Font size="14.0" /></font>
+                        </Label>
+                        <Label text="Filtrar por Curso:" />
+                        <ComboBox fx:id="cmbFiltroCurso" maxWidth="1.7976931348623157E308" />
+                        <Label text="Filtrar por Profesor:" />
+                        <ComboBox fx:id="cmbFiltroProfesor" maxWidth="1.7976931348623157E308" />
+                        <Button fx:id="btnLimpiarFiltros" contentDisplay="CENTER" maxWidth="1.7976931348623157E308" mnemonicParsing="false" prefHeight="25.0" text="Limpiar Filtros" />
+
+                        <Separator />
+
+                        <!-- ZONA DE PERSONALIZACIÓN DE TARJETAS -->
+                        <Label text="Mostrar en bloques:" />
+                        <CheckBox fx:id="chkRangoAlumnos" selected="true" style="-fx-font-weight: bold;" text="Rango de students" wrapText="true" />
+                        <CheckBox fx:id="chkProfesor" selected="true" text="Profesor" />
+                        <CheckBox fx:id="chkIdGrupo" text="ID de Grupo" />
+                        <CheckBox fx:id="chkNombreCurso" selected="true" text="Nombre del Curso" wrapText="true" />
+
+                    </children>
+                </VBox>
+            </content>
+        </ScrollPane>
     </right>
 </BorderPane>
