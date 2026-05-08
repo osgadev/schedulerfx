@@ -3,6 +3,7 @@ package com.osgadev.organizadorhorariosfx.service;
 import com.osgadev.organizadorhorariosfx.dao.AvailabilityDAO;
 import com.osgadev.organizadorhorariosfx.model.Availability;
 import com.osgadev.organizadorhorariosfx.model.Group;
+import com.osgadev.organizadorhorariosfx.model.Teacher;
 import com.osgadev.organizadorhorariosfx.dto.AssignedSession;
 
 import org.chocosolver.solver.Model;
@@ -19,8 +20,23 @@ public class ScheduleService {
     private final AvailabilityDAO availabilityDAO;
     private static final int BLOQUES_POR_DIA = 48;
 
+    // CACHÉ DE RENDIMIENTO: Evita consultar la BD decenas de veces por segundo en el Drag & Drop
+    private final Map<Integer, List<Availability>> cacheDisponibilidad = new HashMap<>();
+
     public ScheduleService(AvailabilityDAO availabilityDAO) {
         this.availabilityDAO = availabilityDAO;
+    }
+
+    // Método para limpiar la caché cuando se cambia de semestre o se recarga todo
+    public void limpiarCache() {
+        cacheDisponibilidad.clear();
+    }
+
+    // Método centralizado que usa la caché
+    private List<Availability> obtenerDisponibilidadProfe(Teacher profe) {
+        if (profe == null) return new ArrayList<>();
+        // Si el profe ya está en el mapa, lo devuelve al instante. Si no, va a la BD y lo guarda.
+        return cacheDisponibilidad.computeIfAbsent(profe.getId(), id -> availabilityDAO.getByTeacher(profe));
     }
 
     public List<AssignedSession> generarHorario(List<Group> todosLosGrupos, BiConsumer<List<AssignedSession>, String> onProgressUpdate) {
@@ -30,7 +46,7 @@ public class ScheduleService {
             int profeId = g.getProfesor().getId();
             if (!espacioPorProfesor.containsKey(profeId)) {
                 int slotsLibres = 0;
-                for (Availability a : availabilityDAO.getByTeacher(g.getProfesor())) {
+                for (Availability a : obtenerDisponibilidadProfe(g.getProfesor())) {
                     slotsLibres += (a.getEndSlot() - a.getStartSlot());
                 }
                 espacioPorProfesor.put(profeId, slotsLibres);
@@ -83,7 +99,6 @@ public class ScheduleService {
                     int duracion = particionElegida[i];
                     int[] dominio = obtenerDominioFiltrado(duracion, disponibilidadTotal);
 
-                    // Prevención de error fatal si el dominio es devuelto vacío
                     if(dominio.length == 0) {
                         viableInicialmente = false;
                         break;
@@ -151,7 +166,7 @@ public class ScheduleService {
             if (variablesBuscar.length == 0) continue;
 
             model.getSolver().setSearch(Search.domOverWDegSearch(variablesBuscar));
-            model.getSolver().limitTime("5s"); // Reducido a 5s por iteración para mayor agilidad
+            model.getSolver().limitTime("5s");
 
             try {
                 if (model.getSolver().solve()) {
@@ -171,7 +186,7 @@ public class ScheduleService {
     }
 
     private List<Availability> obtenerDisponibilidadOrdenada(Group grupo) {
-        List<Availability> dispProfesor = availabilityDAO.getByTeacher(grupo.getProfesor());
+        List<Availability> dispProfesor = obtenerDisponibilidadProfe(grupo.getProfesor());
         List<Availability> bloquesFijos = new ArrayList<>();
         List<Availability> bloquesGenericos = new ArrayList<>();
 
@@ -215,7 +230,6 @@ public class ScheduleService {
     }
 
     private int[] obtenerDominioFiltrado(int duracionClase, List<Availability> disponibilidades) {
-        // CORRECCIÓN CLAVE: Usar un Set para evitar duplicados y ordenar, Choco crashea con repetidos
         Set<Integer> validos = new HashSet<>();
         for (Availability a : disponibilidades) {
             int maxInicioPosible = a.getEndSlot() - duracionClase;
@@ -280,7 +294,8 @@ public class ScheduleService {
         OK("Suelte para asignar..."),
         FUERA_DE_HORARIO("⚠️ Fuera de horario"),
         CHOQUE_MATERIAS("⚠️ Choque de materias"),
-        MAX_UNO_POR_DIA("⚠️ 1 bloque por día máximo");
+        MAX_UNO_POR_DIA("⚠️ 1 bloque por día máximo"),
+        FUERA_DE_DISPONIBILIDAD("⚠️ Fuera de disponibilidad");
 
         private final String mensaje;
         ValidacionManual(String mensaje) { this.mensaje = mensaje; }
@@ -299,17 +314,40 @@ public class ScheduleService {
                                                   OccupationMap occupationMap, int horaInicioDia) {
         if ((filaVisual - 1) + spanFilasVisuales > numFilasTiempo) return ValidacionManual.FUERA_DE_HORARIO;
         int slotSemanalBase = calcularSlotSemanal(columnaDia, filaVisual, horaInicioDia);
+
+        // REGLA: Validar usando la CACHÉ, velocidad ultrarrápida
+        List<Availability> disponibilidades = obtenerDisponibilidadProfe(grupo.getProfesor());
+        for (int i = 0; i < spanFilasVisuales; i++) {
+            int slotActual = slotSemanalBase + i;
+            boolean slotCubierto = false;
+
+            for (Availability a : disponibilidades) {
+                if (slotActual >= a.getStartSlot() && slotActual < a.getEndSlot()) {
+                    slotCubierto = true;
+                    break;
+                }
+            }
+
+            if (!slotCubierto) {
+                return ValidacionManual.FUERA_DE_DISPONIBILIDAD;
+            }
+        }
+
+        // Validar Choques
         for (int i = 0; i < spanFilasVisuales; i++) {
             if (occupationMap.profesorOcupadoEnSlot(grupo.getProfesor().getId(), slotSemanalBase + i) ||
                     occupationMap.rangoOcupadoEnSlot(grupo.getRangoInicial(), grupo.getRangoFinal(), slotSemanalBase + i)) {
                 return ValidacionManual.CHOQUE_MATERIAS;
             }
         }
+
+        // Validar Máximo 1 sesión por día
         for (AssignedSession s : horarioActual) {
             if (s.getGrupo().getIdGrupo().equals(grupo.getIdGrupo()) && s.getColumnaDia() == columnaDia) {
                 return ValidacionManual.MAX_UNO_POR_DIA;
             }
         }
+
         return ValidacionManual.OK;
     }
 }
