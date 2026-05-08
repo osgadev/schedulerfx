@@ -12,6 +12,7 @@ import com.osgadev.organizadorhorariosfx.service.ScheduleService;
 import com.osgadev.organizadorhorariosfx.service.OccupationMap;
 import com.osgadev.organizadorhorariosfx.dto.AssignedSession;
 import com.osgadev.organizadorhorariosfx.dto.GroupState;
+import com.osgadev.organizadorhorariosfx.util.SessionGlobal;
 import com.osgadev.organizadorhorariosfx.view.ScheduleGridManager;
 import com.osgadev.organizadorhorariosfx.view.ScheduleUIFactory;
 import javafx.application.Platform;
@@ -37,9 +38,6 @@ public class ScheduleController {
     @FXML private VBox fase1Vacia;
     @FXML private ScrollPane scrollCalendario;
 
-    @FXML private ComboBox<String> cmbAnio;
-    @FXML private ComboBox<String> cmbEtapa;
-    @FXML private Button btnCargar;
     @FXML private Button btnGenerar;
     @FXML private Button btnGuardarBD;
     @FXML private Button btnBorrarBD;
@@ -108,20 +106,6 @@ public class ScheduleController {
         );
         gridManager.setHorarioGenerado(this.horarioGenerado);
 
-        int currentYear = java.time.LocalDate.now().getYear();
-        cmbAnio.getItems().addAll(String.valueOf(currentYear - 1), String.valueOf(currentYear), String.valueOf(currentYear + 1));
-        cmbEtapa.getItems().addAll("1", "2");
-
-        cmbAnio.getSelectionModel().select(String.valueOf(currentYear));
-        cmbEtapa.getSelectionModel().select("1");
-
-        cmbAnio.getSelectionModel().selectedItemProperty().addListener((obs, oldVal, newVal) -> {
-            if (newVal != null && cmbEtapa.getValue() != null) cargarHorario();
-        });
-        cmbEtapa.getSelectionModel().selectedItemProperty().addListener((obs, oldVal, newVal) -> {
-            if (newVal != null && cmbAnio.getValue() != null) cargarHorario();
-        });
-
         cmbFiltroCurso.setDisable(true);
         cmbFiltroProfesor.setDisable(true);
         btnLimpiarFiltros.setDisable(true);
@@ -163,6 +147,7 @@ public class ScheduleController {
             });
         }
 
+        // Cargamos el horario usando SessionGlobal
         Platform.runLater(this::cargarHorario);
     }
 
@@ -210,8 +195,8 @@ public class ScheduleController {
         fileChooser.setTitle("Exportar Horarios de Profesores");
         fileChooser.getExtensionFilters().add(new javafx.stage.FileChooser.ExtensionFilter("Archivos Excel", "*.xlsx", "*.xls"));
 
-        String anio = cmbAnio.getValue();
-        String etapa = cmbEtapa.getValue();
+        String anio = SessionGlobal.getAnioActual();
+        String etapa = SessionGlobal.getEtapaActual();
         fileChooser.setInitialFileName("HorariosProfesores_" + anio + "_" + etapa + ".xlsx");
 
         File archivoDestino = fileChooser.showSaveDialog(gridCalendario.getScene().getWindow());
@@ -271,13 +256,16 @@ public class ScheduleController {
     // =====================================================================
     @FXML
     public void cargarHorario() {
-        String anio = cmbAnio.getValue();
-        String etapa = cmbEtapa.getValue();
+        String anio = SessionGlobal.getAnioActual();
+        String etapa = SessionGlobal.getEtapaActual();
 
         if (anio == null || etapa == null) {
-            mostrarAlerta("Atención", "Seleccione el año y la etapa.");
+            mostrarAlerta("Atención", "Error al obtener el año y la etapa de la sesión.");
             return;
         }
+
+        // Opcional: limpiar la caché de IA si se recarga el semestre
+        scheduleService.limpiarCache();
 
         List<Group> gruposDelSemestre = groupDAO.obtenerPorAnioYEtapa(anio, etapa);
         cargarGruposEnAlmacen(gruposDelSemestre);
@@ -319,8 +307,8 @@ public class ScheduleController {
 
     @FXML
     public void generarHorario() {
-        String anio = cmbAnio.getValue();
-        String etapa = cmbEtapa.getValue();
+        String anio = SessionGlobal.getAnioActual();
+        String etapa = SessionGlobal.getEtapaActual();
 
         btnGenerar.setText("Calculando IA...");
         btnGenerar.setDisable(true);
@@ -395,7 +383,7 @@ public class ScheduleController {
 
     @FXML
     public void guardarEnBD() {
-        boolean exito = scheduleDAO.saveSchedule(this.horarioGenerado, cmbAnio.getValue(), cmbEtapa.getValue());
+        boolean exito = scheduleDAO.saveSchedule(this.horarioGenerado, SessionGlobal.getAnioActual(), SessionGlobal.getEtapaActual());
         if (exito) {
             mostrarAlerta("Guardado", "El horario se ha guardado exitosamente.");
             btnGuardarBD.setDisable(true);
@@ -405,15 +393,15 @@ public class ScheduleController {
 
     @FXML
     public void borrarDeBD() {
-        if (scheduleDAO.deleteSchedule(cmbAnio.getValue(), cmbEtapa.getValue())) {
+        if (scheduleDAO.deleteSchedule(SessionGlobal.getAnioActual(), SessionGlobal.getEtapaActual())) {
             this.horarioGenerado.clear();
             cargarHorario();
         }
     }
 
     private void autoGuardar() {
-        String anio = cmbAnio.getValue();
-        String etapa = cmbEtapa.getValue();
+        String anio = SessionGlobal.getAnioActual();
+        String etapa = SessionGlobal.getEtapaActual();
         if (anio != null && etapa != null) {
             if (!horarioGenerado.isEmpty()) {
                 scheduleDAO.saveSchedule(this.horarioGenerado, anio, etapa);
