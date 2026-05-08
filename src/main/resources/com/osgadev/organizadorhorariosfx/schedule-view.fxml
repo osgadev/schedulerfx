@@ -9,6 +9,8 @@
 <?import javafx.scene.control.ListView?>
 <?import javafx.scene.control.ScrollPane?>
 <?import javafx.scene.control.Separator?>
+<?import javafx.scene.control.SplitPane?>
+<?import javafx.scene.control.Tooltip?>
 <?import javafx.scene.layout.BorderPane?>
 <?import javafx.scene.layout.GridPane?>
 <?import javafx.scene.layout.HBox?>
@@ -18,24 +20,27 @@
 
 <BorderPane prefHeight="700.0" prefWidth="1200.0" xmlns="http://javafx.com/javafx/25" xmlns:fx="http://javafx.com/fxml/1" fx:controller="com.osgadev.organizadorhorariosfx.controller.ScheduleController">
 
-    <!-- ZONA SUPERIOR: CONTEXTO Y ACCIONES PRINCIPALES -->
+    <!-- ZONA SUPERIOR: COMPACTA Y OPTIMIZADA -->
     <top>
-        <HBox alignment="CENTER_LEFT" prefHeight="60.0" spacing="15.0" BorderPane.alignment="CENTER">
+        <HBox alignment="CENTER_LEFT" prefHeight="50.0" spacing="10.0" BorderPane.alignment="CENTER">
             <styleClass>
                 <String fx:value="bg-subtle" />
                 <String fx:value="border-bottom" />
             </styleClass>
             <padding>
-                <Insets bottom="10.0" left="20.0" right="20.0" top="10.0" />
+                <Insets bottom="8.0" left="15.0" right="15.0" top="8.0" />
             </padding>
             <children>
-                <Label text="Gestión de Horarios">
+
+                <!-- BOTÓN TOGGLE IZQUIERDO -->
+                <Button mnemonicParsing="false" onAction="#togglePanelIzquierdo" text="☰">
                     <styleClass>
+                        <String fx:value="flat" />
                         <String fx:value="title-4" />
                     </styleClass>
-                </Label>
+                </Button>
 
-                <Separator orientation="VERTICAL" />
+                <!-- ELIMINAMOS EL TÍTULO GRANDE PARA AHORRAR ESPACIO -->
 
                 <Label fx:id="lblAnioActivo" text="Año: ---">
                     <styleClass>
@@ -48,206 +53,223 @@
                     </styleClass>
                 </Label>
 
+                <!-- Este Region empuja todo lo demás a la derecha -->
                 <Region HBox.hgrow="ALWAYS" />
 
-                <Label fx:id="lblEstadoIA" text="">
+                <!-- LIMITAMOS EL TAMAÑO DEL TEXTO DE LA IA PARA NO DESBORDAR -->
+                <Label fx:id="lblEstadoIA" maxWidth="180.0" text="" textOverrun="ELLIPSIS" wrapText="false">
                     <styleClass>
                         <String fx:value="text-bold" />
                         <String fx:value="accent" />
                     </styleClass>
                     <HBox.margin>
-                        <Insets right="10.0" />
+                        <Insets right="5.0" />
                     </HBox.margin>
                 </Label>
 
-                <Button fx:id="btnGenerar" mnemonicParsing="false" onAction="#generarHorario" text="Autocompletar (IA)">
+                <!-- BOTONES CON TEXTOS CORTOS -->
+                <Button fx:id="btnGenerar" mnemonicParsing="false" onAction="#generarHorario" text="✨ IA">
                     <styleClass>
                         <String fx:value="success" />
                     </styleClass>
+                    <tooltip><Tooltip text="Autocompletar usando Inteligencia Artificial" /></tooltip>
                 </Button>
 
-                <Button fx:id="btnExportarExcel" mnemonicParsing="false" onAction="#exportarAExcel" text="Exportar a Excel">
+                <Button fx:id="btnExportarExcel" mnemonicParsing="false" onAction="#exportarAExcel" text="📊 Excel">
                     <styleClass>
                         <String fx:value="success" />
                         <String fx:value="outlined" />
                     </styleClass>
+                    <tooltip><Tooltip text="Exportar horario a archivo Excel" /></tooltip>
                 </Button>
 
                 <Separator orientation="VERTICAL" />
 
-                <Button fx:id="btnGuardarBD" disable="true" mnemonicParsing="false" onAction="#guardarEnBD" text="💾 Guardar">
+                <!-- BOTONES REDUCIDOS A SOLO ÍCONOS -->
+                <Button fx:id="btnGuardarBD" disable="true" mnemonicParsing="false" onAction="#guardarEnBD" text="💾">
                     <styleClass>
                         <String fx:value="outlined" />
                     </styleClass>
+                    <tooltip><Tooltip text="Guardar horario en la Base de Datos" /></tooltip>
                 </Button>
 
-                <Button fx:id="btnBorrarBD" disable="true" mnemonicParsing="false" onAction="#borrarDeBD" text="🗑 Borrar">
+                <Button fx:id="btnBorrarBD" disable="true" mnemonicParsing="false" onAction="#borrarDeBD" text="🗑">
                     <styleClass>
                         <String fx:value="danger" />
                     </styleClass>
+                    <tooltip><Tooltip text="Borrar horario y limpiar tablero" /></tooltip>
                 </Button>
+
+                <Separator orientation="VERTICAL" />
+
+                <!-- BOTÓN TOGGLE DERECHO -->
+                <Button mnemonicParsing="false" onAction="#togglePanelDerecho" text="⚙">
+                    <styleClass>
+                        <String fx:value="flat" />
+                        <String fx:value="title-4" />
+                    </styleClass>
+                </Button>
+
             </children>
         </HBox>
     </top>
 
-    <!-- ZONA IZQUIERDA: ALMACÉN MANUAL -->
-    <left>
-        <!-- ANCHO MODIFICADO AQUÍ para evitar cortes (240px) -->
-        <ScrollPane fitToWidth="true" hbarPolicy="NEVER" minWidth="220.0" prefHeight="640.0" prefWidth="240.0" BorderPane.alignment="CENTER">
-            <content>
-                <VBox spacing="10.0">
-                    <styleClass>
-                        <String fx:value="bg-subtle" />
-                        <String fx:value="border-right" />
-                    </styleClass>
-                    <padding>
-                        <Insets bottom="15.0" left="15.0" right="15.0" top="15.0" />
-                    </padding>
-                    <children>
-                        <Label text="Anclaje Manual">
-                            <styleClass>
-                                <String fx:value="title-4" />
-                            </styleClass>
-                        </Label>
-                        <Label text="1. Seleccionar Profesor:">
-                            <styleClass><String fx:value="text-bold" /></styleClass>
-                        </Label>
-                        <ComboBox fx:id="cmbProfesorManual" maxWidth="1.7976931348623157E308" promptText="Elegir profesor..." />
-                        <Separator />
-                        <Label text="2. Grupos Pendientes:">
-                            <styleClass><String fx:value="text-bold" /></styleClass>
-                        </Label>
-                        <Label text="Selecciona la materia para generar los bloques." wrapText="true">
-                            <styleClass>
-                                <String fx:value="text-muted" />
-                                <String fx:value="text-small" />
-                            </styleClass>
-                        </Label>
-                        <ListView fx:id="listGruposPendientes" prefHeight="250.0" VBox.vgrow="ALWAYS">
-                            <styleClass><String fx:value="dense" /></styleClass>
-                        </ListView>
-                        <VBox spacing="8.0">
-                            <styleClass>
-                                <String fx:value="bg-default" />
-                                <String fx:value="elevated-1" />
-                            </styleClass>
-                            <padding>
-                                <Insets bottom="10.0" left="10.0" right="10.0" top="10.0" />
-                            </padding>
-                            <children>
-                                <Label text="3. Generador de Bloques">
-                                    <styleClass><String fx:value="text-bold" /></styleClass>
-                                </Label>
-                                <Label fx:id="lblMateriaSeleccionada" text="Selecciona una materia" wrapText="true">
-                                    <styleClass>
-                                        <String fx:value="text-bold" />
-                                        <String fx:value="accent" />
-                                    </styleClass>
-                                </Label>
-                                <Label fx:id="lblHorasRestantes" text="---">
-                                    <styleClass>
-                                        <String fx:value="text-bold" />
-                                        <String fx:value="warning" />
-                                    </styleClass>
-                                </Label>
-
-                                <!-- CAMBIADO DE HBOX A GRIDPANE -->
-                                <GridPane fx:id="cajaBloquesGeneradores" alignment="CENTER" hgap="10.0" vgap="10.0">
-                                    <VBox.margin><Insets top="5.0" /></VBox.margin>
-                                </GridPane>
-
-                            </children>
-                        </VBox>
-                    </children>
-                </VBox>
-            </content>
-        </ScrollPane>
-    </left>
-
-    <!-- ZONA CENTRAL: TABLERO -->
+    <!-- ZONA CENTRAL: SPLIT PANE CON 3 COLUMNAS ARRASTRABLES -->
     <center>
-        <StackPane BorderPane.alignment="CENTER">
-            <children>
-                <VBox fx:id="fase1Vacia" alignment="CENTER" spacing="10.0">
-                    <children>
-                        <Label text="Aún no se ha generado ningún horario para este ciclo.&#10;Puedes acomodar bloques manualmente desde el panel izquierdo,&#10;o presionar 'Autocompletar (IA)' para usar la Inteligencia Artificial." textAlignment="CENTER">
-                            <styleClass>
-                                <String fx:value="text-muted" />
-                                <String fx:value="title-5" />
-                            </styleClass>
-                        </Label>
-                    </children>
-                </VBox>
-                <ScrollPane fx:id="scrollCalendario" fitToHeight="true" fitToWidth="true">
-                    <styleClass><String fx:value="bg-default" /></styleClass>
-                    <content>
-                        <GridPane fx:id="gridCalendario" prefHeight="638.0" prefWidth="771.0">
-                            <styleClass><String fx:value="bg-default" /></styleClass>
-                            <padding>
-                                <Insets bottom="5.0" left="5.0" right="5.0" top="5.0" />
-                            </padding>
-                        </GridPane>
-                    </content>
-                </ScrollPane>
-            </children>
-        </StackPane>
+        <SplitPane fx:id="splitPaneMain" dividerPositions="0.22, 0.78" BorderPane.alignment="CENTER">
+
+            <!-- COLUMNA 1: ALMACÉN MANUAL -->
+            <ScrollPane fitToWidth="true" hbarPolicy="NEVER" minWidth="0.0" maxWidth="350.0" prefWidth="250.0">
+                <content>
+                    <VBox spacing="10.0">
+                        <styleClass>
+                            <String fx:value="bg-subtle" />
+                        </styleClass>
+                        <padding>
+                            <Insets bottom="15.0" left="15.0" right="15.0" top="15.0" />
+                        </padding>
+                        <children>
+                            <Label text="Anclaje Manual">
+                                <styleClass>
+                                    <String fx:value="title-4" />
+                                </styleClass>
+                            </Label>
+                            <Label text="1. Seleccionar Profesor:">
+                                <styleClass><String fx:value="text-bold" /></styleClass>
+                            </Label>
+                            <ComboBox fx:id="cmbProfesorManual" maxWidth="1.7976931348623157E308" promptText="Elegir profesor..." />
+                            <Separator />
+                            <Label text="2. Grupos Pendientes:">
+                                <styleClass><String fx:value="text-bold" /></styleClass>
+                            </Label>
+                            <Label text="Selecciona la materia para generar los bloques." wrapText="true">
+                                <styleClass>
+                                    <String fx:value="text-muted" />
+                                    <String fx:value="text-small" />
+                                </styleClass>
+                            </Label>
+                            <ListView fx:id="listGruposPendientes" prefHeight="250.0" VBox.vgrow="ALWAYS">
+                                <styleClass><String fx:value="dense" /></styleClass>
+                            </ListView>
+                            <VBox spacing="8.0">
+                                <styleClass>
+                                    <String fx:value="bg-default" />
+                                    <String fx:value="elevated-1" />
+                                </styleClass>
+                                <padding>
+                                    <Insets bottom="10.0" left="10.0" right="10.0" top="10.0" />
+                                </padding>
+                                <children>
+                                    <Label text="3. Generador de Bloques">
+                                        <styleClass><String fx:value="text-bold" /></styleClass>
+                                    </Label>
+                                    <Label fx:id="lblMateriaSeleccionada" text="Selecciona una materia" wrapText="true">
+                                        <styleClass>
+                                            <String fx:value="text-bold" />
+                                            <String fx:value="accent" />
+                                        </styleClass>
+                                    </Label>
+                                    <Label fx:id="lblHorasRestantes" text="---">
+                                        <styleClass>
+                                            <String fx:value="text-bold" />
+                                            <String fx:value="warning" />
+                                        </styleClass>
+                                    </Label>
+
+                                    <GridPane fx:id="cajaBloquesGeneradores" alignment="CENTER" hgap="10.0" vgap="10.0">
+                                        <VBox.margin><Insets top="5.0" /></VBox.margin>
+                                    </GridPane>
+
+                                </children>
+                            </VBox>
+                        </children>
+                    </VBox>
+                </content>
+            </ScrollPane>
+
+            <!-- COLUMNA 2: TABLERO CENTRAL -->
+            <StackPane minWidth="400.0">
+                <children>
+                    <VBox fx:id="fase1Vacia" alignment="CENTER" spacing="10.0">
+                        <children>
+                            <Label text="Aún no se ha generado ningún horario para este ciclo.&#10;Puedes acomodar bloques manualmente desde el panel izquierdo,&#10;o presionar '✨ IA' para usar la Inteligencia Artificial." textAlignment="CENTER">
+                                <styleClass>
+                                    <String fx:value="text-muted" />
+                                    <String fx:value="title-5" />
+                                </styleClass>
+                            </Label>
+                        </children>
+                    </VBox>
+                    <ScrollPane fx:id="scrollCalendario" fitToHeight="true" fitToWidth="true">
+                        <styleClass><String fx:value="bg-default" /></styleClass>
+                        <content>
+                            <GridPane fx:id="gridCalendario">
+                                <styleClass><String fx:value="bg-default" /></styleClass>
+                                <padding>
+                                    <Insets bottom="5.0" left="5.0" right="5.0" top="5.0" />
+                                </padding>
+                            </GridPane>
+                        </content>
+                    </ScrollPane>
+                </children>
+            </StackPane>
+
+            <!-- COLUMNA 3: FILTROS VISUALES -->
+            <ScrollPane fitToWidth="true" hbarPolicy="NEVER" minWidth="0.0" maxWidth="350.0" prefWidth="250.0">
+                <content>
+                    <VBox spacing="15.0">
+                        <styleClass>
+                            <String fx:value="bg-subtle" />
+                        </styleClass>
+                        <padding>
+                            <Insets bottom="15.0" left="15.0" right="15.0" top="15.0" />
+                        </padding>
+                        <children>
+
+                            <Label text="Filtros Visuales">
+                                <styleClass>
+                                    <String fx:value="title-4" />
+                                </styleClass>
+                            </Label>
+
+                            <Label text="Filtrar por Curso:" />
+                            <ComboBox fx:id="cmbFiltroCurso" maxWidth="1.7976931348623157E308" />
+
+                            <Label text="Filtrar por Profesor:" />
+                            <ComboBox fx:id="cmbFiltroProfesor" maxWidth="1.7976931348623157E308" />
+
+                            <Button fx:id="btnLimpiarFiltros" contentDisplay="CENTER" maxWidth="1.7976931348623157E308" mnemonicParsing="false" text="Limpiar Filtros">
+                                <styleClass>
+                                    <String fx:value="flat" />
+                                </styleClass>
+                            </Button>
+
+                            <Separator />
+
+                            <Label text="Mostrar en tarjetas:" />
+                            <CheckBox fx:id="chkRangoAlumnos" selected="true" text="Rango de students" wrapText="true">
+                                <styleClass><String fx:value="text-bold" /></styleClass>
+                            </CheckBox>
+                            <CheckBox fx:id="chkProfesor" selected="true" text="Profesor" />
+                            <CheckBox fx:id="chkIdGrupo" text="ID de Grupo" />
+                            <CheckBox fx:id="chkNombreCurso" selected="true" text="Nombre del Curso" wrapText="true" />
+
+                            <Separator />
+
+                            <Label text="Ayudas Visuales:" />
+                            <Button fx:id="btnToggleSugerencias" maxWidth="1.7976931348623157E308" mnemonicParsing="false" onAction="#toggleSugerencias" text="Ocultar Sugerencias">
+                                <styleClass>
+                                    <String fx:value="accent" />
+                                    <String fx:value="flat" />
+                                </styleClass>
+                            </Button>
+
+                        </children>
+                    </VBox>
+                </content>
+            </ScrollPane>
+
+        </SplitPane>
     </center>
 
-    <!-- ZONA DERECHA: ÚNICAMENTE FILTROS VISUALES -->
-    <right>
-        <ScrollPane fitToWidth="true" hbarPolicy="NEVER" minWidth="240.0" prefWidth="240.0" BorderPane.alignment="CENTER">
-            <content>
-                <VBox prefHeight="789.0" prefWidth="207.0" spacing="15.0">
-                    <styleClass>
-                        <String fx:value="bg-subtle" />
-                        <String fx:value="border-left" />
-                    </styleClass>
-                    <padding>
-                        <Insets bottom="15.0" left="15.0" right="15.0" top="15.0" />
-                    </padding>
-                    <children>
-
-                        <Label text="Filtros Visuales">
-                            <styleClass>
-                                <String fx:value="title-4" />
-                            </styleClass>
-                        </Label>
-
-                        <Label text="Filtrar por Curso:" />
-                        <ComboBox fx:id="cmbFiltroCurso" maxWidth="1.7976931348623157E308" />
-
-                        <Label text="Filtrar por Profesor:" />
-                        <ComboBox fx:id="cmbFiltroProfesor" maxWidth="1.7976931348623157E308" />
-
-                        <Button fx:id="btnLimpiarFiltros" contentDisplay="CENTER" maxWidth="1.7976931348623157E308" mnemonicParsing="false" prefHeight="25.0" text="Limpiar Filtros">
-                            <styleClass>
-                                <String fx:value="flat" />
-                            </styleClass>
-                        </Button>
-
-                        <Separator />
-
-                        <Label text="Mostrar en tarjetas:" />
-                        <CheckBox fx:id="chkRangoAlumnos" selected="true" text="Rango de students" wrapText="true">
-                            <styleClass><String fx:value="text-bold" /></styleClass>
-                        </CheckBox>
-                        <CheckBox fx:id="chkProfesor" selected="true" text="Profesor" />
-                        <CheckBox fx:id="chkIdGrupo" text="ID de Grupo" />
-                        <CheckBox fx:id="chkNombreCurso" selected="true" text="Nombre del Curso" wrapText="true" />
-
-                        <Separator />
-
-                        <Label text="Ayudas Visuales:" />
-                        <Button fx:id="btnToggleSugerencias" maxWidth="1.7976931348623157E308" mnemonicParsing="false" onAction="#toggleSugerencias" text="Ocultar Sugerencias">
-                            <styleClass>
-                                <String fx:value="accent" />
-                                <String fx:value="flat" />
-                            </styleClass>
-                        </Button>
-
-                    </children>
-                </VBox>
-            </content>
-        </ScrollPane>
-    </right>
 </BorderPane>

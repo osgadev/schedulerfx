@@ -34,6 +34,7 @@ public class ScheduleController {
     // =====================================================================
     // CONTROLES FXML
     // =====================================================================
+    @FXML private SplitPane splitPaneMain;
     @FXML private GridPane gridCalendario;
     @FXML private VBox fase1Vacia;
     @FXML private ScrollPane scrollCalendario;
@@ -62,7 +63,6 @@ public class ScheduleController {
     @FXML private Label lblMateriaSeleccionada;
     @FXML private Label lblHorasRestantes;
 
-    // CAMBIO: Ahora es un GridPane para la matriz 2x2
     @FXML private GridPane cajaBloquesGeneradores;
 
     // =====================================================================
@@ -150,6 +150,35 @@ public class ScheduleController {
         }
 
         Platform.runLater(this::cargarHorario);
+    }
+
+    // =====================================================================
+    // CONTROLES DE PANELES LATERALES
+    // =====================================================================
+    @FXML
+    public void togglePanelIzquierdo() {
+        if (splitPaneMain == null) return;
+        double[] posiciones = splitPaneMain.getDividerPositions();
+        if (posiciones.length > 0) {
+            if (posiciones[0] < 0.05) {
+                splitPaneMain.setDividerPosition(0, 0.22);
+            } else {
+                splitPaneMain.setDividerPosition(0, 0.0);
+            }
+        }
+    }
+
+    @FXML
+    public void togglePanelDerecho() {
+        if (splitPaneMain == null) return;
+        double[] posiciones = splitPaneMain.getDividerPositions();
+        if (posiciones.length > 1) {
+            if (posiciones[1] > 0.95) {
+                splitPaneMain.setDividerPosition(1, 0.78);
+            } else {
+                splitPaneMain.setDividerPosition(1, 1.0);
+            }
+        }
     }
 
     // =====================================================================
@@ -285,7 +314,8 @@ public class ScheduleController {
         String anio = SessionGlobal.getAnioActual();
         String etapa = SessionGlobal.getEtapaActual();
 
-        btnGenerar.setText("Calculando IA...");
+        // CAMBIO: Texto corto
+        btnGenerar.setText("⏳ Calc...");
         btnGenerar.setDisable(true);
         btnBorrarBD.setDisable(true);
 
@@ -379,7 +409,8 @@ public class ScheduleController {
     }
 
     private void restaurarBotonesIA() {
-        btnGenerar.setText("Autocompletar (IA)");
+        // CAMBIO: Texto corto
+        btnGenerar.setText("✨ IA");
     }
 
     // =====================================================================
@@ -460,8 +491,6 @@ public class ScheduleController {
     }
 
     private void actualizarFabricaDeBloques() {
-        // CAMBIO: Al forzar la reasignación de CellFactory, garantizamos que
-        // la lista oculta del ComboBox también refresque sus celdas.
         if (cmbProfesorManual != null) {
             cmbProfesorManual.setCellFactory(lv -> crearCeldaProfesor());
             cmbProfesorManual.setButtonCell(crearCeldaProfesor());
@@ -508,7 +537,6 @@ public class ScheduleController {
                 });
             }
 
-            // CAMBIO: Añadimos al GridPane especificando columna y fila (Matriz 2x2)
             int columna = i % 2;
             int fila = i / 2;
             cajaBloquesGeneradores.add(bloqueVisual, columna, fila);

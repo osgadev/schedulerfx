@@ -27,10 +27,13 @@ public class ScheduleUIFactory {
         gridCalendario.getColumnConstraints().add(colHora);
 
         String[] nombresDias = {"Lunes", "Martes", "Miércoles", "Jueves", "Viernes", "Sábado", "Domingo"};
+
         for (int i = 0; i < 7; i++) {
             ColumnConstraints colDia = new ColumnConstraints();
+            colDia.prefWidthProperty().bind(gridCalendario.widthProperty().subtract(60).divide(7));
+            colDia.setMinWidth(80);
+            colDia.setMaxWidth(Double.MAX_VALUE);
             colDia.setHgrow(Priority.ALWAYS);
-            colDia.setMinWidth(180);
             colDia.setFillWidth(true);
             gridCalendario.getColumnConstraints().add(colDia);
         }
@@ -41,15 +44,16 @@ public class ScheduleUIFactory {
         gridCalendario.getRowConstraints().add(rowCabecera);
 
         Label lblTituloHora = new Label("Hora");
-        lblTituloHora.setStyle("-fx-font-weight: bold; -fx-padding: 5; -fx-text-fill: #70757a;"); // Estilo sutil GCal
+        lblTituloHora.setStyle("-fx-font-weight: bold; -fx-padding: 5; -fx-text-fill: #70757a;");
         gridCalendario.add(lblTituloHora, 0, 0);
 
         for (int i = 0; i < nombresDias.length; i++) {
             HBox headerBox = new HBox(5);
             headerBox.setAlignment(Pos.CENTER);
+            headerBox.setMaxWidth(Double.MAX_VALUE);
 
             Label lblDia = new Label(nombresDias[i]);
-            lblDia.setStyle("-fx-font-weight: bold; -fx-text-fill: #70757a;"); // Estilo sutil GCal
+            lblDia.setStyle("-fx-font-weight: bold; -fx-text-fill: #70757a;");
 
             Button btnExpandir = new Button("↔");
             btnExpandir.setStyle("-fx-background-color: transparent; -fx-cursor: hand; -fx-font-size: 10px; -fx-padding: 2;");
@@ -67,9 +71,10 @@ public class ScheduleUIFactory {
             gridCalendario.getRowConstraints().add(rc);
         }
 
-        // Líneas tenues (Estructura)
         for (int col = 1; col <= 7; col++) {
             Pane sepCol = new Pane();
+            sepCol.setMaxWidth(Double.MAX_VALUE);
+            GridPane.setHgrow(sepCol, Priority.ALWAYS);
             sepCol.setStyle("-fx-border-color: #dadce0; -fx-border-width: 0 0 0 1;");
             sepCol.setMouseTransparent(true);
             gridCalendario.add(sepCol, col, 1, 1, numFilasTiempo);
@@ -78,6 +83,8 @@ public class ScheduleUIFactory {
         int filaActual = 1;
         for (int hora = horaInicio; hora < horaFin; hora++) {
             Pane sepRow = new Pane();
+            sepRow.setMaxWidth(Double.MAX_VALUE);
+            GridPane.setHgrow(sepRow, Priority.ALWAYS);
             sepRow.setStyle("-fx-border-color: #dadce0; -fx-border-width: 1 0 0 0;");
             sepRow.setMouseTransparent(true);
             gridCalendario.add(sepRow, 0, filaActual, 8, 1);
@@ -90,7 +97,7 @@ public class ScheduleUIFactory {
         }
     }
 
-    // 2. BLOQUES DE ALMACÉN MANUAL (Panel Izquierdo)
+    // 2. BLOQUES DE ALMACÉN MANUAL
     public static StackPane crearBloqueGeneradorVisual(double horas, String hexColor) {
         StackPane panel = new StackPane();
 
@@ -100,14 +107,11 @@ public class ScheduleUIFactory {
 
         Color baseColor = parseColorSafely(hexColor, "#4A90E2");
 
-        // Si el usuario eligió un color extremadamente blanco, lo forzamos a un gris muy sutil
-        // para que se dibuje correctamente contra el fondo del panel.
         if (isTooWhite(baseColor)) {
             baseColor = Color.web("#E8EAED");
         }
 
         fondo.setFill(baseColor);
-        // Borde plano, 20% más oscuro
         fondo.setStroke(baseColor.deriveColor(0, 1.0, 0.8, 1.0));
         fondo.setStrokeWidth(1.0);
 
@@ -118,7 +122,7 @@ public class ScheduleUIFactory {
 
         panel.getChildren().addAll(fondo, texto);
 
-        Color colorHover = baseColor.deriveColor(0, 1.0, 0.9, 1.0); // Hover sutil oscureciendo 10%
+        Color colorHover = baseColor.deriveColor(0, 1.0, 0.9, 1.0);
         Color finalColorBase = baseColor;
         panel.setOnMouseEntered(e -> fondo.setFill(colorHover));
         panel.setOnMouseExited(e -> fondo.setFill(finalColorBase));
@@ -131,34 +135,38 @@ public class ScheduleUIFactory {
     public static VBox crearContenedorFantasma() {
         VBox fantasma = new VBox();
         fantasma.setMouseTransparent(true);
+
+        // LIMPIEZA: Eliminado el setPrefWidth(9999)
+        fantasma.setMaxWidth(Double.MAX_VALUE);
+        GridPane.setHgrow(fantasma, Priority.ALWAYS);
+        GridPane.setFillWidth(fantasma, true);
+
         return fantasma;
     }
 
-    // 4. TARJETAS DE SESIÓN EN CALENDARIO (ESTILO GOOGLE CALENDAR PURO)
+    // 4. TARJETAS DE SESIÓN EN CALENDARIO
     public static VBox crearTarjetaSesionVisual(Group g, String hexColor, String textoHora,
                                                 boolean showCurso, boolean showProfesor,
                                                 boolean showAlumnos, boolean showId) {
 
-        Color baseColor = parseColorSafely(hexColor, "#4285F4"); // Azul Google por defecto
+        Color baseColor = parseColorSafely(hexColor, "#4285F4");
 
-        // Si es blanco puro, lo oscurecemos a gris claro (Google no usa bloques blancos vacíos)
         if (isTooWhite(baseColor)) {
             baseColor = Color.web("#E8EAED");
         }
 
-        // Calcular el borde (20% más oscuro que el fondo)
         Color borderColor = baseColor.deriveColor(0, 1.0, 0.8, 1.0);
         String borderHex = toHexString(borderColor);
         String backgroundHex = toHexString(baseColor);
 
         VBox caja = new VBox();
 
-        // ESTILO FLAT (Google):
-        // - Fondo del color (sin transparencias)
-        // - Borde redondeado sutil
-        // - Borde fino del mismo color oscurecido
-        // - Sin sombra
-        // - Un pequeño margen para no tocar las líneas del grid
+        // LIMPIEZA: Eliminado el setPrefWidth(9999) y el Listener al parentProperty
+        caja.setMaxWidth(Double.MAX_VALUE);
+        caja.setMaxHeight(Double.MAX_VALUE);
+        GridPane.setHgrow(caja, Priority.ALWAYS);
+        GridPane.setFillWidth(caja, true);
+
         caja.setStyle(
                 "-fx-background-color: " + backgroundHex + ";" +
                         "-fx-border-color: " + borderHex + ";" +
@@ -168,14 +176,11 @@ public class ScheduleUIFactory {
                         "-fx-padding: 4 4 4 6;"
         );
 
-        // Aplicamos margen manualmente (1px en todos los bordes, excepto izquierda que ya tiene el grid)
         GridPane.setMargin(caja, new javafx.geometry.Insets(1, 1, 1, 1));
 
-        // TEXTO: Blanco o Negro Absoluto (Alto Contraste Estricto)
         String textoColor = obtenerColorTextoContraste(baseColor);
-        // Si el texto es blanco, lo dejamos blanco puro. Si es oscuro, usamos un gris muy oscuro (casi negro)
         String mainText = textoColor.equals("#FFFFFF") ? "#FFFFFF" : "#202124";
-        String subText = textoColor.equals("#FFFFFF") ? "#FFFFFF" : "#5f6368"; // Para los sub-textos en fondos claros
+        String subText = textoColor.equals("#FFFFFF") ? "#FFFFFF" : "#5f6368";
 
         Label lblHoraVista = new Label(textoHora);
         lblHoraVista.setStyle("-fx-font-weight: bold; -fx-font-size: 10px; -fx-text-fill: " + mainText + ";");
@@ -216,7 +221,6 @@ public class ScheduleUIFactory {
     }
 
     // --- MÉTODOS DE UTILIDAD PARA COLORES ---
-
     private static Color parseColorSafely(String hex, String defaultHex) {
         try {
             return Color.web(hex != null && !hex.isEmpty() ? hex : defaultHex);
@@ -237,9 +241,7 @@ public class ScheduleUIFactory {
     }
 
     private static String obtenerColorTextoContraste(Color color) {
-        // Fórmula de luminancia del W3C
         double luminance = (0.299 * color.getRed() + 0.587 * color.getGreen() + 0.114 * color.getBlue());
-        // Si el fondo es claro, el texto es negro. Si es oscuro, es blanco.
         return luminance > 0.5 ? "#000000" : "#FFFFFF";
     }
 
@@ -247,6 +249,7 @@ public class ScheduleUIFactory {
     public static void aplicarEfectoCristal(Pane celda) {
         String estiloCristal = "-fx-background-color: rgba(76, 175, 80, 0.25); -fx-border-color: rgba(255, 255, 255, 0.5);";
         celda.setStyle(estiloCristal);
+        // Mantenemos la lógica de Properties para no requerir refactorización externa
         celda.getProperties().put("estiloOriginal", estiloCristal);
         celda.getProperties().put("esValido", true);
     }
@@ -256,6 +259,11 @@ public class ScheduleUIFactory {
         VBox sugerencia = new VBox();
         sugerencia.setMouseTransparent(true);
         sugerencia.getProperties().put("esSugerencia", true);
+
+        // LIMPIEZA: Eliminado el setPrefWidth(9999)
+        sugerencia.setMaxWidth(Double.MAX_VALUE);
+        GridPane.setHgrow(sugerencia, Priority.ALWAYS);
+        GridPane.setFillWidth(sugerencia, true);
 
         sugerencia.setStyle(
                 "-fx-background-color: rgba(211, 47, 47, 0.15);" +
@@ -286,13 +294,11 @@ public class ScheduleUIFactory {
 
     // 7. EFECTO SUGERENCIA LIBRE
     public static void aplicarEfectoSugerenciaLibre(Pane celda) {
-        String estiloActual = celda.getStyle();
-        if (estiloActual != null && !estiloActual.contains("dashed")) {
-            celda.setStyle(estiloActual.replace(
-                    "-fx-border-color: rgba(255, 255, 255, 0.5);",
-                    "-fx-border-color: rgba(211, 47, 47, 0.8); -fx-border-style: dashed; -fx-border-width: 1;"
-            ));
+        // LIMPIEZA: Reemplazado el frágil "String.replace" por una asignación directa de estilo
+        celda.setStyle("-fx-background-color: rgba(76, 175, 80, 0.25); -fx-border-color: rgba(211, 47, 47, 0.8); -fx-border-style: dashed; -fx-border-width: 1;");
 
+        // LIMPIEZA: Verificación para prevenir fugas de memoria (apilar animaciones infinitas)
+        if (!celda.getProperties().containsKey("animacionSug")) {
             FadeTransition ftCelda = new FadeTransition(Duration.millis(800), celda);
             ftCelda.setFromValue(0.4);
             ftCelda.setToValue(1.0);

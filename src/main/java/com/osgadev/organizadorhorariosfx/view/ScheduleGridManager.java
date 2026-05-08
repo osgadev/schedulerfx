@@ -10,13 +10,13 @@ import com.osgadev.organizadorhorariosfx.service.ManualAssignmentManager;
 import com.osgadev.organizadorhorariosfx.service.OccupationMap;
 import com.osgadev.organizadorhorariosfx.service.ScheduleService;
 import javafx.application.Platform;
+import javafx.beans.binding.NumberBinding;
 import javafx.scene.control.ContextMenu;
 import javafx.scene.control.Label;
 import javafx.scene.control.MenuItem;
 import javafx.scene.input.ClipboardContent;
 import javafx.scene.input.Dragboard;
 import javafx.scene.input.TransferMode;
-import javafx.scene.layout.ColumnConstraints;
 import javafx.scene.layout.GridPane;
 import javafx.scene.layout.Pane;
 import javafx.scene.layout.VBox;
@@ -98,8 +98,13 @@ public class ScheduleGridManager {
                             fantasmaDrag.setVisible(true);
                             fantasmaDrag.getChildren().clear();
 
-                            ColumnConstraints colObj = gridCalendario.getColumnConstraints().get(colActual);
-                            fantasmaDrag.setMinWidth(colObj.getMinWidth() - 4);
+                            // 1. CORRECCIÓN: Tamaño dinámico para el fantasma (Drag Over)
+                            fantasmaDrag.minWidthProperty().unbind();
+                            fantasmaDrag.maxWidthProperty().unbind();
+                            NumberBinding anchoColFantasma = gridCalendario.widthProperty().subtract(60).divide(7);
+                            fantasmaDrag.minWidthProperty().bind(anchoColFantasma.subtract(4));
+                            fantasmaDrag.maxWidthProperty().bind(anchoColFantasma.subtract(4));
+
                             fantasmaDrag.setMinHeight(spanFilasVisuales * 40);
 
                             int fInicio = filaActualDrop - 1;
@@ -205,15 +210,22 @@ public class ScheduleGridManager {
 
             VBox caja = ScheduleUIFactory.crearTarjetaSesionVisual(g, hex, textoHora, showCurso, showProf, showAlumnos, showId);
 
-            // Layout (solapamientos)
+            // 2. CORRECCIÓN: Layout (solapamientos) con Bindings dinámicos
             ScheduleLayoutHelper.PosicionVisual pos = layout.get(s);
             if(pos != null) {
-                ColumnConstraints colObj = gridCalendario.getColumnConstraints().get(s.getColumnaDia());
-                double anchoTotal = colObj.getMinWidth();
-                double anchoCarta = anchoTotal / pos.totalColumnas;
-                caja.setMinWidth(anchoCarta - 2);
-                caja.setMaxWidth(anchoCarta - 2);
-                caja.setTranslateX(pos.indiceColumna * anchoCarta);
+                // Liberar propiedades previas (buenas prácticas)
+                caja.minWidthProperty().unbind();
+                caja.maxWidthProperty().unbind();
+                caja.translateXProperty().unbind();
+
+                // Fórmula: Ancho disponible de la columna = (AnchoGrid - AnchoColHoras(60)) / 7 días
+                NumberBinding anchoColumnaDinamico = gridCalendario.widthProperty().subtract(60).divide(7);
+                NumberBinding anchoCartaDinamico = anchoColumnaDinamico.divide(pos.totalColumnas);
+
+                // Asignar los bindings en vivo
+                caja.minWidthProperty().bind(anchoCartaDinamico.subtract(2));
+                caja.maxWidthProperty().bind(anchoCartaDinamico.subtract(2));
+                caja.translateXProperty().bind(anchoCartaDinamico.multiply(pos.indiceColumna));
             }
 
             // Click derecho: Eliminar
@@ -229,7 +241,7 @@ public class ScheduleGridManager {
             menu.getItems().add(itemEliminar);
             caja.setOnContextMenuRequested(e -> menu.show(caja, e.getScreenX(), e.getScreenY()));
 
-            // Arrastrar tarjeta para moverla (AQUÍ SE APLICÓ LA CORRECCIÓN)
+            // Arrastrar tarjeta para moverla
             caja.setOnDragDetected(event -> {
                 Dragboard db = caja.startDragAndDrop(TransferMode.MOVE);
                 ClipboardContent clipboardContent = new ClipboardContent();
