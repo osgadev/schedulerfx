@@ -38,15 +38,15 @@ public class ScheduleController {
     @FXML private VBox fase1Vacia;
     @FXML private ScrollPane scrollCalendario;
 
+    @FXML private Label lblAnioActivo;
+    @FXML private Label lblEtapaActiva;
+    @FXML private Label lblEstadoIA;
+
     @FXML private Button btnGenerar;
     @FXML private Button btnGuardarBD;
     @FXML private Button btnBorrarBD;
-
     @FXML private Button btnExportarExcel;
-    @FXML private Button btnPausar;
-    @FXML private Button btnSiguientePaso;
     @FXML private Button btnToggleSugerencias;
-    @FXML private Label lblEstadoIA;
 
     @FXML private ComboBox<String> cmbFiltroCurso;
     @FXML private ComboBox<String> cmbFiltroProfesor;
@@ -81,9 +81,6 @@ public class ScheduleController {
     private final double[] TAMANOS_BLOQUES = {1.0, 1.5, 2.0, 2.5};
     private boolean mostrarSugerencias = true;
 
-    private final Object pauseLock = new Object();
-    private volatile boolean isPaused = false;
-
     // =====================================================================
     // INICIALIZACIÓN
     // =====================================================================
@@ -105,6 +102,10 @@ public class ScheduleController {
                 this::onGrupoExtraidoParaMover
         );
         gridManager.setHorarioGenerado(this.horarioGenerado);
+
+        // Alimentar Labels Superiores
+        lblAnioActivo.setText("Año: " + SessionGlobal.getAnioActual());
+        lblEtapaActiva.setText("Etapa: " + SessionGlobal.getEtapaActual());
 
         cmbFiltroCurso.setDisable(true);
         cmbFiltroProfesor.setDisable(true);
@@ -147,7 +148,6 @@ public class ScheduleController {
             });
         }
 
-        // Cargamos el horario usando SessionGlobal
         Platform.runLater(this::cargarHorario);
     }
 
@@ -181,7 +181,7 @@ public class ScheduleController {
     }
 
     // =====================================================================
-    // EVENTOS UI (BOTONES Y DEBUG IA)
+    // EVENTOS UI Y ACCIONES PRINCIPALES
     // =====================================================================
 
     @FXML
@@ -215,30 +215,6 @@ public class ScheduleController {
     }
 
     @FXML
-    public void togglePausaIA() {
-        isPaused = !isPaused;
-        if (isPaused) {
-            btnPausar.setText("Reanudar IA");
-            btnPausar.setStyle("-fx-base: #4CAF50; -fx-text-fill: white; -fx-font-weight: bold;");
-            btnSiguientePaso.setDisable(false);
-        } else {
-            btnPausar.setText("Pausar IA");
-            btnPausar.setStyle("-fx-base: #FF9800; -fx-text-fill: white; -fx-font-weight: bold;");
-            btnSiguientePaso.setDisable(true);
-            synchronized (pauseLock) {
-                pauseLock.notify();
-            }
-        }
-    }
-
-    @FXML
-    public void siguientePasoIA() {
-        synchronized (pauseLock) {
-            pauseLock.notify();
-        }
-    }
-
-    @FXML
     public void toggleSugerencias() {
         mostrarSugerencias = !mostrarSugerencias;
         if (mostrarSugerencias) {
@@ -254,7 +230,6 @@ public class ScheduleController {
     // =====================================================================
     // FLUJO DE BASE DE DATOS Y MOTOR IA
     // =====================================================================
-    @FXML
     public void cargarHorario() {
         String anio = SessionGlobal.getAnioActual();
         String etapa = SessionGlobal.getEtapaActual();
@@ -264,7 +239,6 @@ public class ScheduleController {
             return;
         }
 
-        // Opcional: limpiar la caché de IA si se recarga el semestre
         scheduleService.limpiarCache();
 
         List<Group> gruposDelSemestre = groupDAO.obtenerPorAnioYEtapa(anio, etapa);
@@ -313,7 +287,6 @@ public class ScheduleController {
         btnGenerar.setText("Calculando IA...");
         btnGenerar.setDisable(true);
         btnBorrarBD.setDisable(true);
-        if (btnPausar != null) btnPausar.setDisable(false);
 
         fase1Vacia.setVisible(false);
         scrollCalendario.setVisible(true);
@@ -323,20 +296,13 @@ public class ScheduleController {
             protected List<AssignedSession> call() {
                 List<Group> grupos = groupDAO.obtenerPorAnioYEtapa(anio, etapa);
 
+                // La IA ahora corre ininterrumpidamente a máxima velocidad
                 return scheduleService.generarHorario(grupos, (estadoParcial, mensajeIA) -> {
                     Platform.runLater(() -> {
                         actualizarMensajeIA(mensajeIA);
                         gridManager.construirTablaBase();
                         gridManager.pintarBloques(estadoParcial, true, false, false, false);
                     });
-
-                    synchronized (pauseLock) {
-                        if (isPaused) {
-                            try { pauseLock.wait(); } catch (InterruptedException e) {}
-                        } else {
-                            try { Thread.sleep(300); } catch (InterruptedException e) {}
-                        }
-                    }
                 });
             }
         };
@@ -396,6 +362,7 @@ public class ScheduleController {
         if (scheduleDAO.deleteSchedule(SessionGlobal.getAnioActual(), SessionGlobal.getEtapaActual())) {
             this.horarioGenerado.clear();
             cargarHorario();
+            lblEstadoIA.setText("");
         }
     }
 
@@ -413,11 +380,6 @@ public class ScheduleController {
 
     private void restaurarBotonesIA() {
         btnGenerar.setText("Autocompletar (IA)");
-        btnPausar.setDisable(true);
-        btnSiguientePaso.setDisable(true);
-        isPaused = false;
-        btnPausar.setText("Pausar IA");
-        btnPausar.setStyle("-fx-base: #FF9800; -fx-text-fill: white; -fx-font-weight: bold;");
     }
 
     // =====================================================================
