@@ -229,29 +229,33 @@ public class ScheduleGridManager {
             menu.getItems().add(itemEliminar);
             caja.setOnContextMenuRequested(e -> menu.show(caja, e.getScreenX(), e.getScreenY()));
 
-            // Arrastrar tarjeta para moverla
+            // Arrastrar tarjeta para moverla (AQUÍ SE APLICÓ LA CORRECCIÓN)
             caja.setOnDragDetected(event -> {
                 Dragboard db = caja.startDragAndDrop(TransferMode.MOVE);
                 ClipboardContent clipboardContent = new ClipboardContent();
                 double horas = s.getSpanFilas() / 2.0;
                 clipboardContent.putString(String.valueOf(horas));
                 db.setContent(clipboardContent);
-                event.consume();
 
+                // ACTUALIZACIÓN SÍNCRONA DEL ESTADO DE LOS DATOS
+                GroupState eg = assignmentManager.buscarEstadoPorId(s.getGrupo().getIdGrupo());
+                horarioGenerado.remove(s);
+                int duracionBloques = s.getSpanFilas();
+                occupationMap.eliminarClase(s.getSlotInicioSemanal(), duracionBloques, s.getGrupo());
+
+                if (eg != null) {
+                    eg.reembolsarHoras(horas);
+                    assignmentManager.setGrupoSeleccionado(eg);
+                    onGrupoExtraidoDelGrid.accept(eg); // Avisa al controlador para actualizar Comboboxes
+                }
+
+                // OCULTACIÓN DE UI DIFERIDA PARA EVITAR QUE SE CANCELE EL DRAG EVENT
                 Platform.runLater(() -> {
-                    GroupState eg = assignmentManager.buscarEstadoPorId(s.getGrupo().getIdGrupo());
-                    horarioGenerado.remove(s);
-                    int duracionBloques = s.getSpanFilas();
-                    occupationMap.eliminarClase(s.getSlotInicioSemanal(), duracionBloques, s.getGrupo());
-
-                    if (eg != null) {
-                        eg.reembolsarHoras(horas);
-                        assignmentManager.setGrupoSeleccionado(eg);
-                        onGrupoExtraidoDelGrid.accept(eg); // Avisa al controlador para actualizar Comboboxes
-                    }
                     caja.setVisible(false);
                     aplicarModoFantasmaATarjetas(true);
                 });
+
+                event.consume();
             });
 
             caja.setOnDragDone(event -> {

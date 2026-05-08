@@ -1,5 +1,5 @@
 package com.osgadev.organizadorhorariosfx.controller;
-// ss
+
 import com.osgadev.organizadorhorariosfx.dao.AvailabilityDAO;
 import com.osgadev.organizadorhorariosfx.dao.GroupDAO;
 import com.osgadev.organizadorhorariosfx.dao.ScheduleDAO;
@@ -630,11 +630,11 @@ public class ScheduleController {
                     chkRangoAlumnos != null && chkRangoAlumnos.isSelected(),
                     chkIdGrupo != null && chkIdGrupo.isSelected()
             );
+        }
 
-            if (cmbProfesorManual != null && cmbProfesorManual.getValue() != null) {
-                gridManager.iluminarDisponibilidadProfesor(cmbProfesorManual.getValue());
-                gridManager.pintarSugerencias(cmbProfesorManual.getValue(), mostrarSugerencias);
-            }
+        if (cmbProfesorManual != null && cmbProfesorManual.getValue() != null) {
+            gridManager.iluminarDisponibilidadProfesor(cmbProfesorManual.getValue());
+            gridManager.pintarSugerencias(cmbProfesorManual.getValue(), mostrarSugerencias);
         }
     }
 
