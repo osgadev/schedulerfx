@@ -61,7 +61,9 @@ public class ScheduleController {
     @FXML private ListView<GroupState> listGruposPendientes;
     @FXML private Label lblMateriaSeleccionada;
     @FXML private Label lblHorasRestantes;
-    @FXML private HBox cajaBloquesGeneradores;
+
+    // CAMBIO: Ahora es un GridPane para la matriz 2x2
+    @FXML private GridPane cajaBloquesGeneradores;
 
     // =====================================================================
     // VARIABLES DE ESTADO Y SERVICIOS
@@ -103,7 +105,6 @@ public class ScheduleController {
         );
         gridManager.setHorarioGenerado(this.horarioGenerado);
 
-        // Alimentar Labels Superiores
         lblAnioActivo.setText("Año: " + SessionGlobal.getAnioActual());
         lblEtapaActiva.setText("Etapa: " + SessionGlobal.getEtapaActual());
 
@@ -296,7 +297,6 @@ public class ScheduleController {
             protected List<AssignedSession> call() {
                 List<Group> grupos = groupDAO.obtenerPorAnioYEtapa(anio, etapa);
 
-                // La IA ahora corre ininterrumpidamente a máxima velocidad
                 return scheduleService.generarHorario(grupos, (estadoParcial, mensajeIA) -> {
                     Platform.runLater(() -> {
                         actualizarMensajeIA(mensajeIA);
@@ -460,7 +460,12 @@ public class ScheduleController {
     }
 
     private void actualizarFabricaDeBloques() {
-        if (cmbProfesorManual != null) cmbProfesorManual.setButtonCell(crearCeldaProfesor());
+        // CAMBIO: Al forzar la reasignación de CellFactory, garantizamos que
+        // la lista oculta del ComboBox también refresque sus celdas.
+        if (cmbProfesorManual != null) {
+            cmbProfesorManual.setCellFactory(lv -> crearCeldaProfesor());
+            cmbProfesorManual.setButtonCell(crearCeldaProfesor());
+        }
         if (listGruposPendientes != null) listGruposPendientes.refresh();
 
         if (cajaBloquesGeneradores == null) return;
@@ -474,6 +479,7 @@ public class ScheduleController {
 
         String hexColor = grupoSeleccionado.getGrupo().getCurso().getColorHex();
 
+        int i = 0;
         for (double tamano : TAMANOS_BLOQUES) {
             StackPane bloqueVisual = ScheduleUIFactory.crearBloqueGeneradorVisual(tamano, hexColor);
 
@@ -501,7 +507,12 @@ public class ScheduleController {
                     event.consume();
                 });
             }
-            cajaBloquesGeneradores.getChildren().add(bloqueVisual);
+
+            // CAMBIO: Añadimos al GridPane especificando columna y fila (Matriz 2x2)
+            int columna = i % 2;
+            int fila = i / 2;
+            cajaBloquesGeneradores.add(bloqueVisual, columna, fila);
+            i++;
         }
     }
 

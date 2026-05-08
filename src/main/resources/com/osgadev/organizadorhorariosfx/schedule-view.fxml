@@ -37,7 +37,6 @@
 
                 <Separator orientation="VERTICAL" />
 
-                <!-- Etiquetas alimentadas por SessionGlobal -->
                 <Label fx:id="lblAnioActivo" text="Año: ---">
                     <styleClass>
                         <String fx:value="text-bold" />
@@ -49,7 +48,6 @@
                     </styleClass>
                 </Label>
 
-                <!-- Empuja los siguientes botones hacia la derecha -->
                 <Region HBox.hgrow="ALWAYS" />
 
                 <Label fx:id="lblEstadoIA" text="">
@@ -62,7 +60,6 @@
                     </HBox.margin>
                 </Label>
 
-                <!-- BOTONES DE ACCIÓN (Movidos desde la derecha) -->
                 <Button fx:id="btnGenerar" mnemonicParsing="false" onAction="#generarHorario" text="Autocompletar (IA)">
                     <styleClass>
                         <String fx:value="success" />
@@ -95,7 +92,8 @@
 
     <!-- ZONA IZQUIERDA: ALMACÉN MANUAL -->
     <left>
-        <ScrollPane fitToWidth="true" hbarPolicy="NEVER" minWidth="190.0" prefHeight="640.0" prefWidth="205.0" BorderPane.alignment="CENTER">
+        <!-- ANCHO MODIFICADO AQUÍ para evitar cortes (240px) -->
+        <ScrollPane fitToWidth="true" hbarPolicy="NEVER" minWidth="220.0" prefHeight="640.0" prefWidth="240.0" BorderPane.alignment="CENTER">
             <content>
                 <VBox spacing="10.0">
                     <styleClass>
@@ -152,9 +150,12 @@
                                         <String fx:value="warning" />
                                     </styleClass>
                                 </Label>
-                                <HBox fx:id="cajaBloquesGeneradores" alignment="CENTER" spacing="8.0">
+
+                                <!-- CAMBIADO DE HBOX A GRIDPANE -->
+                                <GridPane fx:id="cajaBloquesGeneradores" alignment="CENTER" hgap="10.0" vgap="10.0">
                                     <VBox.margin><Insets top="5.0" /></VBox.margin>
-                                </HBox>
+                                </GridPane>
+
                             </children>
                         </VBox>
                     </children>
