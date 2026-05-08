@@ -15,37 +15,50 @@ import javafx.util.Duration;
 
 public class ScheduleUIFactory {
 
-    // 1. CONFIGURACIÓN BASE DEL GRID
-    public static void configurarEstructuraGrid(GridPane gridCalendario, int horaInicio, int horaFin) {
+    // 1. CONFIGURACIÓN BASE DEL GRID (CABECERA Y CALENDARIO DIVIDIDOS)
+    public static void configurarEstructuraGrid(GridPane gridCabecera, GridPane gridCalendario, int horaInicio, int horaFin) {
+        gridCabecera.getColumnConstraints().clear();
+        gridCabecera.getRowConstraints().clear();
+        gridCabecera.getChildren().clear();
+
         gridCalendario.getColumnConstraints().clear();
         gridCalendario.getRowConstraints().clear();
 
-        ColumnConstraints colHora = new ColumnConstraints();
-        colHora.setMinWidth(60);
-        colHora.setPrefWidth(60);
-        colHora.setMaxWidth(60);
-        gridCalendario.getColumnConstraints().add(colHora);
+        // Configurar columna de horas en ambos grids
+        ColumnConstraints colHoraCabecera = new ColumnConstraints(60, 60, 60);
+        gridCabecera.getColumnConstraints().add(colHoraCabecera);
+
+        ColumnConstraints colHoraCal = new ColumnConstraints(60, 60, 60);
+        gridCalendario.getColumnConstraints().add(colHoraCal);
 
         String[] nombresDias = {"Lunes", "Martes", "Miércoles", "Jueves", "Viernes", "Sábado", "Domingo"};
 
+        // Sincronizar columnas de días
         for (int i = 0; i < 7; i++) {
-            ColumnConstraints colDia = new ColumnConstraints();
-            colDia.prefWidthProperty().bind(gridCalendario.widthProperty().subtract(60).divide(7));
-            colDia.setMinWidth(80);
-            colDia.setMaxWidth(Double.MAX_VALUE);
-            colDia.setHgrow(Priority.ALWAYS);
-            colDia.setFillWidth(true);
-            gridCalendario.getColumnConstraints().add(colDia);
+            ColumnConstraints colDiaCab = new ColumnConstraints();
+            colDiaCab.setMinWidth(80);
+            colDiaCab.setMaxWidth(Double.MAX_VALUE);
+            colDiaCab.setHgrow(Priority.ALWAYS);
+            colDiaCab.setFillWidth(true);
+            colDiaCab.prefWidthProperty().bind(gridCalendario.widthProperty().subtract(60).divide(7));
+            gridCabecera.getColumnConstraints().add(colDiaCab);
+
+            ColumnConstraints colDiaCal = new ColumnConstraints();
+            colDiaCal.setMinWidth(80);
+            colDiaCal.setMaxWidth(Double.MAX_VALUE);
+            colDiaCal.setHgrow(Priority.ALWAYS);
+            colDiaCal.setFillWidth(true);
+            colDiaCal.prefWidthProperty().bind(gridCalendario.widthProperty().subtract(60).divide(7));
+            gridCalendario.getColumnConstraints().add(colDiaCal);
         }
 
-        RowConstraints rowCabecera = new RowConstraints();
-        rowCabecera.setMinHeight(30);
-        rowCabecera.setPrefHeight(30);
-        gridCalendario.getRowConstraints().add(rowCabecera);
+        // Construir la Cabecera
+        RowConstraints rowCabecera = new RowConstraints(30, 30, 30);
+        gridCabecera.getRowConstraints().add(rowCabecera);
 
         Label lblTituloHora = new Label("Hora");
         lblTituloHora.setStyle("-fx-font-weight: bold; -fx-padding: 5; -fx-text-fill: #70757a;");
-        gridCalendario.add(lblTituloHora, 0, 0);
+        gridCabecera.add(lblTituloHora, 0, 0);
 
         for (int i = 0; i < nombresDias.length; i++) {
             HBox headerBox = new HBox(5);
@@ -55,20 +68,14 @@ public class ScheduleUIFactory {
             Label lblDia = new Label(nombresDias[i]);
             lblDia.setStyle("-fx-font-weight: bold; -fx-text-fill: #70757a;");
 
-            Button btnExpandir = new Button("↔");
-            btnExpandir.setStyle("-fx-background-color: transparent; -fx-cursor: hand; -fx-font-size: 10px; -fx-padding: 2;");
-            btnExpandir.setDisable(true);
-
-            headerBox.getChildren().addAll(lblDia, btnExpandir);
-            gridCalendario.add(headerBox, i + 1, 0);
+            headerBox.getChildren().add(lblDia);
+            gridCabecera.add(headerBox, i + 1, 0);
         }
 
+        // Construir el Calendario (Cuerpo)
         int numFilasTiempo = (horaFin - horaInicio) * 2;
         for (int i = 0; i < numFilasTiempo; i++) {
-            RowConstraints rc = new RowConstraints();
-            rc.setMinHeight(40);
-            rc.setPrefHeight(40);
-            gridCalendario.getRowConstraints().add(rc);
+            gridCalendario.getRowConstraints().add(new RowConstraints(40, 40, 40));
         }
 
         for (int col = 1; col <= 7; col++) {
@@ -77,10 +84,10 @@ public class ScheduleUIFactory {
             GridPane.setHgrow(sepCol, Priority.ALWAYS);
             sepCol.setStyle("-fx-border-color: #dadce0; -fx-border-width: 0 0 0 1;");
             sepCol.setMouseTransparent(true);
-            gridCalendario.add(sepCol, col, 1, 1, numFilasTiempo);
+            gridCalendario.add(sepCol, col, 0, 1, numFilasTiempo);
         }
 
-        int filaActual = 1;
+        int filaActual = 0;
         for (int hora = horaInicio; hora < horaFin; hora++) {
             Pane sepRow = new Pane();
             sepRow.setMaxWidth(Double.MAX_VALUE);
@@ -135,12 +142,9 @@ public class ScheduleUIFactory {
     public static VBox crearContenedorFantasma() {
         VBox fantasma = new VBox();
         fantasma.setMouseTransparent(true);
-
-        // LIMPIEZA: Eliminado el setPrefWidth(9999)
         fantasma.setMaxWidth(Double.MAX_VALUE);
         GridPane.setHgrow(fantasma, Priority.ALWAYS);
         GridPane.setFillWidth(fantasma, true);
-
         return fantasma;
     }
 
@@ -161,7 +165,6 @@ public class ScheduleUIFactory {
 
         VBox caja = new VBox();
 
-        // LIMPIEZA: Eliminado el setPrefWidth(9999) y el Listener al parentProperty
         caja.setMaxWidth(Double.MAX_VALUE);
         caja.setMaxHeight(Double.MAX_VALUE);
         GridPane.setHgrow(caja, Priority.ALWAYS);
@@ -220,7 +223,6 @@ public class ScheduleUIFactory {
         return caja;
     }
 
-    // --- MÉTODOS DE UTILIDAD PARA COLORES ---
     private static Color parseColorSafely(String hex, String defaultHex) {
         try {
             return Color.web(hex != null && !hex.isEmpty() ? hex : defaultHex);
@@ -249,7 +251,6 @@ public class ScheduleUIFactory {
     public static void aplicarEfectoCristal(Pane celda) {
         String estiloCristal = "-fx-background-color: rgba(76, 175, 80, 0.25); -fx-border-color: rgba(255, 255, 255, 0.5);";
         celda.setStyle(estiloCristal);
-        // Mantenemos la lógica de Properties para no requerir refactorización externa
         celda.getProperties().put("estiloOriginal", estiloCristal);
         celda.getProperties().put("esValido", true);
     }
@@ -260,7 +261,6 @@ public class ScheduleUIFactory {
         sugerencia.setMouseTransparent(true);
         sugerencia.getProperties().put("esSugerencia", true);
 
-        // LIMPIEZA: Eliminado el setPrefWidth(9999)
         sugerencia.setMaxWidth(Double.MAX_VALUE);
         GridPane.setHgrow(sugerencia, Priority.ALWAYS);
         GridPane.setFillWidth(sugerencia, true);
@@ -294,10 +294,8 @@ public class ScheduleUIFactory {
 
     // 7. EFECTO SUGERENCIA LIBRE
     public static void aplicarEfectoSugerenciaLibre(Pane celda) {
-        // LIMPIEZA: Reemplazado el frágil "String.replace" por una asignación directa de estilo
         celda.setStyle("-fx-background-color: rgba(76, 175, 80, 0.25); -fx-border-color: rgba(211, 47, 47, 0.8); -fx-border-style: dashed; -fx-border-width: 1;");
 
-        // LIMPIEZA: Verificación para prevenir fugas de memoria (apilar animaciones infinitas)
         if (!celda.getProperties().containsKey("animacionSug")) {
             FadeTransition ftCelda = new FadeTransition(Duration.millis(800), celda);
             ftCelda.setFromValue(0.4);

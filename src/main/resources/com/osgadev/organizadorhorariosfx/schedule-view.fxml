@@ -40,8 +40,6 @@
                     </styleClass>
                 </Button>
 
-                <!-- ELIMINAMOS EL TÍTULO GRANDE PARA AHORRAR ESPACIO -->
-
                 <Label fx:id="lblAnioActivo" text="Año: ---">
                     <styleClass>
                         <String fx:value="text-bold" />
@@ -200,17 +198,33 @@
                             </Label>
                         </children>
                     </VBox>
-                    <ScrollPane fx:id="scrollCalendario" fitToHeight="true" fitToWidth="true">
-                        <styleClass><String fx:value="bg-default" /></styleClass>
-                        <content>
-                            <GridPane fx:id="gridCalendario">
+
+                    <!-- NUEVO CONTENEDOR PARA SEPARAR CABECERA Y CALENDARIO -->
+                    <VBox fx:id="contenedorCalendario" visible="false">
+                        <children>
+                            <!-- CABECERA ESTÁTICA -->
+                            <GridPane fx:id="gridCabecera">
                                 <styleClass><String fx:value="bg-default" /></styleClass>
                                 <padding>
-                                    <Insets bottom="5.0" left="5.0" right="5.0" top="5.0" />
+                                    <!-- Insets derecho en 18 para alinear con el margen que ocupa la barra de scroll -->
+                                    <Insets bottom="5.0" left="5.0" right="18.0" top="5.0" />
                                 </padding>
                             </GridPane>
-                        </content>
-                    </ScrollPane>
+
+                            <!-- CUERPO DEL CALENDARIO SCROLLEABLE -->
+                            <ScrollPane fx:id="scrollCalendario" fitToHeight="true" fitToWidth="true" VBox.vgrow="ALWAYS">
+                                <styleClass><String fx:value="bg-default" /></styleClass>
+                                <content>
+                                    <GridPane fx:id="gridCalendario">
+                                        <styleClass><String fx:value="bg-default" /></styleClass>
+                                        <padding>
+                                            <Insets bottom="5.0" left="5.0" right="5.0" />
+                                        </padding>
+                                    </GridPane>
+                                </content>
+                            </ScrollPane>
+                        </children>
+                    </VBox>
                 </children>
             </StackPane>
 

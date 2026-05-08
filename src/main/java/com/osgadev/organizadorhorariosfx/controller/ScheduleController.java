@@ -35,6 +35,11 @@ public class ScheduleController {
     // CONTROLES FXML
     // =====================================================================
     @FXML private SplitPane splitPaneMain;
+
+    // NUEVOS CONTROLES PARA LA CABECERA ESTÁTICA
+    @FXML private VBox contenedorCalendario;
+    @FXML private GridPane gridCabecera;
+
     @FXML private GridPane gridCalendario;
     @FXML private VBox fase1Vacia;
     @FXML private ScrollPane scrollCalendario;
@@ -96,10 +101,12 @@ public class ScheduleController {
         assignmentManager = new ManualAssignmentManager();
 
         fase1Vacia.setVisible(true);
-        scrollCalendario.setVisible(false);
+        // AHORA OCULTAMOS EL CONTENEDOR COMPLETO
+        if (contenedorCalendario != null) contenedorCalendario.setVisible(false);
 
+        // SE ACTUALIZÓ PARA PASAR AMBOS GRIDS (gridCabecera y gridCalendario)
         gridManager = new ScheduleGridManager(
-                gridCalendario, assignmentManager, scheduleService, occupationMap, availabilityDAO, lblHorasRestantes,
+                gridCabecera, gridCalendario, assignmentManager, scheduleService, occupationMap, availabilityDAO, lblHorasRestantes,
                 this::onGridModificadoManual,
                 this::onGrupoExtraidoParaMover
         );
@@ -290,7 +297,7 @@ public class ScheduleController {
             btnBorrarBD.setDisable(false);
             popularFiltros();
             fase1Vacia.setVisible(false);
-            scrollCalendario.setVisible(true);
+            if (contenedorCalendario != null) contenedorCalendario.setVisible(true); // REEMPLAZADO
             aplicarFiltros();
             actualizarMensajeIA("Horario cargado desde la Base de Datos.");
         } else {
@@ -298,7 +305,7 @@ public class ScheduleController {
             occupationMap.limpiar();
 
             fase1Vacia.setVisible(false);
-            scrollCalendario.setVisible(true);
+            if (contenedorCalendario != null) contenedorCalendario.setVisible(true); // REEMPLAZADO
             aplicarFiltros();
 
             btnGenerar.setDisable(false);
@@ -314,13 +321,12 @@ public class ScheduleController {
         String anio = SessionGlobal.getAnioActual();
         String etapa = SessionGlobal.getEtapaActual();
 
-        // CAMBIO: Texto corto
         btnGenerar.setText("⏳ Calc...");
         btnGenerar.setDisable(true);
         btnBorrarBD.setDisable(true);
 
         fase1Vacia.setVisible(false);
-        scrollCalendario.setVisible(true);
+        if (contenedorCalendario != null) contenedorCalendario.setVisible(true); // REEMPLAZADO
 
         Task<List<AssignedSession>> task = new Task<>() {
             @Override
@@ -409,7 +415,6 @@ public class ScheduleController {
     }
 
     private void restaurarBotonesIA() {
-        // CAMBIO: Texto corto
         btnGenerar.setText("✨ IA");
     }
 
@@ -465,7 +470,7 @@ public class ScheduleController {
                     listaEstados.setAll(filtrados);
 
                     fase1Vacia.setVisible(false);
-                    scrollCalendario.setVisible(true);
+                    if (contenedorCalendario != null) contenedorCalendario.setVisible(true); // REEMPLAZADO
 
                     aplicarFiltros();
                     assignmentManager.setGrupoSeleccionado(null);

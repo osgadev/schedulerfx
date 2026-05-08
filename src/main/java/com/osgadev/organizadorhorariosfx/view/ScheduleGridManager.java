@@ -27,6 +27,7 @@ import java.util.function.Consumer;
 
 public class ScheduleGridManager {
 
+    private final GridPane gridCabecera;
     private final GridPane gridCalendario;
     private final ManualAssignmentManager assignmentManager;
     private final ScheduleService scheduleService;
@@ -34,7 +35,6 @@ public class ScheduleGridManager {
     private final AvailabilityDAO availabilityDAO;
     private final Label lblHorasRestantes;
 
-    // Callbacks para comunicar al controlador
     private final Runnable onHorarioModificado;
     private final Consumer<GroupState> onGrupoExtraidoDelGrid;
 
@@ -46,7 +46,9 @@ public class ScheduleGridManager {
     private final int HORA_INICIO = 7;
     private final int HORA_FIN = 22;
 
-    public ScheduleGridManager(GridPane gridCalendario,
+    // SE ACTUALIZÓ EL CONSTRUCTOR PARA RECIBIR AMBOS GRIDS
+    public ScheduleGridManager(GridPane gridCabecera,
+                               GridPane gridCalendario,
                                ManualAssignmentManager assignmentManager,
                                ScheduleService scheduleService,
                                OccupationMap occupationMap,
@@ -54,6 +56,7 @@ public class ScheduleGridManager {
                                Label lblHorasRestantes,
                                Runnable onHorarioModificado,
                                Consumer<GroupState> onGrupoExtraidoDelGrid) {
+        this.gridCabecera = gridCabecera;
         this.gridCalendario = gridCalendario;
         this.assignmentManager = assignmentManager;
         this.scheduleService = scheduleService;
@@ -70,7 +73,7 @@ public class ScheduleGridManager {
 
     public void construirTablaBase() {
         gridCalendario.getChildren().clear();
-        ScheduleUIFactory.configurarEstructuraGrid(gridCalendario, HORA_INICIO, HORA_FIN);
+        ScheduleUIFactory.configurarEstructuraGrid(gridCabecera, gridCalendario, HORA_INICIO, HORA_FIN);
 
         int numFilasTiempo = (HORA_FIN - HORA_INICIO) * 2;
         matrizCeldasReceptoras = new Pane[8][numFilasTiempo + 1];
@@ -98,7 +101,6 @@ public class ScheduleGridManager {
                             fantasmaDrag.setVisible(true);
                             fantasmaDrag.getChildren().clear();
 
-                            // 1. CORRECCIÓN: Tamaño dinámico para el fantasma (Drag Over)
                             fantasmaDrag.minWidthProperty().unbind();
                             fantasmaDrag.maxWidthProperty().unbind();
                             NumberBinding anchoColFantasma = gridCalendario.widthProperty().subtract(60).divide(7);
@@ -118,7 +120,8 @@ public class ScheduleGridManager {
                             fantasmaDrag.getChildren().add(lblHoraVista);
 
                             GridPane.setColumnIndex(fantasmaDrag, colActual);
-                            GridPane.setRowIndex(fantasmaDrag, filaActualDrop);
+                            // CORRECCIÓN ÍNDICE: filaActualDrop - 1 porque el calendario empieza en 0
+                            GridPane.setRowIndex(fantasmaDrag, filaActualDrop - 1);
                             GridPane.setRowSpan(fantasmaDrag, spanFilasVisuales);
                             fantasmaDrag.toFront();
 
@@ -162,13 +165,14 @@ public class ScheduleGridManager {
 
                         if (fantasmaDrag != null) fantasmaDrag.setVisible(false);
 
-                        Platform.runLater(onHorarioModificado); // Avisa al controlador
+                        Platform.runLater(onHorarioModificado);
                     }
                     event.setDropCompleted(true);
                     event.consume();
                 });
 
-                gridCalendario.add(celda, col, fila);
+                // CORRECCIÓN ÍNDICE: Se añade a fila - 1 para que visualmente cuadre con el nuevo grid
+                gridCalendario.add(celda, col, fila - 1);
                 matrizCeldasReceptoras[col][fila] = celda;
             }
         }
@@ -178,7 +182,8 @@ public class ScheduleGridManager {
         }
         fantasmaDrag.setVisible(false);
         if (!gridCalendario.getChildren().contains(fantasmaDrag)) {
-            gridCalendario.add(fantasmaDrag, 1, 1);
+            // CORRECCIÓN ÍNDICE: fila 0
+            gridCalendario.add(fantasmaDrag, 1, 0);
         }
     }
 
@@ -210,25 +215,20 @@ public class ScheduleGridManager {
 
             VBox caja = ScheduleUIFactory.crearTarjetaSesionVisual(g, hex, textoHora, showCurso, showProf, showAlumnos, showId);
 
-            // 2. CORRECCIÓN: Layout (solapamientos) con Bindings dinámicos
             ScheduleLayoutHelper.PosicionVisual pos = layout.get(s);
             if(pos != null) {
-                // Liberar propiedades previas (buenas prácticas)
                 caja.minWidthProperty().unbind();
                 caja.maxWidthProperty().unbind();
                 caja.translateXProperty().unbind();
 
-                // Fórmula: Ancho disponible de la columna = (AnchoGrid - AnchoColHoras(60)) / 7 días
                 NumberBinding anchoColumnaDinamico = gridCalendario.widthProperty().subtract(60).divide(7);
                 NumberBinding anchoCartaDinamico = anchoColumnaDinamico.divide(pos.totalColumnas);
 
-                // Asignar los bindings en vivo
                 caja.minWidthProperty().bind(anchoCartaDinamico.subtract(2));
                 caja.maxWidthProperty().bind(anchoCartaDinamico.subtract(2));
                 caja.translateXProperty().bind(anchoCartaDinamico.multiply(pos.indiceColumna));
             }
 
-            // Click derecho: Eliminar
             ContextMenu menu = new ContextMenu();
             MenuItem itemEliminar = new MenuItem("Eliminar clase y reembolsar horas");
             itemEliminar.setOnAction(e -> {
@@ -236,12 +236,11 @@ public class ScheduleGridManager {
                 int duracionBloques = s.getSpanFilas();
                 occupationMap.eliminarClase(s.getSlotInicioSemanal(), duracionBloques, s.getGrupo());
                 assignmentManager.reembolsarHorasAGrupo(s.getGrupo().getIdGrupo(), duracionBloques / 2.0);
-                Platform.runLater(onHorarioModificado); // Avisa al controlador
+                Platform.runLater(onHorarioModificado);
             });
             menu.getItems().add(itemEliminar);
             caja.setOnContextMenuRequested(e -> menu.show(caja, e.getScreenX(), e.getScreenY()));
 
-            // Arrastrar tarjeta para moverla
             caja.setOnDragDetected(event -> {
                 Dragboard db = caja.startDragAndDrop(TransferMode.MOVE);
                 ClipboardContent clipboardContent = new ClipboardContent();
@@ -249,7 +248,6 @@ public class ScheduleGridManager {
                 clipboardContent.putString(String.valueOf(horas));
                 db.setContent(clipboardContent);
 
-                // ACTUALIZACIÓN SÍNCRONA DEL ESTADO DE LOS DATOS
                 GroupState eg = assignmentManager.buscarEstadoPorId(s.getGrupo().getIdGrupo());
                 horarioGenerado.remove(s);
                 int duracionBloques = s.getSpanFilas();
@@ -258,15 +256,13 @@ public class ScheduleGridManager {
                 if (eg != null) {
                     eg.reembolsarHoras(horas);
                     assignmentManager.setGrupoSeleccionado(eg);
-                    onGrupoExtraidoDelGrid.accept(eg); // Avisa al controlador para actualizar Comboboxes
+                    onGrupoExtraidoDelGrid.accept(eg);
                 }
 
-                // OCULTACIÓN DE UI DIFERIDA PARA EVITAR QUE SE CANCELE EL DRAG EVENT
                 Platform.runLater(() -> {
                     caja.setVisible(false);
                     aplicarModoFantasmaATarjetas(true);
                 });
-
                 event.consume();
             });
 
@@ -281,7 +277,8 @@ public class ScheduleGridManager {
                 Platform.runLater(onHorarioModificado);
             });
 
-            gridCalendario.add(caja, s.getColumnaDia(), s.getFilaHora() + 1);
+            // CORRECCIÓN ÍNDICE: fInicio ya viene con valor - 1 desde el objeto sesion.
+            gridCalendario.add(caja, s.getColumnaDia(), s.getFilaHora());
             GridPane.setRowSpan(caja, s.getSpanFilas());
         }
     }
@@ -351,7 +348,8 @@ public class ScheduleGridManager {
                 String textoHora = String.format("%02d:%02d - %02d:%02d", hInicio, mInicio, hFin, mFin);
 
                 VBox sugerencia = ScheduleUIFactory.crearSugerenciaFijaVisual(a.getCursoSugerido().getNombre(), textoHora, duracionSlots);
-                gridCalendario.add(sugerencia, col, filaVisual);
+                // CORRECCIÓN ÍNDICE: filaVisual - 1
+                gridCalendario.add(sugerencia, col, filaVisual - 1);
                 GridPane.setRowSpan(sugerencia, duracionSlots);
                 sugerencia.toBack();
             } else {
