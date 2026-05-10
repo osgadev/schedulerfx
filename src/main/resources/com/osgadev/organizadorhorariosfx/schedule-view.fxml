@@ -114,7 +114,7 @@
 
     <!-- ZONA CENTRAL: SPLIT PANE CON 3 COLUMNAS ARRASTRABLES -->
     <center>
-        <SplitPane fx:id="splitPaneMain" dividerPositions="0.22, 0.78" BorderPane.alignment="CENTER">
+        <SplitPane fx:id="splitPaneMain" dividerPositions="0.22, 1.0" BorderPane.alignment="CENTER">
 
             <!-- COLUMNA 1: ALMACÉN MANUAL -->
             <ScrollPane fitToWidth="true" hbarPolicy="NEVER" minWidth="0.0" maxWidth="350.0" prefWidth="250.0">
