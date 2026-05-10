@@ -101,10 +101,8 @@ public class ScheduleController {
         assignmentManager = new ManualAssignmentManager();
 
         fase1Vacia.setVisible(true);
-        // AHORA OCULTAMOS EL CONTENEDOR COMPLETO
         if (contenedorCalendario != null) contenedorCalendario.setVisible(false);
 
-        // SE ACTUALIZÓ PARA PASAR AMBOS GRIDS (gridCabecera y gridCalendario)
         gridManager = new ScheduleGridManager(
                 gridCabecera, gridCalendario, assignmentManager, scheduleService, occupationMap, availabilityDAO, lblHorasRestantes,
                 this::onGridModificadoManual,
@@ -156,7 +154,76 @@ public class ScheduleController {
             });
         }
 
+        // CONFIGURAR SCROLL SINCRONIZADO
+        configurarScrollSincronizado();
+
         Platform.runLater(this::cargarHorario);
+    }
+
+    // =====================================================================
+    // SCROLL HORIZONTAL SINCRONIZADO CORREGIDO
+    // =====================================================================
+    private void configurarScrollSincronizado() {
+        if (scrollCalendario != null) {
+            scrollCalendario.setFitToWidth(true);
+            scrollCalendario.setHbarPolicy(ScrollPane.ScrollBarPolicy.AS_NEEDED);
+            // Mantenemos SIEMPRE la barra vertical en el calendario para evitar saltos de UI
+            scrollCalendario.setVbarPolicy(ScrollPane.ScrollBarPolicy.ALWAYS);
+        }
+
+        if (gridCabecera != null && gridCabecera.getParent() instanceof VBox) {
+            VBox parent = (VBox) gridCabecera.getParent();
+
+            ScrollPane scrollCabecera = new ScrollPane(gridCabecera);
+            scrollCabecera.setVbarPolicy(ScrollPane.ScrollBarPolicy.NEVER);
+            scrollCabecera.setHbarPolicy(ScrollPane.ScrollBarPolicy.NEVER);
+            scrollCabecera.setFitToWidth(true); // VITAL: que estire el grid
+            scrollCabecera.setStyle("-fx-background-color: transparent; -fx-background-insets: 0; -fx-padding: 0;");
+
+            // 1. Evitar que la cabecera reciba el foco y se pueda mover con las flechas del teclado
+            scrollCabecera.setFocusTraversable(false);
+
+            // 2. Interceptar cualquier intento de scroll (rueda del ratón o trackpad) y redirigirlo
+            scrollCabecera.addEventFilter(javafx.scene.input.ScrollEvent.SCROLL, event -> {
+                event.consume(); // Bloquea el desplazamiento independiente
+                if (scrollCalendario != null) {
+                    // Pasa el evento de scroll al calendario principal
+                    scrollCalendario.fireEvent(event.copyFor(scrollCalendario, scrollCalendario));
+                }
+            });
+
+            int index = parent.getChildren().indexOf(gridCabecera);
+            if (index != -1) {
+                parent.getChildren().set(index, scrollCabecera);
+            }
+
+            // Sincronización basada en píxeles: Escuchar el hvalue (scroll) del calendario
+            scrollCalendario.hvalueProperty().addListener((obs, oldVal, newVal) -> {
+                if (scrollCalendario.getViewportBounds() != null && scrollCabecera.getViewportBounds() != null) {
+
+                    // Calculamos cuántos píxeles REALES se ha desplazado el calendario
+                    double contentWidthMain = gridCalendario.getWidth();
+                    double viewportWidthMain = scrollCalendario.getViewportBounds().getWidth();
+                    double maxScrollPixelsMain = contentWidthMain - viewportWidthMain;
+
+                    if (maxScrollPixelsMain > 0) {
+                        double scrolledPixels = newVal.doubleValue() * maxScrollPixelsMain;
+
+                        // Traducimos esos píxeles exactos al scroll de la cabecera
+                        double contentWidthHeader = gridCabecera.getWidth();
+                        double viewportWidthHeader = scrollCabecera.getViewportBounds().getWidth();
+                        double maxScrollPixelsHeader = contentWidthHeader - viewportWidthHeader;
+
+                        if (maxScrollPixelsHeader > 0) {
+                            // Aplicamos el nuevo porcentaje de scroll a la cabecera
+                            scrollCabecera.setHvalue(scrolledPixels / maxScrollPixelsHeader);
+                        } else {
+                            scrollCabecera.setHvalue(0);
+                        }
+                    }
+                }
+            });
+        }
     }
 
     // =====================================================================
@@ -297,7 +364,7 @@ public class ScheduleController {
             btnBorrarBD.setDisable(false);
             popularFiltros();
             fase1Vacia.setVisible(false);
-            if (contenedorCalendario != null) contenedorCalendario.setVisible(true); // REEMPLAZADO
+            if (contenedorCalendario != null) contenedorCalendario.setVisible(true);
             aplicarFiltros();
             actualizarMensajeIA("Horario cargado desde la Base de Datos.");
         } else {
@@ -305,7 +372,7 @@ public class ScheduleController {
             occupationMap.limpiar();
 
             fase1Vacia.setVisible(false);
-            if (contenedorCalendario != null) contenedorCalendario.setVisible(true); // REEMPLAZADO
+            if (contenedorCalendario != null) contenedorCalendario.setVisible(true);
             aplicarFiltros();
 
             btnGenerar.setDisable(false);
@@ -326,7 +393,7 @@ public class ScheduleController {
         btnBorrarBD.setDisable(true);
 
         fase1Vacia.setVisible(false);
-        if (contenedorCalendario != null) contenedorCalendario.setVisible(true); // REEMPLAZADO
+        if (contenedorCalendario != null) contenedorCalendario.setVisible(true);
 
         Task<List<AssignedSession>> task = new Task<>() {
             @Override
@@ -470,7 +537,7 @@ public class ScheduleController {
                     listaEstados.setAll(filtrados);
 
                     fase1Vacia.setVisible(false);
-                    if (contenedorCalendario != null) contenedorCalendario.setVisible(true); // REEMPLAZADO
+                    if (contenedorCalendario != null) contenedorCalendario.setVisible(true);
 
                     aplicarFiltros();
                     assignmentManager.setGrupoSeleccionado(null);

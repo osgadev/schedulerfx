@@ -4,7 +4,6 @@ import com.osgadev.organizadorhorariosfx.model.Group;
 import javafx.animation.Animation;
 import javafx.animation.FadeTransition;
 import javafx.geometry.Pos;
-import javafx.scene.control.Button;
 import javafx.scene.control.Label;
 import javafx.scene.control.Tooltip;
 import javafx.scene.layout.*;
@@ -13,16 +12,30 @@ import javafx.scene.shape.Rectangle;
 import javafx.scene.text.Text;
 import javafx.util.Duration;
 
+import java.util.Map;
+import java.util.Set;
+import java.util.function.Consumer;
+
 public class ScheduleUIFactory {
 
     // 1. CONFIGURACIÓN BASE DEL GRID (CABECERA Y CALENDARIO DIVIDIDOS)
-    public static void configurarEstructuraGrid(GridPane gridCabecera, GridPane gridCalendario, int horaInicio, int horaFin) {
+    public static void configurarEstructuraGrid(GridPane gridCabecera, GridPane gridCalendario, int horaInicio, int horaFin,
+                                                Set<Integer> columnasExpandidas, Map<Integer, Integer> maxColsPorDia,
+                                                Consumer<Integer> onToggleColumn) {
+
         gridCabecera.getColumnConstraints().clear();
         gridCabecera.getRowConstraints().clear();
         gridCabecera.getChildren().clear();
 
         gridCalendario.getColumnConstraints().clear();
         gridCalendario.getRowConstraints().clear();
+
+        // SINCROMIZACIÓN DE ANCHOS PARA EVITAR DESFASES POR EL SCROLLBAR VERTICAL
+        if (!gridCabecera.minWidthProperty().isBound()) {
+            gridCabecera.minWidthProperty().bind(gridCalendario.widthProperty());
+            gridCabecera.prefWidthProperty().bind(gridCalendario.widthProperty()); // <--- CORRECCIÓN CLAVE
+            gridCabecera.maxWidthProperty().bind(gridCalendario.widthProperty());
+        }
 
         // Configurar columna de horas en ambos grids
         ColumnConstraints colHoraCabecera = new ColumnConstraints(60, 60, 60);
@@ -33,22 +46,47 @@ public class ScheduleUIFactory {
 
         String[] nombresDias = {"Lunes", "Martes", "Miércoles", "Jueves", "Viernes", "Sábado", "Domingo"};
 
+        // El ancho base de una tarjeta individual
+        double anchoBaseNormal = 140.0;
+
         // Sincronizar columnas de días
         for (int i = 0; i < 7; i++) {
-            ColumnConstraints colDiaCab = new ColumnConstraints();
-            colDiaCab.setMinWidth(80);
-            colDiaCab.setMaxWidth(Double.MAX_VALUE);
-            colDiaCab.setHgrow(Priority.ALWAYS);
-            colDiaCab.setFillWidth(true);
-            colDiaCab.prefWidthProperty().bind(gridCalendario.widthProperty().subtract(60).divide(7));
-            gridCabecera.getColumnConstraints().add(colDiaCab);
+            int colDia = i + 1;
+            boolean isExpanded = columnasExpandidas.contains(colDia);
 
+            ColumnConstraints colDiaCab = new ColumnConstraints();
             ColumnConstraints colDiaCal = new ColumnConstraints();
-            colDiaCal.setMinWidth(80);
-            colDiaCal.setMaxWidth(Double.MAX_VALUE);
-            colDiaCal.setHgrow(Priority.ALWAYS);
-            colDiaCal.setFillWidth(true);
-            colDiaCal.prefWidthProperty().bind(gridCalendario.widthProperty().subtract(60).divide(7));
+
+            if (isExpanded) {
+                // Si está expandido, multiplicamos el ancho base por el máximo de tarjetas solapadas
+                int overlaps = maxColsPorDia.getOrDefault(colDia, 1);
+                double anchoExpandido = anchoBaseNormal * overlaps;
+
+                colDiaCab.setMinWidth(anchoExpandido);
+                colDiaCab.setPrefWidth(anchoExpandido);
+                colDiaCab.setMaxWidth(anchoExpandido);
+
+                colDiaCal.setMinWidth(anchoExpandido);
+                colDiaCal.setPrefWidth(anchoExpandido);
+                colDiaCal.setMaxWidth(anchoExpandido);
+            } else {
+                // COMPORTAMIENTO DINÁMICO CORREGIDO:
+                // Al forzar un PrefWidth igual (150) en todos lados, ignoramos el tamaño
+                // de los textos internos. JavaFX repartirá el espacio sobrante equitativamente.
+                colDiaCab.setMinWidth(80);
+                colDiaCab.setPrefWidth(150);
+                colDiaCab.setMaxWidth(Double.MAX_VALUE);
+                colDiaCab.setHgrow(Priority.ALWAYS);
+                colDiaCab.setFillWidth(true);
+
+                colDiaCal.setMinWidth(80);
+                colDiaCal.setPrefWidth(150);
+                colDiaCal.setMaxWidth(Double.MAX_VALUE);
+                colDiaCal.setHgrow(Priority.ALWAYS);
+                colDiaCal.setFillWidth(true);
+            }
+
+            gridCabecera.getColumnConstraints().add(colDiaCab);
             gridCalendario.getColumnConstraints().add(colDiaCal);
         }
 
@@ -59,17 +97,38 @@ public class ScheduleUIFactory {
         Label lblTituloHora = new Label("Hora");
         lblTituloHora.setStyle("-fx-font-weight: bold; -fx-padding: 5; -fx-text-fill: #70757a;");
         gridCabecera.add(lblTituloHora, 0, 0);
+        GridPane.setHalignment(lblTituloHora, javafx.geometry.HPos.CENTER);
 
         for (int i = 0; i < nombresDias.length; i++) {
+            int colDia = i + 1;
+            boolean isExpanded = columnasExpandidas.contains(colDia);
+
             HBox headerBox = new HBox(5);
             headerBox.setAlignment(Pos.CENTER);
             headerBox.setMaxWidth(Double.MAX_VALUE);
+            headerBox.setMaxHeight(Double.MAX_VALUE);
+
+            headerBox.setStyle("-fx-cursor: h-resize; -fx-background-color: transparent;");
 
             Label lblDia = new Label(nombresDias[i]);
             lblDia.setStyle("-fx-font-weight: bold; -fx-text-fill: #70757a;");
 
+            headerBox.setOnMouseEntered(e -> {
+                lblDia.setStyle("-fx-font-weight: bold; -fx-text-fill: #1a73e8;");
+                headerBox.setStyle("-fx-cursor: h-resize; -fx-background-color: rgba(26, 115, 232, 0.05);");
+            });
+            headerBox.setOnMouseExited(e -> {
+                lblDia.setStyle("-fx-font-weight: bold; -fx-text-fill: #70757a;");
+                headerBox.setStyle("-fx-cursor: h-resize; -fx-background-color: transparent;");
+            });
+
+            Tooltip tooltip = new Tooltip(isExpanded ? "Clic para contraer " + nombresDias[i] : "Clic para expandir " + nombresDias[i]);
+            Tooltip.install(headerBox, tooltip);
+
+            headerBox.setOnMouseClicked(e -> onToggleColumn.accept(colDia));
+
             headerBox.getChildren().add(lblDia);
-            gridCabecera.add(headerBox, i + 1, 0);
+            gridCabecera.add(headerBox, colDia, 0);
         }
 
         // Construir el Calendario (Cuerpo)
