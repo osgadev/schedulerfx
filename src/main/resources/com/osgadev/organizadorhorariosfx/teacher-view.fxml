@@ -167,7 +167,7 @@
                 </VBox>
 
                 <!-- Botón Nuevo Profesor usando btn-success -->
-                <Button maxWidth="1.7976931348623157E308" mnemonicParsing="false" onAction="#onNuevoProfesorClick" prefHeight="35.0" styleClass="btn-success" text="+ Nuevo Profesor" />
+                <Button maxWidth="1.7976931348623157E308" mnemonicParsing="false" onAction="#onNuevoProfesorClick" prefHeight="35.0" text="+ Nuevo Profesor" />
 
                 <!-- Barra de búsqueda agregada -->
                 <TextField fx:id="txtBuscarProfesor" promptText="🔍 Buscar por nombre o apellido..." styleClass="search-field" />

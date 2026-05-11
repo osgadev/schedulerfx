@@ -12,7 +12,6 @@ import javafx.scene.chart.PieChart;
 import javafx.scene.control.ComboBox;
 import javafx.scene.control.Label;
 import javafx.scene.layout.VBox;
-import javafx.scene.paint.Color;
 
 import java.net.URL;
 import java.time.LocalDate;
@@ -20,34 +19,22 @@ import java.util.ResourceBundle;
 
 public class HomeController implements Initializable {
 
-    // ==========================================
-    // Contenedor Principal (Para inyectar CSS)
-    // ==========================================
     @FXML private VBox rootVBox;
 
-    // ==========================================
-    // ETIQUETAS FXML (Vista)
-    // ==========================================
     @FXML private Label lblTotalProfesores;
     @FXML private Label lblProfesoresAlerta;
     @FXML private Label lblTotalCursos;
     @FXML private Label lblTotalGrupos;
     @FXML private Label lblEstadoAlumnos;
 
-    // Componentes del Gráfico de Dona
     @FXML private PieChart pieHorarios;
     @FXML private Label lblEstadoHorario;
     @FXML private Label lblDetalleHorario;
-
     @FXML private Label lblStatusDetallado;
 
-    // Filtros FXML
     @FXML private ComboBox<String> cmbAnio;
     @FXML private ComboBox<String> cmbEtapa;
 
-    // ==========================================
-    // INSTANCIAS DE DAOs
-    // ==========================================
     private final TeacherDAO teacherDAO = new TeacherDAO();
     private final CourseDAO courseDAO = new CourseDAO();
     private final GroupDAO groupDAO = new GroupDAO();
@@ -56,25 +43,13 @@ public class HomeController implements Initializable {
 
     @Override
     public void initialize(URL location, ResourceBundle resources) {
-
-        // --- CARGAR LA HOJA DE ESTILOS CSS ---
-        try {
-            String cssPath = getClass().getResource("/css/styles.css").toExternalForm();
-            rootVBox.getStylesheets().add(cssPath);
-        } catch (Exception e) {
-            System.err.println("No se pudo cargar el archivo CSS en el Dashboard.");
-        }
-
-        // 1. Configurar ComboBoxes de Filtro de Ciclo
         int currentYear = LocalDate.now().getYear();
         cmbAnio.getItems().addAll(String.valueOf(currentYear - 1), String.valueOf(currentYear), String.valueOf(currentYear + 1));
-        cmbEtapa.getItems().addAll("1", "2");
+        cmbEtapa.getItems().addAll("1", "2", "3");
 
-        // 2. Cargar los valores desde la Sesión Global
         cmbAnio.getSelectionModel().select(SessionGlobal.getAnioActual());
         cmbEtapa.getSelectionModel().select(SessionGlobal.getEtapaActual());
 
-        // 3. Listeners: Guardar el ciclo en la variable global y recargar datos
         cmbAnio.getSelectionModel().selectedItemProperty().addListener((obs, oldVal, newVal) -> {
             if (newVal != null) {
                 SessionGlobal.setAnioActual(newVal);
@@ -89,8 +64,8 @@ public class HomeController implements Initializable {
             }
         });
 
-        // 4. Primera carga diferida para no bloquear la interfaz
         Platform.runLater(this::cargarDatosDashboard);
+//        cargarDatosDashboard();
     }
 
     private void cargarDatosDashboard() {
@@ -99,9 +74,7 @@ public class HomeController implements Initializable {
 
         if (anio == null || etapa == null) return;
 
-        // ==========================================
-        // 1. DATOS GLOBALES DEL CATÁLOGO
-        // ==========================================
+        // PROFESORES Y CURSOS
         int totalProfes = teacherDAO.contarProfesores();
         int profesSinDisp = teacherDAO.contarProfesoresSinDisponibilidad();
         int totalCursos = courseDAO.contarCursos();
@@ -110,138 +83,129 @@ public class HomeController implements Initializable {
         lblTotalCursos.setText(String.valueOf(totalCursos));
 
         if (profesSinDisp > 0) {
-            lblProfesoresAlerta.setText("⚠️ " + profesSinDisp + " sin disponibilidad asignada");
-            lblProfesoresAlerta.setTextFill(Color.web("#e74c3c")); // Rojo
+            lblProfesoresAlerta.setText("⚠️ " + profesSinDisp + " sin disponibilidad");
+            setSemanticClass(lblProfesoresAlerta, "danger");
         } else if (totalProfes > 0) {
             lblProfesoresAlerta.setText("✅ Todos con disponibilidad");
-            lblProfesoresAlerta.setTextFill(Color.web("#27ae60")); // Verde
+            setSemanticClass(lblProfesoresAlerta, "success");
         } else {
             lblProfesoresAlerta.setText("Catálogo vacío");
-            lblProfesoresAlerta.setTextFill(Color.web("#7f8c8d")); // Gris
+            setSemanticClass(lblProfesoresAlerta, "text-muted");
         }
 
-        // ==========================================
-        // 2. DATOS DEL CICLO SELECCIONADO
-        // ==========================================
+        // INFORMACION GRUPOS Y ALUMNOS
         int totalGrupos = groupDAO.contarGrupos(anio, etapa);
         int totalAlumnos = studentDAO.contarAlumnos(anio, etapa);
 
         lblTotalGrupos.setText(String.valueOf(totalGrupos));
 
+        //Validar si hay alumnos cargados en bd
         if (totalAlumnos > 0) {
             lblEstadoAlumnos.setText(String.valueOf(totalAlumnos));
-            lblEstadoAlumnos.setTextFill(Color.web("#27ae60"));
+            setSemanticClass(lblEstadoAlumnos, "success");
         } else {
             lblEstadoAlumnos.setText("0");
-            lblEstadoAlumnos.setTextFill(Color.web("#e74c3c"));
+            setSemanticClass(lblEstadoAlumnos, "danger");
         }
 
-        // ==========================================
-        // --- Cálculo de Porcentaje de Horarios con Gráfico de Dona ---
-        // ==========================================
+        // Grafico de dona
         double horasRequeridas = groupDAO.calcularHorasTotalesRequeridas(anio, etapa);
         double horasAsignadas = scheduleDAO.calcularHorasAsignadas(anio, etapa);
 
         if (horasRequeridas > 0) {
-            double horasPendientes = horasRequeridas - horasAsignadas;
-            if (horasPendientes < 0) horasPendientes = 0; // Seguridad por si se asignan de más
-
-            // CORRECCIÓN MATEMÁTICA: Calculamos la fracción y la multiplicamos ANTES del casteo a int.
-            double fraccion = horasAsignadas / horasRequeridas;
-            if (fraccion > 1.0) fraccion = 1.0;
-
+            double horasPendientes = Math.max(0, horasRequeridas - horasAsignadas);
+            double fraccion = Math.min(1.0, horasAsignadas / horasRequeridas);
             int porcentajeTexto = (int) Math.round(fraccion * 100);
 
-            // 1. Configurar los datos del PieChart
             PieChart.Data sliceAsignadas = new PieChart.Data("Asignadas", horasAsignadas);
             PieChart.Data slicePendientes = new PieChart.Data("Pendientes", horasPendientes);
 
             ObservableList<PieChart.Data> pieData = FXCollections.observableArrayList(sliceAsignadas, slicePendientes);
             pieHorarios.setData(pieData);
 
-            // 2. Colorear las rebanadas dinámicamente según el porcentaje exacto (Práctica Profesional)
             Platform.runLater(() -> {
                 Node nodoAsignadas = sliceAsignadas.getNode();
                 Node nodoPendientes = slicePendientes.getNode();
 
+                // Usamos la variable del tema para la parte pendiente, así se adapta al modo oscuro
                 if (nodoPendientes != null) {
-                    nodoPendientes.setStyle("-fx-pie-color: #ecf0f1; -fx-border-width: 0;"); // Gris claro
+                    nodoPendientes.setStyle("-fx-pie-color: -color-bg-subtle; -fx-border-width: 0;");
                 }
 
                 String colorHex;
                 if (porcentajeTexto == 0) {
-                    colorHex = "#e74c3c"; // Rojo (0%)
+                    colorHex = "#e74c3c"; // Rojo
+                } else if (porcentajeTexto < 25) {
+                    colorHex = "#e67e22"; // Naranja
                 } else if (porcentajeTexto < 50) {
-                    colorHex = "#e67e22"; // Naranja (1% - 49%)
-                } else if (porcentajeTexto < 85) {
-                    colorHex = "#f39c12"; // Amarillo oscuro (50% - 84%)
+                    colorHex = "#f1c40f"; // Amarillo
+                } else if (porcentajeTexto < 75) {
+                    colorHex = "#3498db"; // Azul
                 } else if (porcentajeTexto < 100) {
-                    colorHex = "#2ecc71"; // Verde Claro (85% - 99%)
+                    colorHex = "#2ecc71"; // Verde claro
                 } else {
-                    colorHex = "#27ae60"; // Verde Oscuro (100%)
+                    colorHex = "#1e8449"; // Verde oscuro
                 }
 
-                // Aplicar el color a la rebanada si existe
+                // Aplicar el color dinámico a la rebanada asignada
                 if (nodoAsignadas != null) {
                     nodoAsignadas.setStyle("-fx-pie-color: " + colorHex + "; -fx-border-width: 0;");
                 }
 
-                // Asegurar que el texto central también cambie
-                lblEstadoHorario.setTextFill(Color.web(colorHex));
+                // Limpiamos las clases semánticas previas y aplicamos el color al texto
+                lblEstadoHorario.getStyleClass().removeAll("success", "warning", "danger", "text-muted");
+                lblEstadoHorario.setStyle("-fx-text-fill: " + colorHex + ";");
             });
 
-            // 3. Actualizar Textos
             lblEstadoHorario.setText(porcentajeTexto + "%");
             lblDetalleHorario.setText(String.format("%.1f de %.1f hrs", horasAsignadas, horasRequeridas));
 
         } else {
-            // Caso donde no hay horas requeridas (Catálogo o Grupos vacíos)
+            // Caso donde no hay horas requeridas
             pieHorarios.setData(FXCollections.observableArrayList(new PieChart.Data("Vacío", 1)));
             Platform.runLater(() -> {
                 if(!pieHorarios.getData().isEmpty() && pieHorarios.getData().get(0).getNode() != null) {
-                    pieHorarios.getData().get(0).getNode().setStyle("-fx-pie-color: #bdc3c7; -fx-border-width: 0;");
+                    // Usamos una variable del tema para cuando esté vacío
+                    pieHorarios.getData().get(0).getNode().setStyle("-fx-pie-color: -color-border-default; -fx-border-width: 0;");
                 }
             });
             lblEstadoHorario.setText("0%");
-            lblEstadoHorario.setTextFill(Color.web("#7f8c8d"));
+            lblEstadoHorario.setStyle(""); // Limpia colores estáticos manuales
+            setSemanticClass(lblEstadoHorario, "text-muted");
             lblDetalleHorario.setText("0 hrs requeridas");
         }
 
         // ==========================================
-        // 3. CONSTRUCCIÓN DEL DIAGNÓSTICO
+        // 4. CONSTRUCCIÓN DEL DIAGNÓSTICO
         // ==========================================
         StringBuilder diagnostico = new StringBuilder();
 
-        if (totalProfes == 0) {
-            diagnostico.append("❌ No hay profesores registrados. Ve a la pestaña 'Profesores'.\n");
-        } else if (profesSinDisp > 0) {
-            diagnostico.append("⚠️ Hay ").append(profesSinDisp).append(" profesor(es) que no tienen su disponibilidad configurada. Los horarios podrían quedar incompletos o fallar al generar.\n");
+        if (totalProfes == 0) diagnostico.append("❌ No hay profesores registrados. Ve a la pestaña 'Profesores'.\n");
+        else if (profesSinDisp > 0) diagnostico.append("⚠️ Hay ").append(profesSinDisp).append(" profesor(es) sin disponibilidad configurada.\n");
+
+        if (totalCursos == 0) diagnostico.append("❌ No hay cursos registrados en el catálogo.\n");
+
+        if (totalGrupos == 0) diagnostico.append("ℹ️ Aún no se han armado grupos para el ciclo ").append(anio).append("-").append(etapa).append(".\n");
+        else {
+            if (totalAlumnos == 0) diagnostico.append("⚠️ Falta importar la lista de alumnos.\n");
+
+            if (horasAsignadas == 0) diagnostico.append("ℹ️ Los grupos están listos. Ve a la pestaña 'Horarios' para comenzar.\n");
+            else if (horasAsignadas < horasRequeridas) diagnostico.append("⏳ Horarios en progreso. Faltan ").append(String.format("%.1f", horasRequeridas - horasAsignadas)).append(" horas.\n");
+            else diagnostico.append("✅ ¡Todo excelente! El 100% de las horas están asignadas.\n");
         }
 
-        if (totalCursos == 0) {
-            diagnostico.append("❌ No hay cursos registrados en el catálogo.\n");
-        }
-
-        if (totalGrupos == 0) {
-            diagnostico.append("ℹ️ Aún no se han armado grupos para el ciclo ").append(anio).append("-").append(etapa).append(".\n");
-        } else {
-            if (totalAlumnos == 0) {
-                diagnostico.append("⚠️ Falta importar la lista de alumnos (Excel) para verificar el tamaño de los grupos.\n");
-            }
-            if (horasAsignadas == 0) {
-                diagnostico.append("ℹ️ Los grupos están listos. Ve a la pestaña 'Horarios' para comenzar la asignación.\n");
-            } else if (horasAsignadas < horasRequeridas) {
-                double faltan = horasRequeridas - horasAsignadas;
-                diagnostico.append("⏳ Horarios en progreso. Faltan ").append(String.format("%.1f", faltan)).append(" horas por ubicar en el calendario.\n");
-            } else {
-                diagnostico.append("✅ ¡Todo excelente! El 100% de las horas requeridas ya están asignadas en el calendario.\n");
-            }
-        }
-
-        if (diagnostico.length() == 0) {
-            diagnostico.append("Todo el sistema está operando correctamente.");
-        }
+        if (diagnostico.length() == 0) diagnostico.append("Todo el sistema está operando correctamente.");
 
         lblStatusDetallado.setText(diagnostico.toString());
+    }
+
+    /**
+     * Método ayudante para aplicar clases semánticas de AtlantaFX.
+     * Limpia los colores dinámicos directos y las clases anteriores.
+     */
+    private void setSemanticClass(Label label, String styleClass) {
+        label.setStyle(""); // Limpia cualquier estilo inline (como colores directos de la dona)
+        label.getStyleClass().removeAll("success", "danger", "warning", "accent", "text-muted");
+        label.getStyleClass().add(styleClass);
     }
 }
