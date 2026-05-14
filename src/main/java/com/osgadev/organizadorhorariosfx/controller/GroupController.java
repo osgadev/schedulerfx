@@ -9,10 +9,9 @@ import com.osgadev.organizadorhorariosfx.model.Group;
 import com.osgadev.organizadorhorariosfx.model.Teacher;
 import com.osgadev.organizadorhorariosfx.model.Student;
 import com.osgadev.organizadorhorariosfx.service.GroupService;
-import com.osgadev.organizadorhorariosfx.util.ImportadorExcel;
-import com.osgadev.organizadorhorariosfx.util.SessionGlobal;
+import com.osgadev.organizadorhorariosfx.util.ExcelImporter;
+import com.osgadev.organizadorhorariosfx.util.GlobalSession;
 
-import javafx.application.Platform;
 import javafx.beans.property.ReadOnlyObjectWrapper;
 import javafx.beans.property.SimpleIntegerProperty;
 import javafx.beans.property.SimpleStringProperty;
@@ -22,6 +21,8 @@ import javafx.collections.transformation.FilteredList;
 import javafx.collections.transformation.SortedList;
 import javafx.fxml.FXML;
 import javafx.scene.control.*;
+import javafx.scene.image.Image;
+import javafx.scene.image.ImageView;
 import javafx.scene.layout.HBox;
 import javafx.scene.layout.VBox;
 import javafx.stage.FileChooser;
@@ -59,7 +60,6 @@ public class GroupController {
     @FXML private Button btnVerExcelLocal;
     private ToggleGroup toggleGroupModo;
 
-    // Componentes del Panel Lateral de Estado
     @FXML private VBox panelAlertaManual;
     @FXML private Button btnCargarExcelRegenerar;
     @FXML private VBox boxAccionesRegenerar;
@@ -93,7 +93,7 @@ public class GroupController {
     private final GroupDAO groupDAO = new GroupDAO();
     private final StudentDAO studentDAO = new StudentDAO();
     private final TeacherDAO teacherDAO = new TeacherDAO();
-    private final CourseDAO courseDAO = new CourseDAO(); // DAOs de catálogo
+    private final CourseDAO courseDAO = new CourseDAO();
 
     private ObservableList<Group> listaBaseGrupos = FXCollections.observableArrayList();
     private FilteredList<Group> gruposFiltrados;
@@ -127,8 +127,8 @@ public class GroupController {
     }
 
     public void cargarContextoGlobal() {
-        String anio = SessionGlobal.getAnioActual();
-        String etapa = SessionGlobal.getEtapaActual();
+        String anio = GlobalSession.getAnioActual();
+        String etapa = GlobalSession.getEtapaActual();
         lblCicloGlobal.setText("Año: " + anio + " | Etapa: " + etapa);
 
         List<Group> recuperados = groupDAO.obtenerPorAnioYEtapa(anio, etapa);
@@ -197,15 +197,14 @@ public class GroupController {
         colAcciones.setCellFactory(param -> new TableCell<>() {
             private final Button btnVer = new Button("Ver Detalles");
             {
-                btnVer.getStyleClass().add("btn-outline-primary");
-                btnVer.setStyle("-fx-padding: 3 8 3 8; -fx-font-size: 11px;");
+                btnVer.getStyleClass().addAll("button-outlined", "accent");
                 btnVer.setOnAction(e -> mostrarAlumnosDeGrupo(getTableView().getItems().get(getIndex())));
             }
             @Override protected void updateItem(Void item, boolean empty) {
                 super.updateItem(item, empty);
                 setGraphic(empty ? null : btnVer);
                 if (!empty) {
-                    int total = studentDAO.contarAlumnos(SessionGlobal.getAnioActual(), SessionGlobal.getEtapaActual());
+                    int total = studentDAO.contarAlumnos(GlobalSession.getAnioActual(), GlobalSession.getEtapaActual());
                     btnVer.setDisable(total == 0);
                 }
             }
@@ -218,9 +217,6 @@ public class GroupController {
         colNombreAlumno.setCellValueFactory(c -> new SimpleStringProperty(c.getValue().getNombreCompleto()));
     }
 
-    // ==========================================
-    // VISTAS Y NAVEGACIÓN
-    // ==========================================
     private void mostrarEnPanelDetalle(List<Student> alumnos, String titulo, Group grupoInfo) {
         lblTituloDetalle.setText(titulo);
         lblSubtituloDetalle.setText("Mostrando: " + alumnos.size() + " estudiantes");
@@ -238,8 +234,8 @@ public class GroupController {
     }
 
     private void mostrarAlumnosDeGrupo(Group grupo) {
-        String anio = SessionGlobal.getAnioActual();
-        String etapa = SessionGlobal.getEtapaActual();
+        String anio = GlobalSession.getAnioActual();
+        String etapa = GlobalSession.getEtapaActual();
         Map<String, List<Student>> alumnosEnGrupos = studentDAO.obtenerAlumnosAgrupadosPorBD(anio, etapa);
         List<Student> alumnosMostrar = alumnosEnGrupos.getOrDefault(grupo.getIdGrupo(), new ArrayList<>());
         mostrarEnPanelDetalle(alumnosMostrar, "Alumnos - Grupo " + grupo.getIdGrupo() + " (" + grupo.getCurso().getNombre() + ")", grupo);
@@ -250,8 +246,8 @@ public class GroupController {
         if (alumnosImportados != null && !alumnosImportados.isEmpty() && listaBaseGrupos.isEmpty()) {
             mostrarEnPanelDetalle(alumnosImportados, "Vista Previa: Memoria Excel", null);
         } else {
-            String anio = SessionGlobal.getAnioActual();
-            String etapa = SessionGlobal.getEtapaActual();
+            String anio = GlobalSession.getAnioActual();
+            String etapa = GlobalSession.getEtapaActual();
             List<Student> alumnosBD = studentDAO.obtenerPorAnioYEtapa(anio, etapa);
             mostrarEnPanelDetalle(alumnosBD, "Lista de alumnos", null);
         }
@@ -269,14 +265,11 @@ public class GroupController {
         }
     }
 
-    // ==========================================
-    // GENERACIÓN Y ELIMINACIÓN DE CICLOS (TODO O NADA)
-    // ==========================================
     @FXML
     private void onGenerarYGuardarClick() {
         try {
-            String anio = SessionGlobal.getAnioActual();
-            String etapa = SessionGlobal.getEtapaActual();
+            String anio = GlobalSession.getAnioActual();
+            String etapa = GlobalSession.getEtapaActual();
             int alumnos = 0;
 
             if (rbManual.isSelected()) alumnos = Integer.parseInt(txtTotalAlumnos.getText());
@@ -329,17 +322,13 @@ public class GroupController {
     @FXML
     private void onEliminarCicloClick() {
         if (new Alert(Alert.AlertType.CONFIRMATION, "CUIDADO: ¿Eliminar TODO EL CICLO (Alumnos y Grupos)?\nEsta acción es irreversible.").showAndWait().orElse(ButtonType.CANCEL) == ButtonType.OK) {
-            String a = SessionGlobal.getAnioActual(), e = SessionGlobal.getEtapaActual();
+            String a = GlobalSession.getAnioActual(), e = GlobalSession.getEtapaActual();
             studentDAO.eliminarAlumnosYRelacionesMasivo(a, e);
             groupDAO.eliminarPorAnioYEtapa(a, e);
             limpiarFormularioCreacion();
             cargarContextoGlobal();
         }
     }
-
-    // ==========================================
-    // LÓGICA DE REGENERACIÓN (TARJETA ESTADO)
-    // ==========================================
 
     @FXML
     private void onCargarExcelBannerClick() {
@@ -349,7 +338,7 @@ public class GroupController {
 
         if (archivo != null) {
             try {
-                alumnosImportados = ImportadorExcel.leerListaAlumnos(archivo);
+                alumnosImportados = ExcelImporter.leerListaAlumnos(archivo);
                 if (alumnosImportados.isEmpty()) {
                     mostrarAlerta("Error", "El archivo Excel está vacío o no es válido.", Alert.AlertType.WARNING);
                     return;
@@ -357,8 +346,15 @@ public class GroupController {
 
                 for (int i = 0; i < alumnosImportados.size(); i++) alumnosImportados.get(i).setNumeroLista(i + 1);
 
-                btnCargarExcelRegenerar.setText("✅ Memoria Cargada");
-                btnCargarExcelRegenerar.setDisable(true); // Bloquear botón principal
+                btnCargarExcelRegenerar.setText("Memoria Cargada");
+                try {
+                    ImageView loadedIcon = new ImageView(new Image(getClass().getResourceAsStream("/images/check.png")));
+                    loadedIcon.setFitHeight(16);
+                    loadedIcon.setFitWidth(16);
+                    btnCargarExcelRegenerar.setGraphic(loadedIcon);
+                } catch(Exception e){}
+
+                btnCargarExcelRegenerar.setDisable(true);
                 boxAccionesRegenerar.setVisible(true);
                 boxAccionesRegenerar.setManaged(true);
             } catch (Exception e) {
@@ -384,8 +380,8 @@ public class GroupController {
         confirm.setContentText("Esto reemplazará la estructura actual. ¿Deseas continuar?");
 
         if (confirm.showAndWait().orElse(ButtonType.CANCEL) == ButtonType.OK) {
-            String anio = SessionGlobal.getAnioActual();
-            String etapa = SessionGlobal.getEtapaActual();
+            String anio = GlobalSession.getAnioActual();
+            String etapa = GlobalSession.getEtapaActual();
 
             List<Teacher> profes = teacherDAO.obtenerProfesoresObservable();
             List<Group> gruposGenerados = groupService.generarGrupos(alumnosImportados.size(), profes, anio, etapa);
@@ -414,22 +410,32 @@ public class GroupController {
         }
     }
 
-    // ==========================================
-    // CARGA DE ARCHIVOS Y COMPORTAMIENTO UI
-    // ==========================================
-
     private void limpiarFormularioCreacion() {
         alumnosImportados = null;
         txtTotalAlumnos.clear();
-        btnSubirExcel.setText("📁 Seleccionar Archivo");
+        btnSubirExcel.setText("Seleccionar Archivo");
+
+        try {
+            ImageView defaultIcon = new ImageView(new Image(getClass().getResourceAsStream("/images/folder.png")));
+            defaultIcon.setFitHeight(16);
+            defaultIcon.setFitWidth(16);
+            btnSubirExcel.setGraphic(defaultIcon);
+        } catch(Exception e){}
+
         btnVerExcelLocal.setVisible(false);
         btnVerExcelLocal.setManaged(false);
         rbManual.setSelected(true);
         txtTotalAlumnos.setDisable(false);
         btnSubirExcel.setDisable(true);
-        // Reset Banner Estado
+
         if (btnCargarExcelRegenerar != null) {
-            btnCargarExcelRegenerar.setText("📁 Cargar Archivo Excel");
+            btnCargarExcelRegenerar.setText("Cargar Archivo Excel");
+            try {
+                ImageView btnIcon = new ImageView(new Image(getClass().getResourceAsStream("/images/folder.png")));
+                btnIcon.setFitHeight(16);
+                btnIcon.setFitWidth(16);
+                btnCargarExcelRegenerar.setGraphic(btnIcon);
+            } catch(Exception e){}
             btnCargarExcelRegenerar.setDisable(false);
         }
         if (boxAccionesRegenerar != null) {
@@ -461,20 +467,24 @@ public class GroupController {
 
         if (archivo != null) {
             try {
-                alumnosImportados = ImportadorExcel.leerListaAlumnos(archivo);
+                alumnosImportados = ExcelImporter.leerListaAlumnos(archivo);
                 if (alumnosImportados.isEmpty()) return;
                 for (int i = 0; i < alumnosImportados.size(); i++) alumnosImportados.get(i).setNumeroLista(i + 1);
 
-                btnSubirExcel.setText("✅ Archivo Cargado");
+                btnSubirExcel.setText("Archivo Cargado");
+                try {
+                    ImageView loadedIcon = new ImageView(new Image(getClass().getResourceAsStream("/images/check.png")));
+                    loadedIcon.setFitHeight(16);
+                    loadedIcon.setFitWidth(16);
+                    btnSubirExcel.setGraphic(loadedIcon);
+                } catch(Exception e){}
+
                 btnVerExcelLocal.setVisible(true);
                 btnVerExcelLocal.setManaged(true);
             } catch (Exception e) {}
         }
     }
 
-    // ==========================================
-    // REFRESCADO Y FILTRADO VISUAL
-    // ==========================================
     @FXML private void onAnteriorClick() { if (indiceCursoActual > 0) { indiceCursoActual--; actualizarFiltroMateria(); } }
     @FXML private void onSiguienteClick() { if (indiceCursoActual < cursosUnicos.size() - 1) { indiceCursoActual++; actualizarFiltroMateria(); } }
 
@@ -510,7 +520,6 @@ public class GroupController {
     }
 
     private void actualizarEstadisticas() {
-        // Valores dinámicos del ciclo actual (Alumnos y Grupos)
         int tAlumnos = 0;
         if (!listaBaseGrupos.isEmpty() && !cursosUnicos.isEmpty()) {
             tAlumnos = listaBaseGrupos.stream()
@@ -519,16 +528,14 @@ public class GroupController {
         } else if (alumnosImportados != null) {
             tAlumnos = alumnosImportados.size();
         } else {
-            tAlumnos = studentDAO.contarAlumnos(SessionGlobal.getAnioActual(), SessionGlobal.getEtapaActual());
+            tAlumnos = studentDAO.contarAlumnos(GlobalSession.getAnioActual(), GlobalSession.getEtapaActual());
         }
 
         lblTotalAlumnos.setText(String.valueOf(tAlumnos));
         lblTotalGrupos.setText(String.valueOf(listaBaseGrupos.size()));
 
-        // Valores estáticos del catálogo maestro (Profesores y Materias siempre se muestran correctos usando la BD)
         try {
             lblTotalProfesores.setText(String.valueOf(teacherDAO.obtenerProfesoresObservable().size()));
-            // Aquí usamos el método optimizado del CourseDAO
             lblTotalCursos.setText(String.valueOf(courseDAO.contarCursos()));
         } catch (Exception e) {
             System.err.println("No se pudieron cargar métricas estáticas del catálogo.");
@@ -542,7 +549,7 @@ public class GroupController {
         if(panelAlertaManual != null) { panelAlertaManual.setVisible(false); panelAlertaManual.setManaged(false); }
 
         listaBaseGrupos.clear();
-        cursosUnicos.clear(); // Limpiamos caché interno
+        cursosUnicos.clear();
         actualizarEstadisticas();
     }
 
@@ -562,12 +569,19 @@ public class GroupController {
         panelVacio.setVisible(false); panelFormulario.setVisible(false); panelTabla.setVisible(true); panelDetalleAlumnos.setVisible(false);
         btnNuevoCiclo.setVisible(false); btnEliminarCiclo.setVisible(true);
 
-        int totalAlumnos = studentDAO.contarAlumnos(SessionGlobal.getAnioActual(), SessionGlobal.getEtapaActual());
+        int totalAlumnos = studentDAO.contarAlumnos(GlobalSession.getAnioActual(), GlobalSession.getEtapaActual());
 
         if (totalAlumnos == 0) {
             panelAlertaManual.setVisible(true);
             panelAlertaManual.setManaged(true);
-            btnCargarExcelRegenerar.setText("📁 Cargar Archivo Excel");
+            btnCargarExcelRegenerar.setText("Cargar Archivo Excel");
+            try {
+                ImageView defaultIcon = new ImageView(new Image(getClass().getResourceAsStream("/images/folder.png")));
+                defaultIcon.setFitHeight(16);
+                defaultIcon.setFitWidth(16);
+                btnCargarExcelRegenerar.setGraphic(defaultIcon);
+            } catch(Exception e){}
+
             btnCargarExcelRegenerar.setDisable(false);
             boxAccionesRegenerar.setVisible(false);
             boxAccionesRegenerar.setManaged(false);

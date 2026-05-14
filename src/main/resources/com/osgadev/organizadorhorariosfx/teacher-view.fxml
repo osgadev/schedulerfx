@@ -1,5 +1,6 @@
 <?xml version="1.0" encoding="UTF-8"?>
 
+<?import java.lang.String?>
 <?import javafx.geometry.Insets?>
 <?import javafx.scene.control.Button?>
 <?import javafx.scene.control.ComboBox?>
@@ -8,6 +9,8 @@
 <?import javafx.scene.control.TableColumn?>
 <?import javafx.scene.control.TableView?>
 <?import javafx.scene.control.TextField?>
+<?import javafx.scene.image.Image?>
+<?import javafx.scene.image.ImageView?>
 <?import javafx.scene.layout.ColumnConstraints?>
 <?import javafx.scene.layout.GridPane?>
 <?import javafx.scene.layout.HBox?>
@@ -15,61 +18,87 @@
 <?import javafx.scene.layout.RowConstraints?>
 <?import javafx.scene.layout.StackPane?>
 <?import javafx.scene.layout.VBox?>
-<?import javafx.scene.text.Font?>
 
-<HBox fx:id="rootHBox" prefHeight="650.0" prefWidth="1000.0" spacing="20.0" style="-fx-background-color: #f4f4f4;" xmlns="http://javafx.com/javafx/25" xmlns:fx="http://javafx.com/fxml/1" fx:controller="com.osgadev.organizadorhorariosfx.controller.TeacherController">
+<HBox fx:id="rootHBox" prefHeight="650.0" prefWidth="1000.0" spacing="20.0" style="-fx-background-color: -color-bg-subtle;" xmlns="http://javafx.com/javafx/25" xmlns:fx="http://javafx.com/fxml/1" fx:controller="com.osgadev.organizadorhorariosfx.controller.TeacherController">
     <padding>
         <Insets bottom="20.0" left="20.0" right="20.0" top="20.0" />
     </padding>
     <children>
 
-        <!-- ============================================== -->
-        <!-- LADO DERECHO: CONTENEDOR DINÁMICO              -->
-        <!-- ============================================== -->
         <StackPane HBox.hgrow="ALWAYS">
             <children>
 
-                <!-- 1. ESTADO VACÍO -->
-                <VBox fx:id="panelVacio" alignment="CENTER" spacing="15.0" style="-fx-background-color: white; -fx-background-radius: 8; -fx-effect: dropshadow(three-pass-box, rgba(0,0,0,0.1), 10, 0, 0, 0);">
+                <VBox fx:id="panelVacio" alignment="CENTER" spacing="15.0" style="-fx-background-color: -color-bg-default; -fx-background-radius: 10; -fx-border-color: -color-border-default; -fx-border-radius: 10;">
+                    <styleClass>
+                        <String fx:value="elevated-1" />
+                    </styleClass>
                     <children>
-                        <Label text="👨‍🏫" textFill="#bdc3c7">
-                            <font><Font size="64.0" /></font>
+                        <ImageView fitHeight="64.0" fitWidth="64.0" pickOnBounds="true" preserveRatio="true">
+                            <image>
+                                <Image url="@../../../images/teacher_black_version_2.png" />
+                            </image>
+                        </ImageView>
+                        <Label text="Selecciona un profesor de la lista">
+                            <styleClass>
+                                <String fx:value="title-2" />
+                            </styleClass>
                         </Label>
-                        <Label text="Selecciona un profesor de la lista" textFill="#34495e">
-                            <font><Font name="System Bold" size="20.0" /></font>
-                        </Label>
-                        <Label text="O haz clic en '+ Nuevo Profesor' para registrar uno en el sistema." textFill="#7f8c8d">
-                            <font><Font size="14.0" /></font>
+                        <Label text="O haz clic en '+ Nuevo Profesor' para registrar uno en el sistema.">
+                            <styleClass>
+                                <String fx:value="text-muted" />
+                            </styleClass>
                         </Label>
                     </children>
                 </VBox>
 
-                <!-- 2. DETALLE / FORMULARIO -->
-                <VBox fx:id="panelFormulario" prefWidth="550.0" spacing="15.0" style="-fx-background-color: white; -fx-background-radius: 8; -fx-effect: dropshadow(three-pass-box, rgba(0,0,0,0.1), 10, 0, 0, 0);" visible="false">
+                <VBox fx:id="panelFormulario" prefWidth="550.0" spacing="15.0" style="-fx-background-color: -color-bg-default; -fx-background-radius: 10; -fx-border-color: -color-border-default; -fx-border-radius: 10;" visible="false">
+                    <styleClass>
+                        <String fx:value="elevated-1" />
+                    </styleClass>
                     <padding>
                         <Insets bottom="25.0" left="30.0" right="30.0" top="25.0" />
                     </padding>
                     <children>
                         <HBox alignment="CENTER_LEFT" spacing="10.0">
                             <children>
-                                <Label fx:id="lblTituloDetalle" text="Información del Profesor" textFill="#2c3e50">
-                                    <font><Font name="System Bold" size="18.0" /></font>
+                                <Label fx:id="lblTituloDetalle" text="Información del Profesor">
+                                    <styleClass>
+                                        <String fx:value="title-3" />
+                                    </styleClass>
                                 </Label>
                                 <Region HBox.hgrow="ALWAYS" />
 
-                                <!-- Botón de Configurar Disponibilidad usando btn-outline-primary -->
-                                <Button fx:id="btnIrDisponibilidad" mnemonicParsing="false" onAction="#onIrDisponibilidadClick" styleClass="btn-outline-primary" text="🗓️ Configurar Disponibilidad" visible="false" />
+                                <Button fx:id="btnIrDisponibilidad" graphicTextGap="8.0" mnemonicParsing="false" onAction="#onIrDisponibilidadClick" text="Configurar Disponibilidad" visible="false">
+                                    <styleClass>
+                                        <String fx:value="button-outlined" />
+                                        <String fx:value="accent" />
+                                    </styleClass>
+                                    <graphic>
+                                        <ImageView fitHeight="16.0" fitWidth="16.0" pickOnBounds="true" preserveRatio="true">
+                                            <image>
+                                                <Image url="@../../../images/schedule_black_version.png" />
+                                            </image>
+                                        </ImageView>
+                                    </graphic>
+                                </Button>
                             </children>
                         </HBox>
 
-                        <HBox fx:id="boxAlertaDisponibilidad" alignment="CENTER_LEFT" managed="false" spacing="10.0" style="-fx-background-color: #fff3cd; -fx-border-color: #ffeeba; -fx-border-radius: 4; -fx-background-radius: 4;" visible="false">
+                        <HBox fx:id="boxAlertaDisponibilidad" alignment="CENTER_LEFT" managed="false" spacing="10.0" style="-fx-background-color: -color-warning-subtle; -fx-border-color: -color-warning-muted; -fx-border-radius: 6; -fx-background-radius: 6;" visible="false">
                             <padding>
                                 <Insets bottom="10.0" left="15.0" right="15.0" top="10.0" />
                             </padding>
                             <children>
-                                <Label text="⚠️" />
-                                <Label text="Este profesor no tiene disponibilidad registrada." textFill="#856404">
-                                    <font><Font name="System Bold" size="12.0" /></font>
+                                <ImageView fitHeight="16.0" fitWidth="16.0" pickOnBounds="true" preserveRatio="true">
+                                    <image>
+                                        <Image url="@../../../images/warning.png" />
+                                    </image>
+                                </ImageView>
+                                <Label text="Este profesor no tiene disponibilidad registrada.">
+                                    <styleClass>
+                                        <String fx:value="text-bold" />
+                                        <String fx:value="warning" />
+                                    </styleClass>
                                 </Label>
                             </children>
                         </HBox>
@@ -88,10 +117,14 @@
                                 <RowConstraints minHeight="10.0" prefHeight="30.0" vgrow="SOMETIMES" />
                             </rowConstraints>
                             <children>
-                                <Label text="Nombre(s):" />
+                                <Label text="Nombre(s):">
+                                    <styleClass><String fx:value="text-bold"/></styleClass>
+                                </Label>
                                 <TextField fx:id="txtNombre" promptText="Ej. Juan Carlos" GridPane.columnIndex="1" />
 
-                                <Label text="Apellidos:" GridPane.rowIndex="1" />
+                                <Label text="Apellidos:" GridPane.rowIndex="1">
+                                    <styleClass><String fx:value="text-bold"/></styleClass>
+                                </Label>
                                 <HBox spacing="10.0" GridPane.columnIndex="1" GridPane.rowIndex="1">
                                     <children>
                                         <TextField fx:id="txtApellidoP" promptText="Paterno" HBox.hgrow="ALWAYS" />
@@ -99,29 +132,37 @@
                                     </children>
                                 </HBox>
 
-                                <Label text="Correo Electrónico:" GridPane.rowIndex="2" />
+                                <Label text="Correo Electrónico:" GridPane.rowIndex="2">
+                                    <styleClass><String fx:value="text-bold"/></styleClass>
+                                </Label>
                                 <TextField fx:id="txtCorreo" promptText="ejemplo@correo.com" GridPane.columnIndex="1" GridPane.rowIndex="2" />
 
-                                <Label text="Teléfono:" GridPane.rowIndex="3" />
+                                <Label text="Teléfono:" GridPane.rowIndex="3">
+                                    <styleClass><String fx:value="text-bold"/></styleClass>
+                                </Label>
                                 <TextField fx:id="txtTelefono" promptText="10 dígitos" GridPane.columnIndex="1" GridPane.rowIndex="3" />
                             </children>
                         </GridPane>
 
                         <Separator prefWidth="200.0" />
 
-                        <Label text="Cursos Asignados" textFill="#2c3e50">
-                            <font><Font name="System Bold" size="15.0" /></font>
+                        <Label text="Cursos Asignados">
+                            <styleClass>
+                                <String fx:value="title-4" />
+                            </styleClass>
                         </Label>
 
                         <HBox spacing="10.0">
                             <children>
                                 <ComboBox fx:id="cmbCursos" prefWidth="250.0" promptText="Seleccionar curso..." HBox.hgrow="ALWAYS" />
-                                <!-- Botón secundario para agregar a la lista -->
-                                <Button mnemonicParsing="false" onAction="#onAgregarCursoClick" styleClass="btn-secondary" text="Agregar a la lista" />
+                                <Button mnemonicParsing="false" onAction="#onAgregarCursoClick" text="Agregar a la lista" />
                             </children>
                         </HBox>
 
                         <TableView fx:id="tablaCursosAsignados" prefHeight="150.0" prefWidth="200.0">
+                            <styleClass>
+                                <String fx:value="striped" />
+                            </styleClass>
                             <columns>
                                 <TableColumn fx:id="colNombreCursoDetalle" prefWidth="350.0" text="Nombre del Curso" />
                                 <TableColumn fx:id="colAccionesCursoDetalle" prefWidth="100.0" style="-fx-alignment: CENTER;" text="Acción" />
@@ -135,44 +176,57 @@
 
                         <HBox alignment="CENTER_RIGHT" spacing="15.0">
                             <children>
-                                <!-- Botón Eliminar usando btn-danger -->
-                                <Button fx:id="btnEliminarProfesor" mnemonicParsing="false" onAction="#onEliminarProfesorClick" prefHeight="35.0" styleClass="btn-danger" text="Eliminar Profesor" visible="false" />
+                                <Button fx:id="btnEliminarProfesor" mnemonicParsing="false" onAction="#onEliminarProfesorClick" prefHeight="35.0" text="Eliminar Profesor" visible="false">
+                                    <styleClass>
+                                        <String fx:value="danger" />
+                                        <String fx:value="button-outlined" />
+                                    </styleClass>
+                                </Button>
                                 <Region HBox.hgrow="ALWAYS" />
 
-                                <!-- Botón Cancelar usando btn-secondary -->
-                                <Button mnemonicParsing="false" onAction="#onCancelarClick" prefHeight="35.0" prefWidth="100.0" styleClass="btn-secondary" text="Cancelar" />
+                                <Button mnemonicParsing="false" onAction="#onCancelarClick" prefHeight="35.0" prefWidth="100.0" text="Cancelar" />
 
-                                <!-- Botón Guardar usando btn-primary -->
-                                <Button mnemonicParsing="false" onAction="#onGuardarClick" prefHeight="35.0" prefWidth="130.0" styleClass="btn-primary" text="Guardar Cambios" />
+                                <Button mnemonicParsing="false" onAction="#onGuardarClick" prefHeight="35.0" prefWidth="130.0" text="Guardar Cambios">
+                                    <styleClass>
+                                        <String fx:value="success" />
+                                    </styleClass>
+                                </Button>
                             </children>
                         </HBox>
                     </children>
                 </VBox>
             </children>
         </StackPane>
-        <!-- ============================================== -->
-        <!-- LADO IZQUIERDO: LISTA (MASTER)                 -->
-        <!-- ============================================== -->
+
         <VBox prefWidth="380.0" spacing="15.0" HBox.hgrow="NEVER">
             <children>
                 <VBox spacing="5.0">
                     <children>
                         <Label text="Gestión de Profesores">
-                            <font><Font name="System Bold" size="22.0" /></font>
+                            <styleClass>
+                                <String fx:value="title-1" />
+                            </styleClass>
                         </Label>
-                        <Label text="Catálogo de docentes" textFill="#666666">
-                            <font><Font size="13.0" /></font>
+                        <Label text="Catálogo de docentes">
+                            <styleClass>
+                                <String fx:value="text-muted" />
+                            </styleClass>
                         </Label>
                     </children>
                 </VBox>
 
-                <!-- Botón Nuevo Profesor usando btn-success -->
-                <Button maxWidth="1.7976931348623157E308" mnemonicParsing="false" onAction="#onNuevoProfesorClick" prefHeight="35.0" text="+ Nuevo Profesor" />
+                <Button maxWidth="1.7976931348623157E308" mnemonicParsing="false" onAction="#onNuevoProfesorClick" prefHeight="35.0" text="+ Nuevo Profesor">
+                    <styleClass>
+                        <String fx:value="success" />
+                    </styleClass>
+                </Button>
 
-                <!-- Barra de búsqueda agregada -->
-                <TextField fx:id="txtBuscarProfesor" promptText="🔍 Buscar por nombre o apellido..." styleClass="search-field" />
+                <TextField fx:id="txtBuscarProfesor" promptText="Buscar por nombre o apellido..." />
 
                 <TableView fx:id="tablaProfesores" VBox.vgrow="ALWAYS">
+                    <styleClass>
+                        <String fx:value="striped" />
+                    </styleClass>
                     <columns>
                         <TableColumn fx:id="colNumeroProfesor" maxWidth="40.0" minWidth="40.0" prefWidth="40.0" style="-fx-alignment: CENTER;" text="No." />
                         <TableColumn fx:id="colNombre" prefWidth="250.0" text="Nombre" />

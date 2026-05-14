@@ -1,7 +1,7 @@
 package com.osgadev.organizadorhorariosfx.controller;
 
 import com.osgadev.organizadorhorariosfx.dao.*;
-import com.osgadev.organizadorhorariosfx.util.SessionGlobal;
+import com.osgadev.organizadorhorariosfx.util.GlobalSession;
 import javafx.application.Platform;
 import javafx.collections.FXCollections;
 import javafx.collections.ObservableList;
@@ -11,6 +11,8 @@ import javafx.scene.Node;
 import javafx.scene.chart.PieChart;
 import javafx.scene.control.ComboBox;
 import javafx.scene.control.Label;
+import javafx.scene.image.Image;
+import javafx.scene.image.ImageView;
 import javafx.scene.layout.VBox;
 
 import java.net.URL;
@@ -30,7 +32,9 @@ public class HomeController implements Initializable {
     @FXML private PieChart pieHorarios;
     @FXML private Label lblEstadoHorario;
     @FXML private Label lblDetalleHorario;
-    @FXML private Label lblStatusDetallado;
+
+    // Contenedor que reemplaza a lblStatusDetallado
+    @FXML private VBox vboxDiagnostico;
 
     @FXML private ComboBox<String> cmbAnio;
     @FXML private ComboBox<String> cmbEtapa;
@@ -47,34 +51,32 @@ public class HomeController implements Initializable {
         cmbAnio.getItems().addAll(String.valueOf(currentYear - 1), String.valueOf(currentYear), String.valueOf(currentYear + 1));
         cmbEtapa.getItems().addAll("1", "2", "3");
 
-        cmbAnio.getSelectionModel().select(SessionGlobal.getAnioActual());
-        cmbEtapa.getSelectionModel().select(SessionGlobal.getEtapaActual());
+        cmbAnio.getSelectionModel().select(GlobalSession.getAnioActual());
+        cmbEtapa.getSelectionModel().select(GlobalSession.getEtapaActual());
 
         cmbAnio.getSelectionModel().selectedItemProperty().addListener((obs, oldVal, newVal) -> {
             if (newVal != null) {
-                SessionGlobal.setAnioActual(newVal);
+                GlobalSession.setAnioActual(newVal);
                 cargarDatosDashboard();
             }
         });
 
         cmbEtapa.getSelectionModel().selectedItemProperty().addListener((obs, oldVal, newVal) -> {
             if (newVal != null) {
-                SessionGlobal.setEtapaActual(newVal);
+                GlobalSession.setEtapaActual(newVal);
                 cargarDatosDashboard();
             }
         });
 
         Platform.runLater(this::cargarDatosDashboard);
-//        cargarDatosDashboard();
     }
 
     private void cargarDatosDashboard() {
-        String anio = SessionGlobal.getAnioActual();
-        String etapa = SessionGlobal.getEtapaActual();
+        String anio = GlobalSession.getAnioActual();
+        String etapa = GlobalSession.getEtapaActual();
 
         if (anio == null || etapa == null) return;
 
-        // PROFESORES Y CURSOS
         int totalProfes = teacherDAO.contarProfesores();
         int profesSinDisp = teacherDAO.contarProfesoresSinDisponibilidad();
         int totalCursos = courseDAO.contarCursos();
@@ -83,23 +85,24 @@ public class HomeController implements Initializable {
         lblTotalCursos.setText(String.valueOf(totalCursos));
 
         if (profesSinDisp > 0) {
-            lblProfesoresAlerta.setText("⚠️ " + profesSinDisp + " sin disponibilidad");
-            setSemanticClass(lblProfesoresAlerta, "danger");
+            lblProfesoresAlerta.setText(profesSinDisp + " sin disponibilidad");
+            lblProfesoresAlerta.setGraphic(getIcon("/images/warning.png"));
+            setSemanticClass(lblProfesoresAlerta, "warning");
         } else if (totalProfes > 0) {
-            lblProfesoresAlerta.setText("✅ Todos con disponibilidad");
+            lblProfesoresAlerta.setText("Todos con disponibilidad");
+            lblProfesoresAlerta.setGraphic(getIcon("/images/check.png"));
             setSemanticClass(lblProfesoresAlerta, "success");
         } else {
             lblProfesoresAlerta.setText("Catálogo vacío");
+            lblProfesoresAlerta.setGraphic(null);
             setSemanticClass(lblProfesoresAlerta, "text-muted");
         }
 
-        // INFORMACION GRUPOS Y ALUMNOS
         int totalGrupos = groupDAO.contarGrupos(anio, etapa);
         int totalAlumnos = studentDAO.contarAlumnos(anio, etapa);
 
         lblTotalGrupos.setText(String.valueOf(totalGrupos));
 
-        //Validar si hay alumnos cargados en bd
         if (totalAlumnos > 0) {
             lblEstadoAlumnos.setText(String.valueOf(totalAlumnos));
             setSemanticClass(lblEstadoAlumnos, "success");
@@ -108,7 +111,6 @@ public class HomeController implements Initializable {
             setSemanticClass(lblEstadoAlumnos, "danger");
         }
 
-        // Grafico de dona
         double horasRequeridas = groupDAO.calcularHorasTotalesRequeridas(anio, etapa);
         double horasAsignadas = scheduleDAO.calcularHorasAsignadas(anio, etapa);
 
@@ -127,32 +129,29 @@ public class HomeController implements Initializable {
                 Node nodoAsignadas = sliceAsignadas.getNode();
                 Node nodoPendientes = slicePendientes.getNode();
 
-                // Usamos la variable del tema para la parte pendiente, así se adapta al modo oscuro
                 if (nodoPendientes != null) {
                     nodoPendientes.setStyle("-fx-pie-color: -color-bg-subtle; -fx-border-width: 0;");
                 }
 
                 String colorHex;
                 if (porcentajeTexto == 0) {
-                    colorHex = "#e74c3c"; // Rojo
+                    colorHex = "#e74c3c";
                 } else if (porcentajeTexto < 25) {
-                    colorHex = "#e67e22"; // Naranja
+                    colorHex = "#e67e22";
                 } else if (porcentajeTexto < 50) {
-                    colorHex = "#f1c40f"; // Amarillo
+                    colorHex = "#f1c40f";
                 } else if (porcentajeTexto < 75) {
-                    colorHex = "#3498db"; // Azul
+                    colorHex = "#3498db";
                 } else if (porcentajeTexto < 100) {
-                    colorHex = "#2ecc71"; // Verde claro
+                    colorHex = "#2ecc71";
                 } else {
-                    colorHex = "#1e8449"; // Verde oscuro
+                    colorHex = "#1e8449";
                 }
 
-                // Aplicar el color dinámico a la rebanada asignada
                 if (nodoAsignadas != null) {
                     nodoAsignadas.setStyle("-fx-pie-color: " + colorHex + "; -fx-border-width: 0;");
                 }
 
-                // Limpiamos las clases semánticas previas y aplicamos el color al texto
                 lblEstadoHorario.getStyleClass().removeAll("success", "warning", "danger", "text-muted");
                 lblEstadoHorario.setStyle("-fx-text-fill: " + colorHex + ";");
             });
@@ -161,51 +160,105 @@ public class HomeController implements Initializable {
             lblDetalleHorario.setText(String.format("%.1f de %.1f hrs", horasAsignadas, horasRequeridas));
 
         } else {
-            // Caso donde no hay horas requeridas
             pieHorarios.setData(FXCollections.observableArrayList(new PieChart.Data("Vacío", 1)));
             Platform.runLater(() -> {
                 if(!pieHorarios.getData().isEmpty() && pieHorarios.getData().get(0).getNode() != null) {
-                    // Usamos una variable del tema para cuando esté vacío
                     pieHorarios.getData().get(0).getNode().setStyle("-fx-pie-color: -color-border-default; -fx-border-width: 0;");
                 }
             });
             lblEstadoHorario.setText("0%");
-            lblEstadoHorario.setStyle(""); // Limpia colores estáticos manuales
+            lblEstadoHorario.setStyle("");
             setSemanticClass(lblEstadoHorario, "text-muted");
             lblDetalleHorario.setText("0 hrs requeridas");
         }
 
         // ==========================================
-        // 4. CONSTRUCCIÓN DEL DIAGNÓSTICO
+        // CONSTRUCCIÓN DEL DIAGNÓSTICO
         // ==========================================
-        StringBuilder diagnostico = new StringBuilder();
+        Platform.runLater(() -> {
+            vboxDiagnostico.getChildren().clear();
+            boolean hayErrores = false;
 
-        if (totalProfes == 0) diagnostico.append("❌ No hay profesores registrados. Ve a la pestaña 'Profesores'.\n");
-        else if (profesSinDisp > 0) diagnostico.append("⚠️ Hay ").append(profesSinDisp).append(" profesor(es) sin disponibilidad configurada.\n");
+            if (totalProfes == 0) {
+                // Usando danger.png para error grave
+                agregarItemDiagnostico("No hay profesores registrados. Ve a la pestaña 'Profesores'.", "/images/danger.png", "danger");
+                hayErrores = true;
+            } else if (profesSinDisp > 0) {
+                // Usando warning.png para advertencia
+                agregarItemDiagnostico("Hay " + profesSinDisp + " profesor(es) sin disponibilidad configurada.", "/images/warning.png", "warning");
+                // Usando danger.png para bloqueo de sistema
+                agregarItemDiagnostico("Los horarios no pueden generarse hasta que la disponibilidad esté completa.", "/images/danger.png", "danger");
+                hayErrores = true;
+            }
 
-        if (totalCursos == 0) diagnostico.append("❌ No hay cursos registrados en el catálogo.\n");
+            if (totalCursos == 0) {
+                // Usando danger.png para error grave
+                agregarItemDiagnostico("No hay cursos registrados en el catálogo. Ve a la pestaña 'Cursos'", "/images/danger.png", "danger");
+                hayErrores = true;
+            }
 
-        if (totalGrupos == 0) diagnostico.append("ℹ️ Aún no se han armado grupos para el ciclo ").append(anio).append("-").append(etapa).append(".\n");
-        else {
-            if (totalAlumnos == 0) diagnostico.append("⚠️ Falta importar la lista de alumnos.\n");
+            if (totalGrupos == 0) {
+                // Usando warning para información pendiente
+                agregarItemDiagnostico("Aún no se han armado grupos para el ciclo " + anio + "-" + etapa + ".", "/images/warning.png", "text-muted");
+                hayErrores = true;
+            } else {
+                if (totalAlumnos == 0) {
+                    // Usando warning.png para advertencia
+                    agregarItemDiagnostico("Falta importar la lista de alumnos.", "/images/warning.png", "warning");
+                    hayErrores = true;
+                }
 
-            if (horasAsignadas == 0) diagnostico.append("ℹ️ Los grupos están listos. Ve a la pestaña 'Horarios' para comenzar.\n");
-            else if (horasAsignadas < horasRequeridas) diagnostico.append("⏳ Horarios en progreso. Faltan ").append(String.format("%.1f", horasRequeridas - horasAsignadas)).append(" horas.\n");
-            else diagnostico.append("✅ ¡Todo excelente! El 100% de las horas están asignadas.\n");
-        }
+                if (horasAsignadas == 0) {
+                    if (profesSinDisp > 0 || totalProfes == 0) {
+                        agregarItemDiagnostico("Los grupos están listos.", "/images/check.png", "text-muted");
+                    } else {
+                        agregarItemDiagnostico("Los grupos están listos. Ve a la pestaña 'Horarios' para comenzar.", "/images/check.png", "text-muted");
+                    }
+                    hayErrores = true;
+                } else if (horasAsignadas < horasRequeridas) {
+                    agregarItemDiagnostico("Horarios en progreso. Faltan " + String.format("%.1f", horasRequeridas - horasAsignadas) + " horas.", "/images/check.png", "text-muted");
+                    hayErrores = true;
+                } else {
+                    agregarItemDiagnostico("¡Todo excelente! El 100% de las horas están asignadas.", "/images/check.png", "success");
+                }
+            }
 
-        if (diagnostico.length() == 0) diagnostico.append("Todo el sistema está operando correctamente.");
-
-        lblStatusDetallado.setText(diagnostico.toString());
+            if (!hayErrores && horasRequeridas > 0 && horasAsignadas >= horasRequeridas) {
+                vboxDiagnostico.getChildren().clear();
+                agregarItemDiagnostico("Todo el sistema está operando correctamente.", "/images/check.png", "success");
+            }
+        });
     }
 
-    /**
-     * Método ayudante para aplicar clases semánticas de AtlantaFX.
-     * Limpia los colores dinámicos directos y las clases anteriores.
-     */
+    private void agregarItemDiagnostico(String mensaje, String rutaIcono, String claseEstilo) {
+        Label lblItem = new Label(mensaje);
+        lblItem.setWrapText(true);
+        lblItem.setGraphic(getIcon(rutaIcono));
+        lblItem.setGraphicTextGap(10);
+        lblItem.getStyleClass().add(claseEstilo);
+
+        vboxDiagnostico.getChildren().add(lblItem);
+    }
+
     private void setSemanticClass(Label label, String styleClass) {
-        label.setStyle(""); // Limpia cualquier estilo inline (como colores directos de la dona)
+        label.setStyle("");
         label.getStyleClass().removeAll("success", "danger", "warning", "accent", "text-muted");
         label.getStyleClass().add(styleClass);
+    }
+
+    private ImageView getIcon(String path) {
+        try {
+            URL resource = getClass().getResource(path);
+            if (resource != null) {
+                ImageView imageView = new ImageView(new Image(resource.toExternalForm()));
+                imageView.setFitWidth(18);
+                imageView.setFitHeight(18);
+                imageView.setPreserveRatio(true);
+                return imageView;
+            }
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+        return null;
     }
 }

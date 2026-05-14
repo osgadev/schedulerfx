@@ -4,6 +4,16 @@ target/
 !**/src/test/**/target/
 .kotlin
 
+/out/
+*.class
+*.jar
+*.war
+*.ear
+*.zip
+*.tar.gz
+*.rar
+*.log
+
 ### IntelliJ IDEA ###
 .idea/modules.xml
 .idea/jarRepositories.xml

@@ -17,6 +17,7 @@ module com.osgadev.organizadorhorariosfx {
     requires org.apache.poi.poi;
     requires org.apache.poi.ooxml;
     requires atlantafx.base;
+    requires org.xerial.sqlitejdbc;
 
     opens com.osgadev.organizadorhorariosfx to javafx.fxml;
     exports com.osgadev.organizadorhorariosfx;

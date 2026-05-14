@@ -12,7 +12,8 @@ import com.osgadev.organizadorhorariosfx.service.ScheduleService;
 import com.osgadev.organizadorhorariosfx.service.OccupationMap;
 import com.osgadev.organizadorhorariosfx.dto.AssignedSession;
 import com.osgadev.organizadorhorariosfx.dto.GroupState;
-import com.osgadev.organizadorhorariosfx.util.SessionGlobal;
+import com.osgadev.organizadorhorariosfx.util.ExcelExporter;
+import com.osgadev.organizadorhorariosfx.util.GlobalSession;
 import com.osgadev.organizadorhorariosfx.view.ScheduleGridManager;
 import com.osgadev.organizadorhorariosfx.view.ScheduleUIFactory;
 import javafx.application.Platform;
@@ -110,8 +111,8 @@ public class ScheduleController {
         );
         gridManager.setHorarioGenerado(this.horarioGenerado);
 
-        lblAnioActivo.setText("Año: " + SessionGlobal.getAnioActual());
-        lblEtapaActiva.setText("Etapa: " + SessionGlobal.getEtapaActual());
+        lblAnioActivo.setText("Año: " + GlobalSession.getAnioActual());
+        lblEtapaActiva.setText("Etapa: " + GlobalSession.getEtapaActual());
 
         cmbFiltroCurso.setDisable(true);
         cmbFiltroProfesor.setDisable(true);
@@ -299,8 +300,8 @@ public class ScheduleController {
         fileChooser.setTitle("Exportar Horarios de Profesores");
         fileChooser.getExtensionFilters().add(new javafx.stage.FileChooser.ExtensionFilter("Archivos Excel", "*.xlsx", "*.xls"));
 
-        String anio = SessionGlobal.getAnioActual();
-        String etapa = SessionGlobal.getEtapaActual();
+        String anio = GlobalSession.getAnioActual();
+        String etapa = GlobalSession.getEtapaActual();
         fileChooser.setInitialFileName("HorariosProfesores_" + anio + "_" + etapa + ".xlsx");
 
         File archivoDestino = fileChooser.showSaveDialog(gridCalendario.getScene().getWindow());
@@ -309,7 +310,7 @@ public class ScheduleController {
             try {
                 StudentDAO studentDAO = new StudentDAO();
                 Map<String, List<Student>> alumnosPorGrupo = studentDAO.obtenerAlumnosAgrupadosPorBD(anio, etapa);
-                com.osgadev.organizadorhorariosfx.util.ExportadorExcel.exportarHorarioPersonalizado(horarioGenerado, alumnosPorGrupo, archivoDestino);
+                ExcelExporter.exportarHorarioPersonalizado(horarioGenerado, alumnosPorGrupo, archivoDestino);
                 mostrarAlerta("Exportación Exitosa", "El archivo Excel se ha guardado correctamente.");
             } catch (Exception e) {
                 e.printStackTrace();
@@ -335,8 +336,8 @@ public class ScheduleController {
     // FLUJO DE BASE DE DATOS Y MOTOR IA
     // =====================================================================
     public void cargarHorario() {
-        String anio = SessionGlobal.getAnioActual();
-        String etapa = SessionGlobal.getEtapaActual();
+        String anio = GlobalSession.getAnioActual();
+        String etapa = GlobalSession.getEtapaActual();
 
         if (anio == null || etapa == null) {
             mostrarAlerta("Atención", "Error al obtener el año y la etapa de la sesión.");
@@ -385,8 +386,8 @@ public class ScheduleController {
 
     @FXML
     public void generarHorario() {
-        String anio = SessionGlobal.getAnioActual();
-        String etapa = SessionGlobal.getEtapaActual();
+        String anio = GlobalSession.getAnioActual();
+        String etapa = GlobalSession.getEtapaActual();
 
         btnGenerar.setText("⏳ Calc...");
         btnGenerar.setDisable(true);
@@ -452,7 +453,7 @@ public class ScheduleController {
 
     @FXML
     public void guardarEnBD() {
-        boolean exito = scheduleDAO.saveSchedule(this.horarioGenerado, SessionGlobal.getAnioActual(), SessionGlobal.getEtapaActual());
+        boolean exito = scheduleDAO.saveSchedule(this.horarioGenerado, GlobalSession.getAnioActual(), GlobalSession.getEtapaActual());
         if (exito) {
             mostrarAlerta("Guardado", "El horario se ha guardado exitosamente.");
             btnGuardarBD.setDisable(true);
@@ -462,7 +463,7 @@ public class ScheduleController {
 
     @FXML
     public void borrarDeBD() {
-        if (scheduleDAO.deleteSchedule(SessionGlobal.getAnioActual(), SessionGlobal.getEtapaActual())) {
+        if (scheduleDAO.deleteSchedule(GlobalSession.getAnioActual(), GlobalSession.getEtapaActual())) {
             this.horarioGenerado.clear();
             cargarHorario();
             lblEstadoIA.setText("");
@@ -470,8 +471,8 @@ public class ScheduleController {
     }
 
     private void autoGuardar() {
-        String anio = SessionGlobal.getAnioActual();
-        String etapa = SessionGlobal.getEtapaActual();
+        String anio = GlobalSession.getAnioActual();
+        String etapa = GlobalSession.getEtapaActual();
         if (anio != null && etapa != null) {
             if (!horarioGenerado.isEmpty()) {
                 scheduleDAO.saveSchedule(this.horarioGenerado, anio, etapa);

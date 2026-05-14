@@ -8,19 +8,18 @@ import javafx.stage.Stage;
 
 import java.io.IOException;
 
-public class OrganizadorApplication extends Application {
+public class SchedulerApplication extends Application {
     @Override
     public void start(Stage stage) throws IOException {
         // 1. APLICAR TEMA ATLANTAFX
         Application.setUserAgentStylesheet(new PrimerLight().getUserAgentStylesheet());
 
-        FXMLLoader fxmlLoader = new FXMLLoader(OrganizadorApplication.class.getResource("main-view.fxml"));
+        FXMLLoader fxmlLoader = new FXMLLoader(SchedulerApplication.class.getResource("main-view.fxml"));
 
         // Puedes dejar 1024x700, la vista ahora será 100% responsiva
         Scene scene = new Scene(fxmlLoader.load(), 1024, 700);
 
         stage.setTitle("Organizador de Horarios");
-        //codigo estable
         stage.setScene(scene);
         stage.show();
     }

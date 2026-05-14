@@ -20,7 +20,6 @@
 
 <BorderPane prefHeight="700.0" prefWidth="1200.0" xmlns="http://javafx.com/javafx/25" xmlns:fx="http://javafx.com/fxml/1" fx:controller="com.osgadev.organizadorhorariosfx.controller.ScheduleController">
 
-    <!-- ZONA SUPERIOR: COMPACTA Y OPTIMIZADA -->
     <top>
         <HBox alignment="CENTER_LEFT" prefHeight="50.0" spacing="10.0" BorderPane.alignment="CENTER">
             <styleClass>
@@ -32,7 +31,6 @@
             </padding>
             <children>
 
-                <!-- BOTÓN TOGGLE IZQUIERDO -->
                 <Button mnemonicParsing="false" onAction="#togglePanelIzquierdo" text="☰">
                     <styleClass>
                         <String fx:value="flat" />
@@ -51,10 +49,8 @@
                     </styleClass>
                 </Label>
 
-                <!-- Este Region empuja todo lo demás a la derecha -->
                 <Region HBox.hgrow="ALWAYS" />
 
-                <!-- LIMITAMOS EL TAMAÑO DEL TEXTO DE LA IA PARA NO DESBORDAR -->
                 <Label fx:id="lblEstadoIA" maxWidth="180.0" text="" textOverrun="ELLIPSIS" wrapText="false">
                     <styleClass>
                         <String fx:value="text-bold" />
@@ -65,7 +61,6 @@
                     </HBox.margin>
                 </Label>
 
-                <!-- BOTONES CON TEXTOS CORTOS -->
                 <Button fx:id="btnGenerar" mnemonicParsing="false" onAction="#generarHorario" text="✨ IA">
                     <styleClass>
                         <String fx:value="success" />
@@ -83,7 +78,6 @@
 
                 <Separator orientation="VERTICAL" />
 
-                <!-- BOTONES REDUCIDOS A SOLO ÍCONOS -->
                 <Button fx:id="btnGuardarBD" disable="true" mnemonicParsing="false" onAction="#guardarEnBD" text="💾">
                     <styleClass>
                         <String fx:value="outlined" />
@@ -100,7 +94,6 @@
 
                 <Separator orientation="VERTICAL" />
 
-                <!-- BOTÓN TOGGLE DERECHO -->
                 <Button mnemonicParsing="false" onAction="#togglePanelDerecho" text="⚙">
                     <styleClass>
                         <String fx:value="flat" />
@@ -112,11 +105,9 @@
         </HBox>
     </top>
 
-    <!-- ZONA CENTRAL: SPLIT PANE CON 3 COLUMNAS ARRASTRABLES -->
     <center>
         <SplitPane fx:id="splitPaneMain" dividerPositions="0.22, 1.0" BorderPane.alignment="CENTER">
 
-            <!-- COLUMNA 1: ALMACÉN MANUAL -->
             <ScrollPane fitToWidth="true" hbarPolicy="NEVER" minWidth="0.0" maxWidth="350.0" prefWidth="250.0">
                 <content>
                     <VBox spacing="10.0">
@@ -185,7 +176,6 @@
                 </content>
             </ScrollPane>
 
-            <!-- COLUMNA 2: TABLERO CENTRAL -->
             <StackPane minWidth="400.0">
                 <children>
                     <VBox fx:id="fase1Vacia" alignment="CENTER" spacing="10.0">
@@ -199,14 +189,11 @@
                         </children>
                     </VBox>
 
-                    <!-- NUEVO CONTENEDOR PARA SEPARAR CABECERA Y CALENDARIO -->
                     <VBox fx:id="contenedorCalendario" visible="false">
                         <children>
-                            <!-- CABECERA ESTÁTICA -->
                             <GridPane fx:id="gridCabecera">
                                 <styleClass><String fx:value="bg-default" /></styleClass>
                                 <padding>
-                                    <!-- Insets derecho en 18 para alinear con el margen que ocupa la barra de scroll -->
                                     <Insets bottom="5.0" left="5.0" right="18.0" top="5.0" />
                                 </padding>
                             </GridPane>
@@ -228,7 +215,6 @@
                 </children>
             </StackPane>
 
-            <!-- COLUMNA 3: FILTROS VISUALES -->
             <ScrollPane fitToWidth="true" hbarPolicy="NEVER" minWidth="0.0" maxWidth="350.0" prefWidth="250.0">
                 <content>
                     <VBox spacing="15.0">
@@ -261,7 +247,7 @@
                             <Separator />
 
                             <Label text="Mostrar en tarjetas:" />
-                            <CheckBox fx:id="chkRangoAlumnos" selected="true" text="Rango de students" wrapText="true">
+                            <CheckBox fx:id="chkRangoAlumnos" selected="true" text="Rango de estudiantes" wrapText="true">
                                 <styleClass><String fx:value="text-bold" /></styleClass>
                             </CheckBox>
                             <CheckBox fx:id="chkProfesor" selected="true" text="Profesor" />

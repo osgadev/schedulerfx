@@ -17,7 +17,6 @@
    <left>
       <VBox prefWidth="200.0" spacing="10.0" style="-fx-background-color: #4a2344;" BorderPane.alignment="CENTER">
          <children>
-            <!-- Encabezado del Menú -->
             <HBox alignment="CENTER_LEFT" spacing="15.0" style="-fx-border-color: transparent transparent rgba(255,255,255,0.1) transparent; -fx-border-width: 1;">
                <padding>
                   <Insets bottom="25.0" left="20.0" right="20.0" top="30.0" />
@@ -45,7 +44,6 @@
                </children>
             </HBox>
 
-            <!-- Botones de Navegación -->
             <VBox spacing="5.0" VBox.vgrow="ALWAYS">
                <padding>
                   <Insets left="10.0" right="10.0" top="15.0" />
@@ -166,10 +164,8 @@
                </children>
             </VBox>
 
-            <!-- Espaciador que empuja el botón de Salir hacia abajo -->
             <Region VBox.vgrow="ALWAYS" />
 
-            <!-- Contenedor inferior para el botón Salir -->
             <VBox>
                <padding>
                   <Insets bottom="20.0" left="10.0" right="10.0" />
@@ -199,7 +195,6 @@
       </VBox>
    </left>
    <center>
-      <!-- Área donde inyectarás los otros FXML (Grupos, Profesores, etc.) -->
       <StackPane fx:id="contentArea" prefHeight="150.0" prefWidth="200.0" style="-fx-background-color: #f4f4f4;" BorderPane.alignment="CENTER" />
    </center>
 </BorderPane>

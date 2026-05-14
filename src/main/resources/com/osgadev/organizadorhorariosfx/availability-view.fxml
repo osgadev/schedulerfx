@@ -16,7 +16,6 @@
 
 <BorderPane prefHeight="700.0" prefWidth="1024.0" xmlns="http://javafx.com/javafx/17" xmlns:fx="http://javafx.com/fxml/1" fx:controller="com.osgadev.organizadorhorariosfx.controller.AvailabilityController">
 
-    <!-- CABECERA PRINCIPAL -->
     <top>
         <VBox spacing="2.0" BorderPane.alignment="CENTER">
             <padding>
@@ -29,7 +28,6 @@
         </VBox>
     </top>
 
-    <!-- PANEL CENTRAL (Lienzo Interactivo) -->
     <center>
         <VBox>
             <GridPane>
@@ -84,7 +82,6 @@
         </VBox>
     </center>
 
-    <!-- PANEL DERECHO (Diseño Empresarial Limpio) -->
     <right>
         <VBox prefWidth="260.0" spacing="20.0" style="-fx-background-color: -color-bg-subtle; -fx-border-color: -color-border-subtle; -fx-border-width: 0 0 0 1;" BorderPane.alignment="CENTER">
             <padding>
@@ -92,7 +89,6 @@
             </padding>
             <children>
 
-                <!-- Sección: Profesor -->
                 <VBox spacing="8.0">
                     <children>
                         <Label styleClass="title-4" text="Profesor" />
@@ -102,11 +98,9 @@
 
                 <Separator />
 
-                <!-- Sección: Controles Dinámicos -->
                 <VBox fx:id="panelControles" disable="true" spacing="20.0" VBox.vgrow="ALWAYS">
                     <children>
 
-                        <!-- Paleta de Asignación -->
                         <VBox spacing="10.0">
                             <children>
                                 <Label styleClass="title-4" text="Asignación de Cursos" />
@@ -115,10 +109,8 @@
                             </children>
                         </VBox>
 
-                        <!-- Espaciador flexible para empujar acciones abajo -->
                         <Pane VBox.vgrow="ALWAYS" />
 
-                        <!-- Acciones Principales y Estado -->
                         <VBox alignment="BOTTOM_CENTER" spacing="12.0">
                             <children>
                                 <Label fx:id="lblEstadoBD" alignment="CENTER" maxWidth="1.7976931348623157E308" style="-fx-font-size: 13px;" styleClass="text-muted" text="Esperando configuración..." textAlignment="CENTER" wrapText="true" />

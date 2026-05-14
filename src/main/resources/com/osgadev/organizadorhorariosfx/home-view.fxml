@@ -5,6 +5,8 @@
 <?import javafx.scene.chart.PieChart?>
 <?import javafx.scene.control.ComboBox?>
 <?import javafx.scene.control.Label?>
+<?import javafx.scene.image.Image?>
+<?import javafx.scene.image.ImageView?>
 <?import javafx.scene.layout.ColumnConstraints?>
 <?import javafx.scene.layout.GridPane?>
 <?import javafx.scene.layout.HBox?>
@@ -55,18 +57,29 @@
             <ColumnConstraints hgrow="SOMETIMES" minWidth="10.0" percentWidth="33.3" />
             <ColumnConstraints hgrow="SOMETIMES" minWidth="10.0" percentWidth="33.3" />
         </columnConstraints>
+        <rowConstraints>
+            <RowConstraints />
+            <RowConstraints />
+        </rowConstraints>
 
         <VBox alignment="CENTER_LEFT" prefHeight="120.0" style="-fx-background-color: -color-bg-default; -fx-background-radius: 10; -fx-border-color: -color-border-default; -fx-border-radius: 10;" GridPane.columnIndex="0" GridPane.rowIndex="0">
             <padding><Insets bottom="15.0" left="20.0" right="20.0" top="15.0" /></padding>
             <styleClass>
                 <String fx:value="elevated-1" />
             </styleClass>
-            <Label text="👨‍🏫 Total Profesores">
-                <styleClass>
-                    <String fx:value="text-muted" />
-                    <String fx:value="text-bold" />
-                </styleClass>
-            </Label>
+            <HBox alignment="CENTER_LEFT" spacing="12.0">
+                <ImageView fitHeight="30.0" fitWidth="30.0" pickOnBounds="true" preserveRatio="true">
+                    <image>
+                        <Image url="@../../../images/teacher_black_version.png" />
+                    </image>
+                </ImageView>
+                <Label text="Total Profesores">
+                    <styleClass>
+                        <String fx:value="text-muted" />
+                        <String fx:value="text-bold" />
+                    </styleClass>
+                </Label>
+            </HBox>
             <Label fx:id="lblTotalProfesores" text="0">
                 <styleClass>
                     <String fx:value="title-1" />
@@ -85,18 +98,25 @@
             <styleClass>
                 <String fx:value="elevated-1" />
             </styleClass>
-            <Label text="📚 Cursos Registrados">
-                <styleClass>
-                    <String fx:value="text-muted" />
-                    <String fx:value="text-bold" />
-                </styleClass>
-            </Label>
+            <HBox alignment="CENTER_LEFT" spacing="12.0">
+                <ImageView fitHeight="30.0" fitWidth="30.0" pickOnBounds="true" preserveRatio="true">
+                    <image>
+                        <Image url="@../../../images/books_black_version.png" />
+                    </image>
+                </ImageView>
+                <Label text="Cursos Registrados">
+                    <styleClass>
+                        <String fx:value="text-muted" />
+                        <String fx:value="text-bold" />
+                    </styleClass>
+                </Label>
+            </HBox>
             <Label fx:id="lblTotalCursos" text="0">
-            <styleClass>
-               <String fx:value="title-1" />
-               <String fx:value="accent" />
-            </styleClass></Label>
-            <Label styleClass="text-muted" text="Catálogo Histórico" />
+                <styleClass>
+                    <String fx:value="title-1" />
+                    <String fx:value="accent" />
+                </styleClass></Label>
+            <Label styleClass="text-muted" text="Registrados" />
         </VBox>
 
         <VBox alignment="CENTER_LEFT" prefHeight="120.0" style="-fx-background-color: -color-bg-default; -fx-background-radius: 10; -fx-border-color: -color-border-default; -fx-border-radius: 10;" GridPane.columnIndex="2" GridPane.rowIndex="0">
@@ -104,17 +124,24 @@
             <styleClass>
                 <String fx:value="elevated-1" />
             </styleClass>
-            <Label text="👥 Grupos del Ciclo">
-                <styleClass>
-                    <String fx:value="text-muted" />
-                    <String fx:value="text-bold" />
-                </styleClass>
-            </Label>
+            <HBox alignment="CENTER_LEFT" spacing="12.0">
+                <ImageView fitHeight="30.0" fitWidth="30.0" pickOnBounds="true" preserveRatio="true">
+                    <image>
+                        <Image url="@../../../images/groups_black_version.png" />
+                    </image>
+                </ImageView>
+                <Label text="Grupos del Ciclo">
+                    <styleClass>
+                        <String fx:value="text-muted" />
+                        <String fx:value="text-bold" />
+                    </styleClass>
+                </Label>
+            </HBox>
             <Label fx:id="lblTotalGrupos" text="0">
-            <styleClass>
-               <String fx:value="title-1" />
-               <String fx:value="accent" />
-            </styleClass></Label>
+                <styleClass>
+                    <String fx:value="title-1" />
+                    <String fx:value="accent" />
+                </styleClass></Label>
             <Label styleClass="text-muted" text="Generados" />
         </VBox>
 
@@ -123,12 +150,19 @@
             <styleClass>
                 <String fx:value="elevated-1" />
             </styleClass>
-            <Label text="📝 Padrón de Alumnos">
-                <styleClass>
-                    <String fx:value="text-muted" />
-                    <String fx:value="text-bold" />
-                </styleClass>
-            </Label>
+            <HBox alignment="CENTER_LEFT" spacing="12.0">
+                <ImageView fitHeight="30.0" fitWidth="30.0" pickOnBounds="true" preserveRatio="true">
+                    <image>
+                        <Image url="@../../../images/students_black_version.png" />
+                    </image>
+                </ImageView>
+                <Label text="Lista de Alumnos">
+                    <styleClass>
+                        <String fx:value="text-muted" />
+                        <String fx:value="text-bold" />
+                    </styleClass>
+                </Label>
+            </HBox>
             <Label fx:id="lblEstadoAlumnos" text="0">
                 <styleClass>
                     <String fx:value="title-2" />
@@ -151,20 +185,23 @@
             </StackPane>
 
             <VBox alignment="CENTER_LEFT" spacing="5.0">
-                <Label text="📅 Progreso de Horarios">
-                    <styleClass>
-                        <String fx:value="text-muted" />
-                        <String fx:value="text-bold" />
-                    </styleClass>
-                </Label>
+                <HBox alignment="CENTER_LEFT" spacing="12.0">
+                    <ImageView fitHeight="30.0" fitWidth="30.0" pickOnBounds="true" preserveRatio="true">
+                        <image>
+                            <Image url="@../../../images/schedule_black_version.png" />
+                        </image>
+                    </ImageView>
+                    <Label text="Progreso de Horarios">
+                        <styleClass>
+                            <String fx:value="text-muted" />
+                            <String fx:value="text-bold" />
+                        </styleClass>
+                    </Label>
+                </HBox>
                 <Label fx:id="lblDetalleHorario" styleClass="title-3" text="0 de 0 hrs asignadas" />
                 <Label styleClass="text-muted" text="Estado de asignación" />
             </VBox>
         </HBox>
-        <rowConstraints>
-            <RowConstraints />
-            <RowConstraints />
-        </rowConstraints>
     </GridPane>
 
     <VBox style="-fx-background-color: -color-bg-default; -fx-background-radius: 10; -fx-border-color: -color-border-default; -fx-border-radius: 10;" VBox.vgrow="ALWAYS">
@@ -173,8 +210,10 @@
             <String fx:value="elevated-1" />
         </styleClass>
         <Label styleClass="title-2" text="Diagnóstico del Sistema" />
-        <Label fx:id="lblStatusDetallado" styleClass="text-muted" text="Calculando diagnóstico..." wrapText="true">
+
+        <!-- Contenedor dinámico para la lista de diagnósticos -->
+        <VBox fx:id="vboxDiagnostico" spacing="8.0">
             <VBox.margin><Insets top="10.0" /></VBox.margin>
-        </Label>
+        </VBox>
     </VBox>
 </VBox>

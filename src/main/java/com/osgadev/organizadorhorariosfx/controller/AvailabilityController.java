@@ -5,7 +5,7 @@ import com.osgadev.organizadorhorariosfx.dao.TeacherDAO;
 import com.osgadev.organizadorhorariosfx.model.Availability;
 import com.osgadev.organizadorhorariosfx.model.Course;
 import com.osgadev.organizadorhorariosfx.model.Teacher;
-import com.osgadev.organizadorhorariosfx.util.SessionGlobal;
+import com.osgadev.organizadorhorariosfx.util.GlobalSession;
 
 import javafx.application.Platform;
 import javafx.fxml.FXML;
@@ -15,7 +15,6 @@ import javafx.geometry.Pos;
 import javafx.scene.Cursor;
 import javafx.scene.control.*;
 import javafx.scene.input.MouseButton;
-import javafx.scene.input.MouseEvent;
 import javafx.scene.layout.FlowPane;
 import javafx.scene.layout.GridPane;
 import javafx.scene.layout.Pane;
@@ -27,7 +26,9 @@ import javafx.util.StringConverter;
 
 import java.net.URL;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.ResourceBundle;
 
 public class AvailabilityController implements Initializable {
@@ -42,9 +43,13 @@ public class AvailabilityController implements Initializable {
 
     private List<BloqueTiempo> listaBloques = new ArrayList<>();
 
-    // VARIABLES PARA LA SELECCIÓN MÚLTIPLE
+    // VARIABLES PARA LA SELECCIÓN MÚLTIPLE Y ARRASTRE
     private List<BloqueTiempo> bloquesSeleccionados = new ArrayList<>();
     private BloqueTiempo bloqueArrastrado = null;
+
+    // VARIABLES PARA ENLAZAR LA PALETA DE CURSOS
+    private Map<String, ToggleButton> mapaBotonesCursos = new HashMap<>();
+    private ToggleGroup grupoCursos = new ToggleGroup();
 
     // SNAPSHOTS PARA EL ARRASTRE EN GRUPO
     private class BloqueSnapshot {
@@ -108,10 +113,10 @@ public class AvailabilityController implements Initializable {
         // Enfoque por defecto si aún no se selecciona ningún profesor al abrir la pantalla
         enfocarHora(8);
 
-        Integer idPendiente = SessionGlobal.getProfesorNavegacion();
+        Integer idPendiente = GlobalSession.getProfesorNavegacion();
         if (idPendiente != null) {
             seleccionarProfesorEnComboPorId(idPendiente);
-            SessionGlobal.limpiarProfesorNavegacion();
+            GlobalSession.limpiarProfesorNavegacion();
         }
     }
 
@@ -259,20 +264,62 @@ public class AvailabilityController implements Initializable {
 
     private void cargarPaletaCursos(Teacher profe) {
         paletaCursos.getChildren().clear();
+        mapaBotonesCursos.clear();
 
-        Button btnComodin = new Button("Comodín");
+        grupoCursos = new ToggleGroup();
+
+        ToggleButton btnComodin = new ToggleButton("Comodín");
         btnComodin.getStyleClass().addAll("button", "outlined");
         btnComodin.setStyle("-fx-cursor: hand; -fx-padding: 6 12; -fx-font-size: 12px;");
+        btnComodin.setToggleGroup(grupoCursos);
         btnComodin.setOnAction(e -> aplicarCursoSeleccionado(null));
         paletaCursos.getChildren().add(btnComodin);
 
+        mapaBotonesCursos.put("COMODIN_NULL", btnComodin);
+
         if (profe.getCursos() != null) {
             for (Course c : profe.getCursos()) {
-                Button btnCurso = new Button(c.getNombre());
-                btnCurso.getStyleClass().addAll("button", "accent");
+                ToggleButton btnCurso = new ToggleButton(c.getNombre());
+                btnCurso.getStyleClass().addAll("button", "outlined");
                 btnCurso.setStyle("-fx-cursor: hand; -fx-padding: 6 12; -fx-font-size: 12px;");
+                btnCurso.setToggleGroup(grupoCursos);
                 btnCurso.setOnAction(e -> aplicarCursoSeleccionado(c));
                 paletaCursos.getChildren().add(btnCurso);
+
+                mapaBotonesCursos.put(c.getNombre(), btnCurso);
+            }
+        }
+    }
+
+    private void actualizarSeleccionPaleta() {
+        if (bloquesSeleccionados.isEmpty()) {
+            if (grupoCursos.getSelectedToggle() != null) {
+                grupoCursos.getSelectedToggle().setSelected(false);
+            }
+            return;
+        }
+
+        Course tipoBase = bloquesSeleccionados.get(0).cursoSugerido;
+        String nombreBase = (tipoBase == null) ? "COMODIN_NULL" : tipoBase.getNombre();
+
+        boolean todosIguales = true;
+
+        for (BloqueTiempo b : bloquesSeleccionados) {
+            String nombreActual = (b.cursoSugerido == null) ? "COMODIN_NULL" : b.cursoSugerido.getNombre();
+            if (!nombreBase.equals(nombreActual)) {
+                todosIguales = false;
+                break;
+            }
+        }
+
+        if (todosIguales) {
+            ToggleButton btn = mapaBotonesCursos.get(nombreBase);
+            if (btn != null) {
+                btn.setSelected(true);
+            }
+        } else {
+            if (grupoCursos.getSelectedToggle() != null) {
+                grupoCursos.getSelectedToggle().setSelected(false);
             }
         }
     }
@@ -281,6 +328,10 @@ public class AvailabilityController implements Initializable {
         if (bloquesSeleccionados.isEmpty()) {
             lblEstadoBD.setText("Selecciona al menos un bloque primero.");
             lblEstadoBD.getStyleClass().setAll("label", "warning");
+
+            if (grupoCursos.getSelectedToggle() != null) {
+                grupoCursos.getSelectedToggle().setSelected(false);
+            }
             return;
         }
 
@@ -301,12 +352,12 @@ public class AvailabilityController implements Initializable {
         if (guardados.isEmpty()) {
             lblEstadoBD.setText("Lienzo en blanco. Comienza a crear bloques.");
             lblEstadoBD.getStyleClass().setAll("label", "text-muted");
-            enfocarHora(8); // Si no hay nada, enfoca las 8 AM por defecto
+            enfocarHora(8);
         } else {
             lblEstadoBD.setText("Mostrando " + guardados.size() + " bloques registrados.");
             lblEstadoBD.getStyleClass().setAll("label", "success");
 
-            int primeraHora = 24; // Empezamos con la hora máxima posible
+            int primeraHora = 24;
 
             for (Availability dbBlock : guardados) {
                 int colDia = dbBlock.getColumnaDia();
@@ -315,7 +366,6 @@ public class AvailabilityController implements Initializable {
                 int hFin = dbBlock.getHoraFin();
                 int mFin = dbBlock.getMinutoFin();
 
-                // Evaluamos si este bloque inicia antes que los anteriores
                 if (hInicio < primeraHora) {
                     primeraHora = hInicio;
                 }
@@ -325,8 +375,6 @@ public class AvailabilityController implements Initializable {
                 }
             }
             actualizarEstadoSuperposiciones();
-
-            // Enfoca automáticamente la primera hora encontrada en los registros del profesor
             enfocarHora(primeraHora);
         }
     }
@@ -626,6 +674,7 @@ public class AvailabilityController implements Initializable {
 
     private void actualizarEstadoGlobal() {
         actualizarEstadoSuperposiciones();
+        actualizarSeleccionPaleta();
     }
 
     private void actualizarEstadoSuperposiciones() {
