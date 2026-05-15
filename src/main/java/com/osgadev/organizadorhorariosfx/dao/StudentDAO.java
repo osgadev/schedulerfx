@@ -15,25 +15,58 @@ import java.util.Map;
 
 public class StudentDAO {
 
-    /**
-     * Guarda alumnos y sus relaciones.
-     * Optimizado con Transacciones y Batch processing.
-     */
+    private boolean isSQLite(Connection conn) throws SQLException {
+        String dbName = conn.getMetaData().getDatabaseProductName();
+        return dbName != null && dbName.toLowerCase().contains("sqlite");
+    }
+
+    private boolean isMySQL(Connection conn) throws SQLException {
+        String dbName = conn.getMetaData().getDatabaseProductName();
+        return dbName != null && dbName.toLowerCase().contains("mysql");
+    }
+
     public void guardarAlumnosYRelaciones(List<Student> students, String anio, String etapa) {
-        String sqlAlumno = "INSERT INTO alumno (matricula, nombre_completo, correo_electronico, numero_lista, anio, etapa) VALUES (?, ?, ?, ?, ?, ?) " +
-                "ON DUPLICATE KEY UPDATE nombre_completo=VALUES(nombre_completo), correo_electronico=VALUES(correo_electronico), " +
-                "numero_lista=VALUES(numero_lista), anio=VALUES(anio), etapa=VALUES(etapa)";
-
-        String sqlRelacion = "INSERT IGNORE INTO alumno_grupo (matricula, grupo_id) VALUES (?, ?)";
-
         try (Connection conn = DatabaseConnection.getInstance().getConnection()) {
-            conn.setAutoCommit(false); // Iniciar transacción
+
+            String sqlAlumno;
+            String sqlRelacion;
+
+            if (isSQLite(conn)) {
+                sqlAlumno =
+                        "INSERT INTO alumno (matricula, nombre_completo, correo_electronico, numero_lista, anio, etapa) " +
+                                "VALUES (?, ?, ?, ?, ?, ?) " +
+                                "ON CONFLICT(matricula) DO UPDATE SET " +
+                                "nombre_completo = excluded.nombre_completo, " +
+                                "correo_electronico = excluded.correo_electronico, " +
+                                "numero_lista = excluded.numero_lista, " +
+                                "anio = excluded.anio, " +
+                                "etapa = excluded.etapa";
+
+                sqlRelacion = "INSERT OR IGNORE INTO alumno_grupo (matricula, grupo_id) VALUES (?, ?)";
+
+            } else if (isMySQL(conn)) {
+                sqlAlumno =
+                        "INSERT INTO alumno (matricula, nombre_completo, correo_electronico, numero_lista, anio, etapa) " +
+                                "VALUES (?, ?, ?, ?, ?, ?) " +
+                                "ON DUPLICATE KEY UPDATE " +
+                                "nombre_completo = VALUES(nombre_completo), " +
+                                "correo_electronico = VALUES(correo_electronico), " +
+                                "numero_lista = VALUES(numero_lista), " +
+                                "anio = VALUES(anio), " +
+                                "etapa = VALUES(etapa)";
+
+                sqlRelacion = "INSERT IGNORE INTO alumno_grupo (matricula, grupo_id) VALUES (?, ?)";
+
+            } else {
+                throw new SQLException("Motor de base de datos no soportado.");
+            }
+
+            conn.setAutoCommit(false);
 
             try (PreparedStatement pstmtAlumno = conn.prepareStatement(sqlAlumno);
                  PreparedStatement pstmtRelacion = conn.prepareStatement(sqlRelacion)) {
 
                 for (Student al : students) {
-                    // 1. Preparar alumno
                     pstmtAlumno.setString(1, al.getMatricula());
                     pstmtAlumno.setString(2, al.getNombreCompleto());
                     pstmtAlumno.setString(3, al.getCorreo_electronico());
@@ -42,7 +75,6 @@ public class StudentDAO {
                     pstmtAlumno.setString(6, etapa);
                     pstmtAlumno.addBatch();
 
-                    // 2. Preparar relaciones
                     for (Group g : al.getGruposAsignados()) {
                         pstmtRelacion.setString(1, al.getMatricula());
                         pstmtRelacion.setString(2, g.getIdGrupo());
@@ -50,27 +82,23 @@ public class StudentDAO {
                     }
                 }
 
-                // Ejecutar lotes
                 pstmtAlumno.executeBatch();
                 pstmtRelacion.executeBatch();
-
-                conn.commit(); // Confirmar transacción
+                conn.commit();
 
             } catch (SQLException e) {
-                conn.rollback(); // Revertir en caso de error
+                conn.rollback();
                 throw e;
             } finally {
                 conn.setAutoCommit(true);
             }
+
         } catch (SQLException e) {
             System.err.println("Error al guardar students y relaciones: " + e.getMessage());
             e.printStackTrace();
         }
     }
 
-    /**
-     * Recupera la lista plana de todos los alumnos de un ciclo.
-     */
     public List<Student> obtenerPorAnioYEtapa(String anio, String etapa) {
         List<Student> listaAlumnos = new ArrayList<>();
         String sql = "SELECT matricula, nombre_completo, correo_electronico, numero_lista " +
@@ -100,17 +128,28 @@ public class StudentDAO {
         return listaAlumnos;
     }
 
-    /**
-     * Elimina a todos los alumnos y sus relaciones (alumno_grupo) de un ciclo y etapa específicos.
-     */
     public void eliminarAlumnosYRelacionesMasivo(String anio, String etapa) {
-        String sqlRelaciones = "DELETE ag FROM alumno_grupo ag " +
-                "INNER JOIN alumno a ON ag.matricula = a.matricula " +
-                "WHERE a.anio = ? AND a.etapa = ?";
-
-        String sqlAlumnos = "DELETE FROM alumno WHERE anio = ? AND etapa = ?";
-
         try (Connection conn = DatabaseConnection.getInstance().getConnection()) {
+
+            String sqlRelaciones;
+
+            if (isSQLite(conn)) {
+                sqlRelaciones =
+                        "DELETE FROM alumno_grupo " +
+                                "WHERE matricula IN (" +
+                                "SELECT matricula FROM alumno WHERE anio = ? AND etapa = ?" +
+                                ")";
+            } else if (isMySQL(conn)) {
+                sqlRelaciones =
+                        "DELETE ag FROM alumno_grupo ag " +
+                                "INNER JOIN alumno a ON ag.matricula = a.matricula " +
+                                "WHERE a.anio = ? AND a.etapa = ?";
+            } else {
+                throw new SQLException("Motor de base de datos no soportado.");
+            }
+
+            String sqlAlumnos = "DELETE FROM alumno WHERE anio = ? AND etapa = ?";
+
             conn.setAutoCommit(false);
 
             try (PreparedStatement psRelaciones = conn.prepareStatement(sqlRelaciones);
@@ -125,21 +164,19 @@ public class StudentDAO {
                 psAlumnos.executeUpdate();
 
                 conn.commit();
+
             } catch (SQLException e) {
                 conn.rollback();
                 throw e;
             } finally {
                 conn.setAutoCommit(true);
             }
+
         } catch (SQLException e) {
             System.err.println("Error al eliminar masivamente alumnos: " + e.getMessage());
             e.printStackTrace();
         }
     }
-
-    // ======================================================================
-    // NUEVOS MÉTODOS PARA EL FLUJO INCREMENTAL (ALUMNOS EXTRA)
-    // ======================================================================
 
     public int obtenerMaximoNumeroLista(String anio, String etapa) {
         String sql = "SELECT MAX(numero_lista) FROM alumno WHERE anio = ? AND etapa = ?";
@@ -221,20 +258,25 @@ public class StudentDAO {
     }
 
     public void asignarAlumnoAGrupo(String matricula, String idGrupo) {
-        String sql = "INSERT IGNORE INTO alumno_grupo (matricula, grupo_id) VALUES (?, ?)";
-        try (Connection conn = DatabaseConnection.getInstance().getConnection();
-             PreparedStatement ps = conn.prepareStatement(sql)) {
-            ps.setString(1, matricula);
-            ps.setString(2, idGrupo);
-            ps.executeUpdate();
+        String sql;
+        try (Connection conn = DatabaseConnection.getInstance().getConnection()) {
+            if (isSQLite(conn)) {
+                sql = "INSERT OR IGNORE INTO alumno_grupo (matricula, grupo_id) VALUES (?, ?)";
+            } else if (isMySQL(conn)) {
+                sql = "INSERT IGNORE INTO alumno_grupo (matricula, grupo_id) VALUES (?, ?)";
+            } else {
+                throw new SQLException("Motor de base de datos no soportado.");
+            }
+
+            try (PreparedStatement ps = conn.prepareStatement(sql)) {
+                ps.setString(1, matricula);
+                ps.setString(2, idGrupo);
+                ps.executeUpdate();
+            }
         } catch (SQLException e) {
             e.printStackTrace();
         }
     }
-
-    // ======================================================================
-    // MÉTODOS ORIGINALES INTACTOS (Usados por otros controladores)
-    // ======================================================================
 
     public Map<String, List<Student>> obtenerAlumnosAgrupadosPorBD(String anio, String etapa) {
         Map<String, List<Student>> mapa = new HashMap<>();
@@ -251,14 +293,15 @@ public class StudentDAO {
 
             pstmt.setString(1, anio);
             pstmt.setString(2, etapa);
-            ResultSet rs = pstmt.executeQuery();
 
-            while (rs.next()) {
-                Student al = new Student(rs.getString("matricula"), rs.getString("nombre_completo"), rs.getString("correo_electronico"));
-                al.setNumeroLista(rs.getInt("numero_lista"));
-                String idGrupo = rs.getString("grupo_id");
+            try (ResultSet rs = pstmt.executeQuery()) {
+                while (rs.next()) {
+                    Student al = new Student(rs.getString("matricula"), rs.getString("nombre_completo"), rs.getString("correo_electronico"));
+                    al.setNumeroLista(rs.getInt("numero_lista"));
+                    String idGrupo = rs.getString("grupo_id");
 
-                mapa.computeIfAbsent(idGrupo, k -> new ArrayList<>()).add(al);
+                    mapa.computeIfAbsent(idGrupo, k -> new ArrayList<>()).add(al);
+                }
             }
         } catch (SQLException e) {
             e.printStackTrace();
