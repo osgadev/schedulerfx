@@ -12,6 +12,7 @@ import java.sql.Statement;
 
 public class DatabaseConnection {
 
+    // Uso de ambas bases de datos habilitada
     // Cambiar a "MYSQL" o "SQLITE",   SQLite embebido (automatico)     para MySQL cargar el script que se encuentra en resources
     private static final String DB_TIPO = "SQLITE";
 
