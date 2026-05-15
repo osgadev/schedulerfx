@@ -58,7 +58,7 @@
                <String fx:value="title-3" />
             </styleClass>
          </Label>
-         <Label text="Selecciona cómo deseas definir la cantidad de alumnos para la estructura original del ciclo.">
+         <Label text="Selecciona cómo deseas definir la cantidad de alumnos para la estructura del ciclo.">
             <styleClass>
                <String fx:value="text-muted" />
             </styleClass>
@@ -86,7 +86,7 @@
                      <String fx:value="text-bold" />
                   </styleClass>
                </RadioButton>
-               <Label text="Usa todas las características. Sube tu lista original." wrapText="true">
+               <Label text="Usa todas las características. Sube tu lista de alumnos." wrapText="true">
                   <styleClass>
                      <String fx:value="text-muted" />
                   </styleClass>
