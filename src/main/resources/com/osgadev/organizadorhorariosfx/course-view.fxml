@@ -108,7 +108,7 @@
 
                         <Separator prefWidth="200.0" />
 
-                        <Label text="Profesores capacitados para esta materia">
+                        <Label text="Profesores que impartirán esta materia">
                             <styleClass>
                                 <String fx:value="title-4" />
                             </styleClass>

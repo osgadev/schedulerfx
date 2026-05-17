@@ -68,7 +68,7 @@ public class AvailabilityController implements Initializable {
     private TeacherDAO teacherDAO = new TeacherDAO();
     private AvailabilityDAO availabilityDAO = new AvailabilityDAO();
 
-    private final int HORA_INICIO_VISUAL = 0;
+    private final int HORA_INICIO_VISUAL = 7;
     private final int HORA_FIN_VISUAL = 24;
     private final int FILAS_VISUALES = (HORA_FIN_VISUAL - HORA_INICIO_VISUAL) * 4;
 
@@ -365,6 +365,9 @@ public class AvailabilityController implements Initializable {
                 int mInicio = dbBlock.getMinutoInicio();
                 int hFin = dbBlock.getHoraFin();
                 int mFin = dbBlock.getMinutoFin();
+
+                //validacion para que no se rompa el programa cuando es multiplo exacto
+                if (hFin == 0 && mFin == 0 && hInicio > 0) hFin = 24;
 
                 if (hInicio < primeraHora) {
                     primeraHora = hInicio;

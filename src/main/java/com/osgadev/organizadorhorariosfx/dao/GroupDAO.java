@@ -198,11 +198,11 @@ public class GroupDAO {
     public int contarGrupos(String anio, String etapa) {
         int total = 0;
         String sql = "SELECT COUNT(*) FROM grupo WHERE anio = ? AND etapa = ?";
-        try (java.sql.Connection conn = DatabaseConnection.getInstance().getConnection();
-             java.sql.PreparedStatement pstmt = conn.prepareStatement(sql)) {
+        try (Connection conn = DatabaseConnection.getInstance().getConnection();
+             PreparedStatement pstmt = conn.prepareStatement(sql)) {
             pstmt.setString(1, anio);
             pstmt.setString(2, etapa);
-            try (java.sql.ResultSet rs = pstmt.executeQuery()) {
+            try (ResultSet rs = pstmt.executeQuery()) {
                 if (rs.next()) total = rs.getInt(1);
             }
         } catch (Exception e) { e.printStackTrace(); }

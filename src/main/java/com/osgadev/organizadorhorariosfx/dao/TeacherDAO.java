@@ -213,9 +213,9 @@ public class TeacherDAO {
     public int contarProfesores() {
         int total = 0;
         String sql = "SELECT COUNT(*) FROM profesor";
-        try (java.sql.Connection conn = DatabaseConnection.getInstance().getConnection();
-             java.sql.PreparedStatement pstmt = conn.prepareStatement(sql);
-             java.sql.ResultSet rs = pstmt.executeQuery()) {
+        try (Connection conn = DatabaseConnection.getInstance().getConnection();
+             PreparedStatement pstmt = conn.prepareStatement(sql);
+             ResultSet rs = pstmt.executeQuery()) {
             if (rs.next()) total = rs.getInt(1);
         } catch (Exception e) { e.printStackTrace(); }
         return total;
@@ -224,9 +224,9 @@ public class TeacherDAO {
     public int contarProfesoresSinDisponibilidad() {
         int total = 0;
         String sql = "SELECT COUNT(*) FROM profesor p LEFT JOIN disponibilidad d ON p.profesor_id = d.profesor_id WHERE d.profesor_id IS NULL";
-        try (java.sql.Connection conn = DatabaseConnection.getInstance().getConnection();
-             java.sql.PreparedStatement pstmt = conn.prepareStatement(sql);
-             java.sql.ResultSet rs = pstmt.executeQuery()) {
+        try (Connection conn = DatabaseConnection.getInstance().getConnection();
+             PreparedStatement pstmt = conn.prepareStatement(sql);
+             ResultSet rs = pstmt.executeQuery()) {
             if (rs.next()) total = rs.getInt(1);
         } catch (Exception e) { e.printStackTrace(); }
         return total;

@@ -49,7 +49,7 @@ public class ScheduleGridManager {
     private final double ANCHO_BASE_NORMAL = 140.0;
 
     private final int HORA_INICIO = 7;
-    private final int HORA_FIN = 22;
+    private final int HORA_FIN = 24;
 
     public ScheduleGridManager(GridPane gridCabecera,
                                GridPane gridCalendario,

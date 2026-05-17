@@ -158,9 +158,9 @@ public class CourseDAO {
     public int contarCursos() {
         int total = 0;
         String sql = "SELECT COUNT(*) FROM curso";
-        try (java.sql.Connection conn = DatabaseConnection.getInstance().getConnection();
-             java.sql.PreparedStatement pstmt = conn.prepareStatement(sql);
-             java.sql.ResultSet rs = pstmt.executeQuery()) {
+        try (Connection conn = DatabaseConnection.getInstance().getConnection();
+             PreparedStatement pstmt = conn.prepareStatement(sql);
+             ResultSet rs = pstmt.executeQuery()) {
             if (rs.next()) total = rs.getInt(1);
         } catch (Exception e) { e.printStackTrace(); }
         return total;
