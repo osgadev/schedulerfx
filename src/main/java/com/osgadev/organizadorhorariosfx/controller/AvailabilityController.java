@@ -516,8 +516,12 @@ public class AvailabilityController implements Initializable {
                     nuevoEndSlot = bloque.slotInicioSemanal + 2;
                 }
 
-                if (nuevoEndSlot % 48 == 0 && nuevoEndSlot > initialEndSlot) {
-                    nuevoEndSlot = bloque.slotInicioSemanal + (48 - (bloque.slotInicioSemanal % 48));
+                // Calcular el slot maximo permitido para este dia (las 24:00)
+                int maxSlotDia = bloque.slotInicioSemanal - (bloque.slotInicioSemanal % 48) + 48;
+
+                // Si el usuario arrastra mas alla de las 24:00, lo topamos en el límite del día
+                if (nuevoEndSlot > maxSlotDia) {
+                    nuevoEndSlot = maxSlotDia;
                 }
 
                 if (nuevoEndSlot != bloque.slotFinSemanal) {
