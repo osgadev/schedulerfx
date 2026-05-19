@@ -12,6 +12,7 @@ import com.osgadev.organizadorhorariosfx.service.GroupService;
 import com.osgadev.organizadorhorariosfx.util.ExcelImporter;
 import com.osgadev.organizadorhorariosfx.util.GlobalSession;
 
+import javafx.beans.binding.Bindings;
 import javafx.beans.property.ReadOnlyObjectWrapper;
 import javafx.beans.property.SimpleIntegerProperty;
 import javafx.beans.property.SimpleStringProperty;
@@ -105,6 +106,8 @@ public class GroupController {
     private ObservableList<Student> listaAlumnosActual = FXCollections.observableArrayList();
     private FilteredList<Student> alumnosFiltrados;
 
+    private int totalAlumnosEstructura = 0;
+
     @FXML
     public void initialize() {
         try {
@@ -122,6 +125,7 @@ public class GroupController {
         configurarBuscadoresYOrdenamiento();
         configurarColumnasGrupos();
         configurarColumnasAlumnos();
+        configurarMenuContextualTabla();
 
         cargarContextoGlobal();
     }
@@ -134,10 +138,222 @@ public class GroupController {
         List<Group> recuperados = groupDAO.obtenerPorAnioYEtapa(anio, etapa);
 
         if (recuperados.isEmpty()) {
+            totalAlumnosEstructura = 0;
             activarModoVacio();
         } else {
+            totalAlumnosEstructura = calcularTotalAlumnosDesdeGrupos(recuperados);
             cargarDatosLista(recuperados);
             activarModoTabla();
+        }
+    }
+
+    private int calcularTotalAlumnosDesdeGrupos(List<Group> grupos) {
+        if (grupos == null || grupos.isEmpty()) return 0;
+
+        int cursoIdBase = grupos.get(0).getCurso().getId();
+
+        return grupos.stream()
+                .filter(g -> g.getCurso().getId() == cursoIdBase)
+                .mapToInt(Group::getTamanioGrupo)
+                .sum();
+    }
+
+    private void configurarMenuContextualTabla() {
+        tablaGrupos.setRowFactory(tv -> {
+            TableRow<Group> row = new TableRow<>();
+
+            ContextMenu contextMenu = new ContextMenu();
+
+            MenuItem itemAgregarExtra = new MenuItem("Añadir grupo extra");
+            itemAgregarExtra.setOnAction(e -> {
+                Group grupoSeleccionado = row.getItem();
+                if (grupoSeleccionado != null) {
+                    onAgregarGrupoExtra(grupoSeleccionado);
+                }
+            });
+
+            MenuItem itemEliminarGrupo = new MenuItem("Eliminar grupo");
+            itemEliminarGrupo.setOnAction(e -> {
+                Group grupoSeleccionado = row.getItem();
+                if (grupoSeleccionado != null) {
+                    onEliminarGrupo(grupoSeleccionado);
+                }
+            });
+
+            contextMenu.getItems().addAll(itemAgregarExtra, itemEliminarGrupo);
+
+            row.contextMenuProperty().bind(
+                    Bindings.when(row.emptyProperty())
+                            .then((ContextMenu) null)
+                            .otherwise(contextMenu)
+            );
+
+            return row;
+        });
+    }
+
+    private void onAgregarGrupoExtra(Group grupoBase) {
+        String anio = GlobalSession.getAnioActual();
+        String etapa = GlobalSession.getEtapaActual();
+
+        int totalAlumnos = totalAlumnosEstructura;
+
+        if (totalAlumnos <= 0) {
+            List<Group> gruposActualesTmp = groupDAO.obtenerPorAnioYEtapa(anio, etapa);
+            totalAlumnos = calcularTotalAlumnosDesdeGrupos(gruposActualesTmp);
+            totalAlumnosEstructura = totalAlumnos;
+        }
+
+        if (totalAlumnos <= 0) {
+            mostrarAlerta("Error", "No hay total de alumnos disponible para recalcular la estructura.", Alert.AlertType.WARNING);
+            return;
+        }
+
+        Alert confirm = new Alert(Alert.AlertType.CONFIRMATION);
+        confirm.setTitle("Confirmar");
+        confirm.setHeaderText("Se añadirá un grupo extra para la materia seleccionada.");
+        confirm.setContentText(
+                "Profesor: " + grupoBase.getNombreProfesor() +
+                        "\nMateria: " + grupoBase.getCurso().getNombre() +
+                        "\n\nSe regenerará la estructura completa de grupos para recalcular tamaños y rangos.\n¿Deseas continuar?"
+        );
+
+        if (confirm.showAndWait().orElse(ButtonType.CANCEL) != ButtonType.OK) return;
+
+        try {
+            List<Teacher> profesores = teacherDAO.obtenerProfesoresObservable();
+            List<Group> gruposActuales = groupDAO.obtenerPorAnioYEtapa(anio, etapa);
+
+            List<Group> gruposRegenerados = groupService.generarGruposConExtras(
+                    totalAlumnos,
+                    profesores,
+                    gruposActuales,
+                    grupoBase,
+                    anio,
+                    etapa
+            );
+
+            if (gruposRegenerados.isEmpty()) {
+                mostrarAlerta("Error", "No se pudo regenerar la estructura de grupos.", Alert.AlertType.ERROR);
+                return;
+            }
+
+            groupDAO.eliminarPorAnioYEtapa(anio, etapa);
+            groupDAO.guardarGruposMasivo(new ArrayList<>(gruposRegenerados), anio, etapa);
+            totalAlumnosEstructura = totalAlumnos;
+
+            List<Student> alumnosBD = studentDAO.obtenerPorAnioYEtapa(anio, etapa);
+            List<Student> alumnosParaAsignar = (alumnosImportados != null && !alumnosImportados.isEmpty())
+                    ? alumnosImportados
+                    : alumnosBD;
+
+            if (alumnosParaAsignar != null && !alumnosParaAsignar.isEmpty()) {
+                for (Student al : alumnosParaAsignar) {
+                    al.getGruposAsignados().clear();
+                    for (Group g : gruposRegenerados) {
+                        if (al.getNumeroLista() >= g.getRangoInicial() && al.getNumeroLista() <= g.getRangoFinal()) {
+                            al.agregarGrupo(g);
+                        }
+                    }
+                }
+                studentDAO.guardarAlumnosYRelaciones(alumnosParaAsignar, anio, etapa);
+            }
+
+            mostrarAlerta("Éxito", "Se añadió el grupo extra y se regeneró la estructura correctamente.", Alert.AlertType.INFORMATION);
+            cargarContextoGlobal();
+
+        } catch (Exception e) {
+            e.printStackTrace();
+            mostrarAlerta("Error", "Ocurrió un problema al añadir el grupo extra.", Alert.AlertType.ERROR);
+        }
+    }
+
+    private void onEliminarGrupo(Group grupoBase) {
+        String anio = GlobalSession.getAnioActual();
+        String etapa = GlobalSession.getEtapaActual();
+
+        int totalAlumnos = totalAlumnosEstructura;
+
+        if (totalAlumnos <= 0) {
+            List<Group> gruposActualesTmp = groupDAO.obtenerPorAnioYEtapa(anio, etapa);
+            totalAlumnos = calcularTotalAlumnosDesdeGrupos(gruposActualesTmp);
+            totalAlumnosEstructura = totalAlumnos;
+        }
+
+        if (totalAlumnos <= 0) {
+            mostrarAlerta("Error", "No hay total de alumnos disponible para recalcular la estructura.", Alert.AlertType.WARNING);
+            return;
+        }
+
+        List<Group> gruposActuales = groupDAO.obtenerPorAnioYEtapa(anio, etapa);
+        long gruposMismaCombinacion = gruposActuales.stream()
+                .filter(g -> g.getCurso().getId() == grupoBase.getCurso().getId()
+                        && g.getProfesor().getId() == grupoBase.getProfesor().getId())
+                .count();
+
+        if (gruposMismaCombinacion <= 1) {
+            mostrarAlerta("Aviso",
+                    "No puedes eliminar este grupo porque es el único grupo de esa materia para ese profesor.",
+                    Alert.AlertType.WARNING);
+            return;
+        }
+
+        Alert confirm = new Alert(Alert.AlertType.CONFIRMATION);
+        confirm.setTitle("Confirmar eliminación");
+        confirm.setHeaderText("Se eliminará un grupo de la materia seleccionada.");
+        confirm.setContentText(
+                "Grupo: " + grupoBase.getIdGrupo() +
+                        "\nProfesor: " + grupoBase.getNombreProfesor() +
+                        "\nMateria: " + grupoBase.getCurso().getNombre() +
+                        "\n\nSe regenerará la estructura completa de grupos para recalcular tamaños y rangos.\n¿Deseas continuar?"
+        );
+
+        if (confirm.showAndWait().orElse(ButtonType.CANCEL) != ButtonType.OK) return;
+
+        try {
+            List<Teacher> profesores = teacherDAO.obtenerProfesoresObservable();
+
+            List<Group> gruposRegenerados = groupService.generarGruposQuitandoGrupo(
+                    totalAlumnos,
+                    profesores,
+                    gruposActuales,
+                    grupoBase,
+                    anio,
+                    etapa
+            );
+
+            if (gruposRegenerados.isEmpty()) {
+                mostrarAlerta("Error", "La estructura resultante quedó vacía. Operación cancelada.", Alert.AlertType.ERROR);
+                return;
+            }
+
+            groupDAO.eliminarPorAnioYEtapa(anio, etapa);
+            groupDAO.guardarGruposMasivo(new ArrayList<>(gruposRegenerados), anio, etapa);
+            totalAlumnosEstructura = totalAlumnos;
+
+            List<Student> alumnosBD = studentDAO.obtenerPorAnioYEtapa(anio, etapa);
+            List<Student> alumnosParaAsignar = (alumnosImportados != null && !alumnosImportados.isEmpty())
+                    ? alumnosImportados
+                    : alumnosBD;
+
+            if (alumnosParaAsignar != null && !alumnosParaAsignar.isEmpty()) {
+                for (Student al : alumnosParaAsignar) {
+                    al.getGruposAsignados().clear();
+                    for (Group g : gruposRegenerados) {
+                        if (al.getNumeroLista() >= g.getRangoInicial() && al.getNumeroLista() <= g.getRangoFinal()) {
+                            al.agregarGrupo(g);
+                        }
+                    }
+                }
+                studentDAO.guardarAlumnosYRelaciones(alumnosParaAsignar, anio, etapa);
+            }
+
+            mostrarAlerta("Éxito", "El grupo se eliminó y la estructura fue recalculada correctamente.", Alert.AlertType.INFORMATION);
+            cargarContextoGlobal();
+
+        } catch (Exception e) {
+            e.printStackTrace();
+            mostrarAlerta("Error", "Ocurrió un problema al eliminar el grupo.", Alert.AlertType.ERROR);
         }
     }
 
@@ -147,9 +363,7 @@ public class GroupController {
         gruposOrdenados.comparatorProperty().bind(tablaGrupos.comparatorProperty());
         tablaGrupos.setItems(gruposOrdenados);
 
-        txtBuscarGrupo.textProperty().addListener((obs, oldV, newV) -> {
-            actualizarFiltroMateria();
-        });
+        txtBuscarGrupo.textProperty().addListener((obs, oldV, newV) -> actualizarFiltroMateria());
 
         alumnosFiltrados = new FilteredList<>(listaAlumnosActual, p -> true);
         SortedList<Student> alumnosOrdenados = new SortedList<>(alumnosFiltrados);
@@ -183,16 +397,7 @@ public class GroupController {
         colIdGrupo.setCellValueFactory(c -> new SimpleStringProperty(c.getValue().getIdGrupo()));
         colProfesor.setCellValueFactory(c -> new SimpleStringProperty(c.getValue().getNombreProfesor()));
         colAlumnos.setCellValueFactory(c -> new SimpleIntegerProperty(c.getValue().getTamanioGrupo()).asObject());
-
-        colRango.setCellValueFactory(c -> {
-            Group g = c.getValue();
-            int baseSize = g.getRangoFinal() - g.getRangoInicial() + 1;
-            int currentSize = g.getTamanioGrupo();
-            if (currentSize > baseSize) {
-                return new SimpleStringProperty(g.getRangoTexto() + " (+" + (currentSize - baseSize) + " extra)");
-            }
-            return new SimpleStringProperty(g.getRangoTexto());
-        });
+        colRango.setCellValueFactory(c -> new SimpleStringProperty(c.getValue().getRangoTexto()));
 
         colAcciones.setCellFactory(param -> new TableCell<>() {
             private final Button btnVer = new Button("Ver Detalles");
@@ -200,7 +405,8 @@ public class GroupController {
                 btnVer.getStyleClass().addAll("button-outlined", "accent");
                 btnVer.setOnAction(e -> mostrarAlumnosDeGrupo(getTableView().getItems().get(getIndex())));
             }
-            @Override protected void updateItem(Void item, boolean empty) {
+            @Override
+            protected void updateItem(Void item, boolean empty) {
                 super.updateItem(item, empty);
                 setGraphic(empty ? null : btnVer);
                 if (!empty) {
@@ -223,10 +429,12 @@ public class GroupController {
         txtBuscarAlumno.clear();
 
         if (grupoInfo != null) {
-            boxInfoProfesor.setVisible(true); boxInfoProfesor.setManaged(true);
+            boxInfoProfesor.setVisible(true);
+            boxInfoProfesor.setManaged(true);
             lblNombreProfDetalle.setText(grupoInfo.getNombreProfesor());
         } else {
-            boxInfoProfesor.setVisible(false); boxInfoProfesor.setManaged(false);
+            boxInfoProfesor.setVisible(false);
+            boxInfoProfesor.setManaged(false);
         }
 
         listaAlumnosActual.setAll(alumnos);
@@ -272,8 +480,9 @@ public class GroupController {
             String etapa = GlobalSession.getEtapaActual();
             int alumnos = 0;
 
-            if (rbManual.isSelected()) alumnos = Integer.parseInt(txtTotalAlumnos.getText());
-            else if (rbExcel.isSelected()) {
+            if (rbManual.isSelected()) {
+                alumnos = Integer.parseInt(txtTotalAlumnos.getText());
+            } else if (rbExcel.isSelected()) {
                 if (alumnosImportados == null || alumnosImportados.isEmpty()) {
                     mostrarAlerta("Error", "Carga un archivo Excel primero.", Alert.AlertType.WARNING);
                     return;
@@ -297,6 +506,7 @@ public class GroupController {
             }
 
             groupDAO.guardarGruposMasivo(new ArrayList<>(gruposGenerados), anio, etapa);
+            totalAlumnosEstructura = alumnos;
 
             if (alumnosImportados != null && !alumnosImportados.isEmpty()) {
                 for (Student al : alumnosImportados) {
@@ -321,10 +531,13 @@ public class GroupController {
 
     @FXML
     private void onEliminarCicloClick() {
-        if (new Alert(Alert.AlertType.CONFIRMATION, "CUIDADO: ¿Eliminar TODO EL CICLO (Alumnos y Grupos)?\nEsta acción es irreversible.").showAndWait().orElse(ButtonType.CANCEL) == ButtonType.OK) {
-            String a = GlobalSession.getAnioActual(), e = GlobalSession.getEtapaActual();
+        if (new Alert(Alert.AlertType.CONFIRMATION, "CUIDADO: ¿Eliminar TODO EL CICLO (Alumnos y Grupos)?\nEsta acción es irreversible.")
+                .showAndWait().orElse(ButtonType.CANCEL) == ButtonType.OK) {
+            String a = GlobalSession.getAnioActual();
+            String e = GlobalSession.getEtapaActual();
             studentDAO.eliminarAlumnosYRelacionesMasivo(a, e);
             groupDAO.eliminarPorAnioYEtapa(a, e);
+            totalAlumnosEstructura = 0;
             limpiarFormularioCreacion();
             cargarContextoGlobal();
         }
@@ -344,7 +557,9 @@ public class GroupController {
                     return;
                 }
 
-                for (int i = 0; i < alumnosImportados.size(); i++) alumnosImportados.get(i).setNumeroLista(i + 1);
+                for (int i = 0; i < alumnosImportados.size(); i++) {
+                    alumnosImportados.get(i).setNumeroLista(i + 1);
+                }
 
                 btnCargarExcelRegenerar.setText("Memoria Cargada");
                 try {
@@ -393,6 +608,7 @@ public class GroupController {
 
             groupDAO.eliminarPorAnioYEtapa(anio, etapa);
             groupDAO.guardarGruposMasivo(new ArrayList<>(gruposGenerados), anio, etapa);
+            totalAlumnosEstructura = alumnosImportados.size();
 
             for (Student al : alumnosImportados) {
                 al.getGruposAsignados().clear();
@@ -438,6 +654,7 @@ public class GroupController {
             } catch(Exception e){}
             btnCargarExcelRegenerar.setDisable(false);
         }
+
         if (boxAccionesRegenerar != null) {
             boxAccionesRegenerar.setVisible(false);
             boxAccionesRegenerar.setManaged(false);
@@ -456,8 +673,20 @@ public class GroupController {
         cargarContextoGlobal();
     }
 
-    @FXML private void onSeleccionarCardManual() { rbManual.setSelected(true); txtTotalAlumnos.setDisable(false); btnSubirExcel.setDisable(true); }
-    @FXML private void onSeleccionarCardExcel() { rbExcel.setSelected(true); txtTotalAlumnos.setDisable(true); txtTotalAlumnos.clear(); btnSubirExcel.setDisable(false); }
+    @FXML
+    private void onSeleccionarCardManual() {
+        rbManual.setSelected(true);
+        txtTotalAlumnos.setDisable(false);
+        btnSubirExcel.setDisable(true);
+    }
+
+    @FXML
+    private void onSeleccionarCardExcel() {
+        rbExcel.setSelected(true);
+        txtTotalAlumnos.setDisable(true);
+        txtTotalAlumnos.clear();
+        btnSubirExcel.setDisable(false);
+    }
 
     @FXML
     private void onCargarListaExcelClick() {
@@ -469,7 +698,10 @@ public class GroupController {
             try {
                 alumnosImportados = ExcelImporter.leerListaAlumnos(archivo);
                 if (alumnosImportados.isEmpty()) return;
-                for (int i = 0; i < alumnosImportados.size(); i++) alumnosImportados.get(i).setNumeroLista(i + 1);
+
+                for (int i = 0; i < alumnosImportados.size(); i++) {
+                    alumnosImportados.get(i).setNumeroLista(i + 1);
+                }
 
                 btnSubirExcel.setText("Archivo Cargado");
                 try {
@@ -485,11 +717,25 @@ public class GroupController {
         }
     }
 
-    @FXML private void onAnteriorClick() { if (indiceCursoActual > 0) { indiceCursoActual--; actualizarFiltroMateria(); } }
-    @FXML private void onSiguienteClick() { if (indiceCursoActual < cursosUnicos.size() - 1) { indiceCursoActual++; actualizarFiltroMateria(); } }
+    @FXML
+    private void onAnteriorClick() {
+        if (indiceCursoActual > 0) {
+            indiceCursoActual--;
+            actualizarFiltroMateria();
+        }
+    }
+
+    @FXML
+    private void onSiguienteClick() {
+        if (indiceCursoActual < cursosUnicos.size() - 1) {
+            indiceCursoActual++;
+            actualizarFiltroMateria();
+        }
+    }
 
     private void actualizarFiltroMateria() {
         if (cursosUnicos.isEmpty()) return;
+
         Course c = cursosUnicos.get(indiceCursoActual);
 
         lblCursoActual.setText(c.getNombre() + " (" + (indiceCursoActual + 1) + "/" + cursosUnicos.size() + ")");
@@ -505,26 +751,35 @@ public class GroupController {
             return g.getNombreProfesor().toLowerCase().contains(textoBuscar) ||
                     g.getIdGrupo().toLowerCase().contains(textoBuscar);
         });
+
         tablaGrupos.refresh();
     }
 
     private void cargarDatosLista(List<Group> datos) {
         listaBaseGrupos.setAll(datos);
-        cursosUnicos = listaBaseGrupos.stream()
-                .map(Group::getCurso)
-                .distinct()
+
+        Map<Integer, Course> mapaCursos = datos.stream()
+                .collect(Collectors.toMap(
+                        g -> g.getCurso().getId(),
+                        Group::getCurso,
+                        (a, b) -> a
+                ));
+
+        cursosUnicos = mapaCursos.values().stream()
                 .sorted(Comparator.comparingInt(Course::getId))
                 .collect(Collectors.toList());
 
-        indiceCursoActual = 0; txtBuscarGrupo.clear(); actualizarFiltroMateria(); actualizarEstadisticas();
+        indiceCursoActual = 0;
+        txtBuscarGrupo.clear();
+        actualizarFiltroMateria();
+        actualizarEstadisticas();
     }
 
     private void actualizarEstadisticas() {
         int tAlumnos = 0;
-        if (!listaBaseGrupos.isEmpty() && !cursosUnicos.isEmpty()) {
-            tAlumnos = listaBaseGrupos.stream()
-                    .filter(g -> g.getCurso().getId() == cursosUnicos.get(0).getId())
-                    .mapToInt(Group::getTamanioGrupo).sum();
+
+        if (totalAlumnosEstructura > 0) {
+            tAlumnos = totalAlumnosEstructura;
         } else if (alumnosImportados != null) {
             tAlumnos = alumnosImportados.size();
         } else {
@@ -543,10 +798,19 @@ public class GroupController {
     }
 
     private void activarModoVacio() {
-        panelVacio.setVisible(true); panelFormulario.setVisible(false); panelTabla.setVisible(false); panelDetalleAlumnos.setVisible(false);
-        btnNuevoCiclo.setVisible(true); btnEliminarCiclo.setVisible(false);
-        btnVerAlumnosGlobal.setVisible(false); btnVerAlumnosGlobal.setManaged(false);
-        if(panelAlertaManual != null) { panelAlertaManual.setVisible(false); panelAlertaManual.setManaged(false); }
+        panelVacio.setVisible(true);
+        panelFormulario.setVisible(false);
+        panelTabla.setVisible(false);
+        panelDetalleAlumnos.setVisible(false);
+        btnNuevoCiclo.setVisible(true);
+        btnEliminarCiclo.setVisible(false);
+        btnVerAlumnosGlobal.setVisible(false);
+        btnVerAlumnosGlobal.setManaged(false);
+
+        if(panelAlertaManual != null) {
+            panelAlertaManual.setVisible(false);
+            panelAlertaManual.setManaged(false);
+        }
 
         listaBaseGrupos.clear();
         cursosUnicos.clear();
@@ -554,10 +818,19 @@ public class GroupController {
     }
 
     private void activarModoFormulario() {
-        panelVacio.setVisible(false); panelFormulario.setVisible(true); panelTabla.setVisible(false); panelDetalleAlumnos.setVisible(false);
-        btnNuevoCiclo.setVisible(false); btnEliminarCiclo.setVisible(false);
-        btnVerAlumnosGlobal.setVisible(false); btnVerAlumnosGlobal.setManaged(false);
-        if(panelAlertaManual != null) { panelAlertaManual.setVisible(false); panelAlertaManual.setManaged(false); }
+        panelVacio.setVisible(false);
+        panelFormulario.setVisible(true);
+        panelTabla.setVisible(false);
+        panelDetalleAlumnos.setVisible(false);
+        btnNuevoCiclo.setVisible(false);
+        btnEliminarCiclo.setVisible(false);
+        btnVerAlumnosGlobal.setVisible(false);
+        btnVerAlumnosGlobal.setManaged(false);
+
+        if(panelAlertaManual != null) {
+            panelAlertaManual.setVisible(false);
+            panelAlertaManual.setManaged(false);
+        }
 
         txtTotalAlumnos.clear();
         listaBaseGrupos.clear();
@@ -566,12 +839,16 @@ public class GroupController {
     }
 
     private void activarModoTabla() {
-        panelVacio.setVisible(false); panelFormulario.setVisible(false); panelTabla.setVisible(true); panelDetalleAlumnos.setVisible(false);
-        btnNuevoCiclo.setVisible(false); btnEliminarCiclo.setVisible(true);
+        panelVacio.setVisible(false);
+        panelFormulario.setVisible(false);
+        panelTabla.setVisible(true);
+        panelDetalleAlumnos.setVisible(false);
+        btnNuevoCiclo.setVisible(false);
+        btnEliminarCiclo.setVisible(true);
 
-        int totalAlumnos = studentDAO.contarAlumnos(GlobalSession.getAnioActual(), GlobalSession.getEtapaActual());
+        int totalAlumnosReales = studentDAO.contarAlumnos(GlobalSession.getAnioActual(), GlobalSession.getEtapaActual());
 
-        if (totalAlumnos == 0) {
+        if (totalAlumnosReales == 0) {
             panelAlertaManual.setVisible(true);
             panelAlertaManual.setManaged(true);
             btnCargarExcelRegenerar.setText("Cargar Archivo Excel");
@@ -599,10 +876,17 @@ public class GroupController {
     }
 
     private void activarModoDetalleAlumnos() {
-        panelVacio.setVisible(false); panelFormulario.setVisible(false); panelTabla.setVisible(false); panelDetalleAlumnos.setVisible(true);
+        panelVacio.setVisible(false);
+        panelFormulario.setVisible(false);
+        panelTabla.setVisible(false);
+        panelDetalleAlumnos.setVisible(true);
     }
 
     private void mostrarAlerta(String titulo, String contenido, Alert.AlertType tipo) {
-        Alert alerta = new Alert(tipo); alerta.setTitle(titulo); alerta.setHeaderText(null); alerta.setContentText(contenido); alerta.showAndWait();
+        Alert alerta = new Alert(tipo);
+        alerta.setTitle(titulo);
+        alerta.setHeaderText(null);
+        alerta.setContentText(contenido);
+        alerta.showAndWait();
     }
 }

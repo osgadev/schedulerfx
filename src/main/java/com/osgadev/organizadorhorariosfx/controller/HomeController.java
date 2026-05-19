@@ -48,8 +48,8 @@ public class HomeController implements Initializable {
     @Override
     public void initialize(URL location, ResourceBundle resources) {
         int currentYear = LocalDate.now().getYear();
-        cmbAnio.getItems().addAll(String.valueOf(currentYear - 1), String.valueOf(currentYear), String.valueOf(currentYear + 1));
-        cmbEtapa.getItems().addAll("1", "2", "3");
+        cmbAnio.getItems().addAll(String.valueOf(currentYear - 1), String.valueOf(currentYear));
+        cmbEtapa.getItems().addAll("1", "2", "3", "4", "5");
 
         cmbAnio.getSelectionModel().select(GlobalSession.getAnioActual());
         cmbEtapa.getSelectionModel().select(GlobalSession.getEtapaActual());
@@ -172,51 +172,39 @@ public class HomeController implements Initializable {
             lblDetalleHorario.setText("0 hrs requeridas");
         }
 
-        // ==========================================
-        // CONSTRUCCIÓN DEL DIAGNÓSTICO
-        // ==========================================
+        //construccion del diagnostico
         Platform.runLater(() -> {
             vboxDiagnostico.getChildren().clear();
             boolean hayErrores = false;
 
-            if (totalProfes == 0) {
-                // Usando danger.png para error grave
-                agregarItemDiagnostico("No hay profesores registrados. Ve a la pestaña 'Profesores'.", "/images/danger.png", "danger");
-                hayErrores = true;
-            } else if (profesSinDisp > 0) {
-                // Usando warning.png para advertencia
-                agregarItemDiagnostico("Hay " + profesSinDisp + " profesor(es) sin disponibilidad configurada.", "/images/warning.png", "warning");
-                // Usando danger.png para bloqueo de sistema
-                agregarItemDiagnostico("Los horarios no pueden generarse hasta que la disponibilidad esté completa.", "/images/danger.png", "danger");
-                hayErrores = true;
-            }
-
             if (totalCursos == 0) {
-                // Usando danger.png para error grave
                 agregarItemDiagnostico("No hay cursos registrados en el catálogo. Ve a la pestaña 'Cursos'", "/images/danger.png", "danger");
                 hayErrores = true;
             }
 
+            if (totalProfes == 0) {
+                agregarItemDiagnostico("No hay profesores registrados. Ve a la pestaña 'Profesores'.", "/images/danger.png", "danger");
+                hayErrores = true;
+            } else if (profesSinDisp > 0) {
+                agregarItemDiagnostico("Hay " + profesSinDisp + " profesor(es) sin disponibilidad configurada.", "/images/warning.png", "warning");
+                agregarItemDiagnostico("Los horarios no pueden generarse hasta que la disponibilidad esté completa.", "/images/danger.png", "danger");
+                hayErrores = true;
+            }
+
             if (totalGrupos == 0) {
-                // Usando warning para información pendiente
-                agregarItemDiagnostico("Aún no se han armado grupos para el ciclo " + anio + "-" + etapa + ".", "/images/warning.png", "text-muted");
+                agregarItemDiagnostico("Aún no se han creado grupos para el ciclo " + anio + "-" + etapa + ".", "/images/warning.png", "text-muted");
                 hayErrores = true;
             } else {
                 if (totalAlumnos == 0) {
-                    // Usando warning.png para advertencia
-                    agregarItemDiagnostico("Falta importar la lista de alumnos.", "/images/warning.png", "warning");
+                    agregarItemDiagnostico("Falta importar la lista de alumnos, funcionalidades limitadas.", "/images/warning.png", "warning");
                     hayErrores = true;
                 }
 
                 if (horasAsignadas == 0) {
-                    if (profesSinDisp > 0 || totalProfes == 0) {
-                        agregarItemDiagnostico("Los grupos están listos.", "/images/check.png", "text-muted");
-                    } else {
-                        agregarItemDiagnostico("Los grupos están listos. Ve a la pestaña 'Horarios' para comenzar.", "/images/check.png", "text-muted");
-                    }
+                    agregarItemDiagnostico("Los grupos están listos. Puedes crear o generar horarios.", "/images/check.png", "text-muted");
                     hayErrores = true;
                 } else if (horasAsignadas < horasRequeridas) {
-                    agregarItemDiagnostico("Horarios en progreso. Faltan " + String.format("%.1f", horasRequeridas - horasAsignadas) + " horas.", "/images/check.png", "text-muted");
+                    agregarItemDiagnostico("Horarios en progreso. Faltan " + String.format("%.1f", horasRequeridas - horasAsignadas) + " horas.", "/images/warning.png", "warning");
                     hayErrores = true;
                 } else {
                     agregarItemDiagnostico("¡Todo excelente! El 100% de las horas están asignadas.", "/images/check.png", "success");

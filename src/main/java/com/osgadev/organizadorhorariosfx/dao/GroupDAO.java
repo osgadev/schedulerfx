@@ -19,7 +19,6 @@ public class GroupDAO {
                 "VALUES (?, ?, ?, ?, ?, ?, ?, ?)";
 
         try (Connection connection = DatabaseConnection.getInstance().getConnection()) {
-
             connection.setAutoCommit(false);
 
             try (PreparedStatement preparedStatement = connection.prepareStatement(sql)) {
@@ -32,9 +31,9 @@ public class GroupDAO {
                     preparedStatement.setInt(6, grupo.getRangoFinal());
                     preparedStatement.setString(7, anio);
                     preparedStatement.setString(8, etapa);
-
                     preparedStatement.addBatch();
                 }
+
                 preparedStatement.executeBatch();
                 connection.commit();
             } catch (SQLException e) {
@@ -47,10 +46,24 @@ public class GroupDAO {
         }
     }
 
+    public void eliminarGrupoPorId(String idGrupo) {
+        String sql = "DELETE FROM grupo WHERE grupo_id = ?";
+
+        try (Connection conn = DatabaseConnection.getInstance().getConnection();
+             PreparedStatement pstmt = conn.prepareStatement(sql)) {
+
+            pstmt.setString(1, idGrupo);
+            pstmt.executeUpdate();
+
+        } catch (SQLException e) {
+            System.out.println("Error al eliminar grupo por ID: " + e.getMessage());
+            e.printStackTrace();
+        }
+    }
+
     public List<Group> obtenerPorAnioYEtapa(String anio, String etapa) {
         List<Group> lista = new ArrayList<>();
 
-        // CORRECCIÓN: Agregado 'c.color_hex' y 'c.descripcion'
         String sql = "SELECT g.grupo_id, g.tamanio_grupo, g.rango_inicial, g.rango_final, " +
                 "c.curso_id AS course_id, c.nombre AS course_nombre, c.min_horas_semanales AS course_horas, " +
                 "c.color_hex AS course_color, c.descripcion AS course_descripcion, " +
@@ -60,7 +73,7 @@ public class GroupDAO {
                 "INNER JOIN curso c ON g.curso_id = c.curso_id " +
                 "INNER JOIN profesor t ON g.profesor_id = t.profesor_id " +
                 "WHERE g.anio = ? AND g.etapa = ? " +
-                "ORDER BY teacher_id";
+                "ORDER BY c.curso_id, t.profesor_id, g.grupo_id";
 
         try (Connection conn = DatabaseConnection.getInstance().getConnection();
              PreparedStatement pstmt = conn.prepareStatement(sql)) {
@@ -74,7 +87,6 @@ public class GroupDAO {
                 curso.setId(rs.getInt("course_id"));
                 curso.setNombre(rs.getString("course_nombre"));
                 curso.setMinHorasSemanales(rs.getInt("course_horas"));
-                // NUEVO: Asignar los valores extraídos a la instancia del curso
                 curso.setColorHex(rs.getString("course_color"));
                 curso.setDescripcion(rs.getString("course_descripcion"));
 
@@ -100,6 +112,7 @@ public class GroupDAO {
         } catch (SQLException e) {
             e.printStackTrace();
         }
+
         return lista;
     }
 
@@ -143,7 +156,6 @@ public class GroupDAO {
     public Group obtenerPorId(String idGrupo) {
         Group grupo = null;
 
-        // CORRECCIÓN: Agregado 'c.color_hex' y 'c.descripcion' a la consulta por ID
         String sql = "SELECT g.grupo_id, g.tamanio_grupo, g.rango_inicial, g.rango_final, " +
                 "c.curso_id, c.nombre AS nombre_curso, c.min_horas_semanales, c.color_hex, c.descripcion, " +
                 "p.profesor_id, p.nombre AS nombre_profesor, p.apellido_paterno, p.apellido_materno, p.correo_electronico, p.telefono " +
@@ -152,18 +164,17 @@ public class GroupDAO {
                 "INNER JOIN profesor p ON g.profesor_id = p.profesor_id " +
                 "WHERE g.grupo_id = ?";
 
-        try (java.sql.Connection conn = DatabaseConnection.getInstance().getConnection();
-             java.sql.PreparedStatement pstmt = conn.prepareStatement(sql)) {
+        try (Connection conn = DatabaseConnection.getInstance().getConnection();
+             PreparedStatement pstmt = conn.prepareStatement(sql)) {
 
             pstmt.setString(1, idGrupo);
 
-            try (java.sql.ResultSet rs = pstmt.executeQuery()) {
+            try (ResultSet rs = pstmt.executeQuery()) {
                 if (rs.next()) {
                     Course curso = new Course();
                     curso.setId(rs.getInt("curso_id"));
                     curso.setNombre(rs.getString("nombre_curso"));
                     curso.setMinHorasSemanales(rs.getInt("min_horas_semanales"));
-                    // NUEVO: Asignar color y descripción
                     curso.setColorHex(rs.getString("color_hex"));
                     curso.setDescripcion(rs.getString("descripcion"));
 
@@ -187,7 +198,7 @@ public class GroupDAO {
                     );
                 }
             }
-        } catch (java.sql.SQLException e) {
+        } catch (SQLException e) {
             System.err.println("Error al obtener el grupo con ID: " + idGrupo);
             e.printStackTrace();
         }
@@ -198,14 +209,20 @@ public class GroupDAO {
     public int contarGrupos(String anio, String etapa) {
         int total = 0;
         String sql = "SELECT COUNT(*) FROM grupo WHERE anio = ? AND etapa = ?";
+
         try (Connection conn = DatabaseConnection.getInstance().getConnection();
              PreparedStatement pstmt = conn.prepareStatement(sql)) {
+
             pstmt.setString(1, anio);
             pstmt.setString(2, etapa);
+
             try (ResultSet rs = pstmt.executeQuery()) {
                 if (rs.next()) total = rs.getInt(1);
             }
-        } catch (Exception e) { e.printStackTrace(); }
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+
         return total;
     }
 
@@ -214,14 +231,22 @@ public class GroupDAO {
         String sql = "SELECT SUM(c.min_horas_semanales) FROM grupo g " +
                 "JOIN curso c ON g.curso_id = c.curso_id " +
                 "WHERE g.anio = ? AND g.etapa = ?";
-        try (java.sql.Connection conn = DatabaseConnection.getInstance().getConnection();
-             java.sql.PreparedStatement pstmt = conn.prepareStatement(sql)) {
+
+        try (Connection conn = DatabaseConnection.getInstance().getConnection();
+             PreparedStatement pstmt = conn.prepareStatement(sql)) {
+
             pstmt.setString(1, anio);
             pstmt.setString(2, etapa);
-            try (java.sql.ResultSet rs = pstmt.executeQuery()) {
-                if (rs.next()) totalHoras = rs.getDouble(1);
+
+            try (ResultSet rs = pstmt.executeQuery()) {
+                if (rs.next()) {
+                    totalHoras = rs.getDouble(1);
+                }
             }
-        } catch (Exception e) { e.printStackTrace(); }
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+
         return totalHoras;
     }
 }

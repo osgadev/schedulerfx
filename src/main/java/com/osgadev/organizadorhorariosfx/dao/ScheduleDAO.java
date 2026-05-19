@@ -189,13 +189,13 @@ public class ScheduleDAO {
 
     public double calcularHorasAsignadas(String anio, String etapa) {
         double horasAsignadas = 0;
-        // Sumamos el span de todas las tarjetas y dividimos entre 2 para obtener horas reales
+        // Sumamos el span de todas las tarjetas y dividimos entre 2 para obtener horas reales (bloques de 30 minutos)
         String sql = "SELECT SUM(span_visual_filas) / 2.0 FROM horario WHERE anio = ? AND etapa = ?";
-        try (java.sql.Connection conn = DatabaseConnection.getInstance().getConnection();
-             java.sql.PreparedStatement pstmt = conn.prepareStatement(sql)) {
+        try (Connection conn = DatabaseConnection.getInstance().getConnection();
+             PreparedStatement pstmt = conn.prepareStatement(sql)) {
             pstmt.setString(1, anio);
             pstmt.setString(2, etapa);
-            try (java.sql.ResultSet rs = pstmt.executeQuery()) {
+            try (ResultSet rs = pstmt.executeQuery()) {
                 if (rs.next()) horasAsignadas = rs.getDouble(1);
             }
         } catch (Exception e) { e.printStackTrace(); }
