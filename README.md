@@ -253,3 +253,5 @@ Entre las mejoras planeadas para futuras versiones se encuentran:
 Desarrollado por **Isaac Osoños Garrido**
 Java Developer
 
+- GitHub: [@osgadev](https://github.com/osgadev)
+- LinkedIn: [Isaac Osoños Garrido](https://www.linkedin.com/in/isaacosonos/)
