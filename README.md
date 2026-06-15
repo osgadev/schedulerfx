@@ -4,7 +4,7 @@ Aplicacion para la creacion de grupos y horarios academicos para los cursos prop
 
 ## Descripción
 Esta aplicacion de escritorio permite a los coordinadores de los cursos propedeuticos facilitar la gestion de facilitadores,
-cursos y alumnos de los cursos, asi como la generacion automatica de grupos y la creacion de horarios evitando traslapes.
+cursos y alumnado, asi como la generacion automatica de grupos y la creacion de horarios evitando traslapes.
 
 ## Características
 - Gestion de la información y la disponibilidad de tiempo de los asesores
