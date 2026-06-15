@@ -37,6 +37,7 @@ public class AvailabilityController implements Initializable {
     @FXML private Label lblEstadoBD;
     @FXML private VBox panelControles;
     @FXML private FlowPane paletaCursos;
+    @FXML private VBox panelDeudaHoras; // <-- NUEVO COMPONENTE
     @FXML private Button btnGuardar, btnEliminarTodo;
     @FXML private GridPane gridCalendario;
     @FXML private ScrollPane scrollCalendario;
@@ -157,6 +158,94 @@ public class AvailabilityController implements Initializable {
         lblEstadoBD.setStyle("-fx-font-size: 13px; -fx-font-weight: bold; -fx-padding: 5 0;");
     }
 
+    private void actualizarHorasDeuda() {
+        Teacher profe = cmbProfesor.getValue();
+        if (profe == null || profe.getCursos() == null) {
+            panelDeudaHoras.getChildren().clear();
+            return;
+        }
+
+        Map<String, Double> horasEspecificasPorCurso = new HashMap<>();
+        double horasComodin = 0.0;
+        double horasMinimasTotales = 0.0;
+
+        for (Course c : profe.getCursos()) {
+            horasMinimasTotales += c.getMinHorasSemanales();
+        }
+
+        for (BloqueTiempo b : listaBloques) {
+            double horasBloque = (b.slotFinSemanal - b.slotInicioSemanal) * 0.5;
+
+            if (b.cursoSugerido == null) {
+                horasComodin += horasBloque;
+            } else {
+                String nombreCurso = b.cursoSugerido.getNombre();
+                horasEspecificasPorCurso.put(
+                        nombreCurso,
+                        horasEspecificasPorCurso.getOrDefault(nombreCurso, 0.0) + horasBloque
+                );
+            }
+        }
+
+        double horasEspecificasTotales = 0.0;
+        for (double horas : horasEspecificasPorCurso.values()) {
+            horasEspecificasTotales += horas;
+        }
+
+        double horasDisponiblesTotales = horasEspecificasTotales + horasComodin;
+        double deudaTotal = Math.max(0.0, horasMinimasTotales - horasDisponiblesTotales);
+
+        panelDeudaHoras.getChildren().clear();
+
+        Label lblResumen = new Label(
+                String.format("Total disponible: %.1f / %.1f h  |  Deuda global: %.1f h",
+                        horasDisponiblesTotales, horasMinimasTotales, deudaTotal)
+        );
+        lblResumen.setWrapText(true);
+        lblResumen.setStyle(
+                deudaTotal == 0
+                        ? "-fx-text-fill: #28a745; -fx-font-weight: bold; -fx-font-size: 12px;"
+                        : "-fx-text-fill: #dc3545; -fx-font-weight: bold; -fx-font-size: 12px;"
+        );
+        panelDeudaHoras.getChildren().add(lblResumen);
+
+        if (horasComodin > 0) {
+            Label lblComodin = new Label(String.format("Bolsa comodín disponible: %.1f h", horasComodin));
+            lblComodin.setWrapText(true);
+            lblComodin.setStyle("-fx-text-fill: #b26a00; -fx-font-weight: bold; -fx-font-size: 12px;");
+            panelDeudaHoras.getChildren().add(lblComodin);
+        }
+
+        for (Course c : profe.getCursos()) {
+            double horasObligatorias = c.getMinHorasSemanales();
+            double horasEspecificas = horasEspecificasPorCurso.getOrDefault(c.getNombre(), 0.0);
+
+            String texto;
+            String estilo;
+
+            if (horasEspecificas >= horasObligatorias) {
+                texto = String.format("• %s: %.1f / %.1f h (Completado)",
+                        c.getNombre(), horasEspecificas, horasObligatorias);
+                estilo = "-fx-text-fill: #28a745; -fx-font-weight: bold; -fx-font-size: 12px;";
+            } else if ((horasEspecificas + horasComodin) >= horasObligatorias) {
+                double faltanteEspecifico = horasObligatorias - horasEspecificas;
+                texto = String.format("• %s: %.1f / %.1f h (Asignable con %.1f h comodín)",
+                        c.getNombre(), horasEspecificas, horasObligatorias, faltanteEspecifico);
+                estilo = "-fx-text-fill: #b26a00; -fx-font-weight: bold; -fx-font-size: 12px;";
+            } else {
+                double faltan = horasObligatorias - (horasEspecificas + horasComodin);
+                texto = String.format("• %s: %.1f / %.1f h (Faltan %.1f h reales)",
+                        c.getNombre(), horasEspecificas, horasObligatorias, faltan);
+                estilo = "-fx-text-fill: #dc3545; -fx-font-weight: normal; -fx-font-size: 12px;";
+            }
+
+            Label lblCurso = new Label(texto);
+            lblCurso.setWrapText(true);
+            lblCurso.setStyle(estilo);
+            panelDeudaHoras.getChildren().add(lblCurso);
+        }
+    }
+
     private void configurarCuadricula() {
         gridCalendario.getChildren().clear();
 
@@ -238,6 +327,8 @@ public class AvailabilityController implements Initializable {
         bloquesSeleccionados.clear();
         bloquesSeleccionados.add(nuevo);
         actualizarEstadoGlobal();
+
+        actualizarHorasDeuda(); // <-- SE ACTUALIZAN LAS HORAS AQUÍ
     }
 
     private void seleccionarProfesorEnComboPorId(int idBuscado) {
@@ -341,6 +432,8 @@ public class AvailabilityController implements Initializable {
         }
 
         actualizarEstadoGlobal();
+        actualizarHorasDeuda(); // <-- SE ACTUALIZAN LAS HORAS AQUÍ
+
         lblEstadoBD.setText("Curso aplicado a " + bloquesSeleccionados.size() + " bloque(s).");
         lblEstadoBD.getStyleClass().setAll("label", "success");
     }
@@ -366,7 +459,7 @@ public class AvailabilityController implements Initializable {
                 int hFin = dbBlock.getHoraFin();
                 int mFin = dbBlock.getMinutoFin();
 
-                //validacion para que no se rompa el programa cuando es multiplo exacto
+                // validacion para que no se rompa el programa cuando es multiplo exacto
                 if (hFin == 0 && mFin == 0 && hInicio > 0) hFin = 24;
 
                 if (hInicio < primeraHora) {
@@ -380,6 +473,9 @@ public class AvailabilityController implements Initializable {
             actualizarEstadoSuperposiciones();
             enfocarHora(primeraHora);
         }
+
+        // <-- SE CALCULA LA DEUDA INICIAL AQUÍ UNA VEZ CARGADA LA DB
+        Platform.runLater(this::actualizarHorasDeuda);
     }
 
     private void guardarEnBD() {
@@ -407,6 +503,8 @@ public class AvailabilityController implements Initializable {
         limpiarCuadriculaBloques();
         lblEstadoBD.setText("Calendario limpiado por completo.");
         lblEstadoBD.getStyleClass().setAll("label", "danger");
+
+        actualizarHorasDeuda(); // <-- SE ACTUALIZAN LAS HORAS AL LIMPIAR TODO
     }
 
     private void limpiarCuadriculaBloques() {
@@ -557,6 +655,7 @@ public class AvailabilityController implements Initializable {
                 dragSnapshots.clear();
                 nodo.setCursor(Cursor.HAND);
                 actualizarEstadoSuperposiciones();
+                actualizarHorasDeuda(); // <-- SE ACTUALIZAN LAS HORAS AL SOLTAR EL BLOQUE REDIMENSIONADO/ARRASTRADO
             } else if (e.getButton() == MouseButton.PRIMARY) {
                 if (!e.isControlDown()) {
                     bloquesSeleccionados.clear();
@@ -581,6 +680,7 @@ public class AvailabilityController implements Initializable {
                 listaBloques.remove(bloque);
             }
             actualizarEstadoGlobal();
+            actualizarHorasDeuda(); // <-- SE ACTUALIZA AL ELIMINAR UN BLOQUE
         });
         menu.getItems().add(itemBorrar);
 

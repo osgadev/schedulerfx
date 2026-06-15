@@ -30,7 +30,7 @@
         <StackPane HBox.hgrow="ALWAYS">
             <children>
 
-                <VBox fx:id="panelVacio" alignment="CENTER" spacing="15.0" style="-fx-background-color: -color-bg-default; -fx-background-radius: 10; -fx-border-color: -color-border-default; -fx-border-radius: 10;">
+                <VBox fx:id="panelVacio" alignment="CENTER" spacing="15.0" style="-fx-background-color: -color-bg-default; -fx-background-radius: 10; -fx-border-color: -color-border-default; -fx-border-radius: 10;" visible="false">
                     <styleClass>
                         <String fx:value="elevated-1" />
                     </styleClass>
@@ -53,7 +53,7 @@
                     </children>
                 </VBox>
 
-                <VBox fx:id="panelFormulario" prefWidth="550.0" spacing="15.0" style="-fx-background-color: -color-bg-default; -fx-background-radius: 10; -fx-border-color: -color-border-default; -fx-border-radius: 10;" visible="false">
+                <VBox fx:id="panelFormulario" prefWidth="550.0" spacing="15.0" style="-fx-background-color: -color-bg-default; -fx-background-radius: 10; -fx-border-color: -color-border-default; -fx-border-radius: 10;">
                     <styleClass>
                         <String fx:value="elevated-1" />
                     </styleClass>
@@ -85,24 +85,24 @@
                             </rowConstraints>
                             <children>
                                 <Label text="Nombre de Materia:">
-                                    <styleClass><String fx:value="text-bold"/></styleClass>
+                                    <styleClass><String fx:value="text-bold" /></styleClass>
                                 </Label>
-                                <TextField fx:id="txtNombre" promptText="Ej. Matemáticas I" GridPane.columnIndex="1" />
+                                <TextField fx:id="txtNombre" promptText="Ej. Matemáticas" GridPane.columnIndex="1" />
 
                                 <Label text="Horas Semanales:" GridPane.rowIndex="1">
-                                    <styleClass><String fx:value="text-bold"/></styleClass>
+                                    <styleClass><String fx:value="text-bold" /></styleClass>
                                 </Label>
                                 <Spinner fx:id="spnHoras" prefWidth="100.0" GridPane.columnIndex="1" GridPane.rowIndex="1" />
 
                                 <Label text="Color Distintivo:" GridPane.rowIndex="2">
-                                    <styleClass><String fx:value="text-bold"/></styleClass>
+                                    <styleClass><String fx:value="text-bold" /></styleClass>
                                 </Label>
                                 <ColorPicker fx:id="colorPicker" GridPane.columnIndex="1" GridPane.rowIndex="2" />
                             </children>
                         </GridPane>
 
                         <Label text="Descripción (Opcional):">
-                            <styleClass><String fx:value="text-bold"/></styleClass>
+                            <styleClass><String fx:value="text-bold" /></styleClass>
                         </Label>
                         <TextArea fx:id="txtDescripcion" prefHeight="60.0" promptText="Notas, temario o detalles de la materia..." wrapText="true" />
 

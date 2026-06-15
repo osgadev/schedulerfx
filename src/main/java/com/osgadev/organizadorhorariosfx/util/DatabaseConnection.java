@@ -14,7 +14,7 @@ public class DatabaseConnection {
 
     // Uso de ambas bases de datos habilitadaa
     // Cambiar a "MYSQL" o "SQLITE",   SQLite embebido (automatico)     para MySQL cargar el script que se encuentra en resources
-    private static final String DB_TIPO = "SQLITE";
+    private static final String DB_TIPO = "MYSQL";
 
     // Configuración MySQL
     private static final String MYSQL_DB_NAME = "organizador_db";

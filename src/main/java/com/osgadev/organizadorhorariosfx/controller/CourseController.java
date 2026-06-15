@@ -60,13 +60,6 @@ public class CourseController implements Initializable {
     @Override
     public void initialize(URL url, ResourceBundle resourceBundle) {
 
-        try {
-            String cssPath = getClass().getResource("/css/styles.css").toExternalForm();
-            rootHBox.getStylesheets().add(cssPath);
-        } catch (Exception e) {
-            System.err.println("No se pudo cargar el archivo CSS.");
-        }
-
         configurarTablaMaestra();
         configurarTablaDetalle();
         configurarSpinner();
@@ -98,15 +91,9 @@ public class CourseController implements Initializable {
     }
 
     private void configurarSpinner() {
-        SpinnerValueFactory<Integer> valueFactory = new SpinnerValueFactory.IntegerSpinnerValueFactory(1, 20, 4);
+        SpinnerValueFactory<Integer> valueFactory = new SpinnerValueFactory.IntegerSpinnerValueFactory(1, 10, 4);
         spnHoras.setValueFactory(valueFactory);
         spnHoras.setEditable(true);
-
-        spnHoras.focusedProperty().addListener((observable, oldValue, newValue) -> {
-            if (!newValue) {
-                spnHoras.increment(0);
-            }
-        });
     }
 
     private void cargarDatosMaestros() {

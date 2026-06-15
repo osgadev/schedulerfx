@@ -83,7 +83,7 @@
     </center>
 
     <right>
-        <VBox prefWidth="260.0" spacing="20.0" style="-fx-background-color: -color-bg-subtle; -fx-border-color: -color-border-subtle; -fx-border-width: 0 0 0 1;" BorderPane.alignment="CENTER">
+        <VBox prefWidth="280.0" spacing="20.0" style="-fx-background-color: -color-bg-subtle; -fx-border-color: -color-border-subtle; -fx-border-width: 0 0 0 1;" BorderPane.alignment="CENTER">
             <padding>
                 <Insets bottom="20.0" left="20.0" right="20.0" top="20.0" />
             </padding>
@@ -100,6 +100,16 @@
 
                 <VBox fx:id="panelControles" disable="true" spacing="20.0" VBox.vgrow="ALWAYS">
                     <children>
+
+                        <!-- NUEVO PANEL DE DEUDA DE HORAS -->
+                        <VBox spacing="10.0">
+                            <children>
+                                <Label styleClass="title-4" text="Estado de Horas" />
+                                <VBox fx:id="panelDeudaHoras" spacing="5.0" />
+                            </children>
+                        </VBox>
+
+                        <Separator />
 
                         <VBox spacing="10.0">
                             <children>

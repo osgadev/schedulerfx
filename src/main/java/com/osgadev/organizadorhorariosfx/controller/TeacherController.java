@@ -3,6 +3,7 @@ package com.osgadev.organizadorhorariosfx.controller;
 import com.osgadev.organizadorhorariosfx.dao.AvailabilityDAO;
 import com.osgadev.organizadorhorariosfx.dao.CourseDAO;
 import com.osgadev.organizadorhorariosfx.dao.TeacherDAO;
+import com.osgadev.organizadorhorariosfx.model.Availability;
 import com.osgadev.organizadorhorariosfx.model.Course;
 import com.osgadev.organizadorhorariosfx.model.Teacher;
 import com.osgadev.organizadorhorariosfx.util.GlobalSession;
@@ -24,7 +25,9 @@ import javafx.util.Callback;
 
 import java.net.URL;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import java.util.ResourceBundle;
 
@@ -101,39 +104,66 @@ public class TeacherController implements Initializable {
                         (celda.getValue().getApellidoMaterno() != null ? celda.getValue().getApellidoMaterno() : "")
         ));
 
-        colEstado.setCellValueFactory(celda -> {
-            Teacher profe = celda.getValue();
-            return new SimpleStringProperty(profe.isTieneDisponibilidad() ? "true" : "false");
-        });
+        // Establecemos un valor vacío por defecto ya que la lógica ahora reside en la fila (getTableRow().getItem())
+        colEstado.setCellValueFactory(celda -> new SimpleStringProperty(""));
 
-        colEstado.setCellFactory(columna -> new TableCell<>() {
+        // Modificamos el CellFactory para que evalúe en tiempo real usando el profesor
+        colEstado.setCellFactory(columna -> new TableCell<Teacher, String>() {
             @Override
             protected void updateItem(String item, boolean empty) {
                 super.updateItem(item, empty);
-                if (empty || item == null) {
+                if (empty || getTableRow() == null || getTableRow().getItem() == null) {
                     setGraphic(null);
                     setTooltip(null);
                 } else {
+                    Teacher profe = getTableRow().getItem();
                     ImageView imageView = new ImageView();
                     imageView.setFitWidth(18);
                     imageView.setFitHeight(18);
 
-                    if (item.equals("false")) {
+                    // --- VALIDACIÓN DE DEUDA DE HORAS ---
+                    boolean horasCompletas = evaluarDeudaHoras(profe);
+
+                    if (!horasCompletas) {
                         try {
                             imageView.setImage(new Image(getClass().getResourceAsStream("/images/warning.png")));
                         } catch(Exception e){}
-                        setTooltip(new Tooltip("Sin disponibilidad asignada"));
+                        setTooltip(new Tooltip("No cumple el mínimo de horas obligatorias"));
                     } else {
                         try {
                             imageView.setImage(new Image(getClass().getResourceAsStream("/images/check.png")));
                         } catch(Exception e){}
-                        setTooltip(new Tooltip("Disponibilidad OK"));
+                        setTooltip(new Tooltip("Disponibilidad de horas completas"));
                     }
                     setGraphic(imageView);
                     setStyle("-fx-alignment: CENTER;");
                 }
             }
         });
+    }
+
+    private boolean evaluarDeudaHoras(Teacher profe) {
+        if (profe.getCursos() == null || profe.getCursos().isEmpty()) {
+            return false;
+        }
+
+        List<Availability> disponibilidades = availabilityDAO.getByTeacher(profe);
+        if (disponibilidades == null || disponibilidades.isEmpty()) {
+            return false;
+        }
+
+        double horasRequeridasTotales = 0.0;
+        for (Course c : profe.getCursos()) {
+            horasRequeridasTotales += c.getMinHorasSemanales();
+        }
+
+        double horasDisponiblesTotales = 0.0;
+        for (Availability dbBlock : disponibilidades) {
+            double horasBloque = (dbBlock.getEndSlot() - dbBlock.getStartSlot()) * 0.5;
+            horasDisponiblesTotales += horasBloque;
+        }
+
+        return horasDisponiblesTotales >= horasRequeridasTotales;
     }
 
     private void configurarTablaDetalle() {
@@ -234,7 +264,9 @@ public class TeacherController implements Initializable {
         btnEliminarProfesor.setVisible(true);
         btnIrDisponibilidad.setVisible(true);
 
-        boolean tieneDisp = profe.isTieneDisponibilidad();
+        // --- VALIDACIÓN DE DISPONIBILIDAD CON LÓGICA DE HORAS ---
+        boolean tieneDisp = evaluarDeudaHoras(profe);
+
         if (!tieneDisp) {
             boxAlertaDisponibilidad.setVisible(true);
             boxAlertaDisponibilidad.setManaged(true);
